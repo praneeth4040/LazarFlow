@@ -1,0 +1,254 @@
+/* Share Tournament Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-container {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.share-modal {
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+.share-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.share-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.share-content {
+  padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.share-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0051ba;
+  margin-bottom: 0.5rem;
+}
+
+.share-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.share-item label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.input-with-btn {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input-with-btn input {
+  flex: 1;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #d0dce6;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+  color: #333;
+  background: #f9fafb;
+  transition: all 0.2s;
+}
+
+.input-with-btn input:focus {
+  outline: none;
+  border-color: #0051ba;
+  background: #fff;
+}
+
+.copy-btn {
+  padding: 0.7rem 1.2rem;
+  background: #0051ba;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  min-width: 70px;
+}
+
+.copy-btn:hover {
+  background: #003d99;
+}
+
+.copy-btn.copied {
+  background: #16a34a;
+}
+
+.social-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.social-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 0.8rem 1rem;
+  border: 1px solid #d0dce6;
+  background: white;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.social-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.social-btn.whatsapp:hover {
+  background: #25d366;
+  color: white;
+  border-color: #25d366;
+}
+
+.social-btn.email:hover {
+  background: #ea4335;
+  color: white;
+  border-color: #ea4335;
+}
+
+.social-btn.twitter:hover {
+  background: #000;
+  color: white;
+  border-color: #000;
+}
+
+.share-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-close {
+  padding: 0.7rem 1.5rem;
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #d0dce6;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.btn-close:hover {
+  background: #e5e5e5;
+  border-color: #999;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .share-modal {
+    max-width: 95%;
+  }
+
+  .share-header {
+    padding: 1.2rem;
+  }
+
+  .share-content {
+    padding: 1.2rem;
+    gap: 1.2rem;
+  }
+
+  .input-with-btn {
+    flex-direction: column;
+  }
+
+  .copy-btn {
+    width: 100%;
+  }
+
+  .social-buttons {
+    flex-direction: column;
+  }
+
+  .social-btn {
+    width: 100%;
+  }
+
+  .share-footer {
+    padding: 1rem;
+  }
+
+  .btn-close {
+    width: 100%;
+  }
+}

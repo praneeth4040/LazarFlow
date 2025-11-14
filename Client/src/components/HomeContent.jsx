@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import AddTeamsModal from './AddTeamsModal'
 import CalculateResultsModal from './CalculateResultsModal'
+import EditTournamentModal from './EditTournamentModal'
+import ShareTournamentModal from './ShareTournamentModal'
 import './TabContent.css'
 
 function HomeContent({ newTournament, onTournamentProcessed }) {
@@ -13,6 +15,10 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const [teamCounts, setTeamCounts] = useState({})
   const [isCalculateModalOpen, setIsCalculateModalOpen] = useState(false)
   const [calculateTournament, setCalculateTournament] = useState(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editTournament, setEditTournament] = useState(null)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [shareTournament, setShareTournament] = useState(null)
 
   useEffect(() => {
     fetchTournaments()
@@ -113,6 +119,36 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     setCalculateTournament(null)
     // Refresh team counts after calculating
     fetchTournaments()
+  }
+
+  const handleEditClick = (tournament) => {
+    console.log('Opening edit modal for:', tournament.name)
+    setEditTournament(tournament)
+    setIsEditModalOpen(true)
+  }
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false)
+    setEditTournament(null)
+  }
+
+  const handleEditTournamentSave = async () => {
+    console.log('Tournament updated, refreshing list...')
+    setIsEditModalOpen(false)
+    setEditTournament(null)
+    // Refresh tournaments list
+    fetchTournaments()
+  }
+
+  const handleShareClick = (tournament) => {
+    console.log('Opening share modal for:', tournament.name)
+    setShareTournament(tournament)
+    setIsShareModalOpen(true)
+  }
+
+  const handleCloseShareModal = () => {
+    setIsShareModalOpen(false)
+    setShareTournament(null)
   }
 
   const getTeamCount = async (tournamentId) => {
@@ -220,19 +256,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
   const handleEditTournament = (tournament) => {
     console.log('Opening edit menu for:', tournament.name)
-    // Show edit options/modal
-    const editOptions = `
-    Options for "${tournament.name}":
-    1. Edit tournament details
-    2. Delete tournament
-    
-    Use the delete option with caution!
-    `
-    
-    if (window.confirm(`${editOptions}\n\nClick OK for edit, Cancel to close`)) {
-      // TODO: Open tournament edit modal
-      alert('Edit functionality coming soon!')
-    }
+    handleEditClick(tournament)
   }
 
   return (
@@ -293,7 +317,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
                     <button className="tournament-btn slot-btn" title="Slot List">
                       Slot List
                     </button>
-                    <button className="tournament-btn share-btn" title="Share Tournament">
+                    <button className="tournament-btn share-btn" title="Share Tournament" onClick={() => handleShareClick(tournament)}>
                       Share
                     </button>
                     <button 
@@ -331,6 +355,21 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         isOpen={isCalculateModalOpen}
         onClose={handleCloseCalculateModal}
         tournament={calculateTournament}
+      />
+
+      {/* Edit Tournament Modal */}
+      <EditTournamentModal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        tournament={editTournament}
+        onUpdate={handleEditTournamentSave}
+      />
+
+      {/* Share Tournament Modal */}
+      <ShareTournamentModal
+        isOpen={isShareModalOpen}
+        onClose={handleCloseShareModal}
+        tournament={shareTournament}
       />
     </div>
   )
