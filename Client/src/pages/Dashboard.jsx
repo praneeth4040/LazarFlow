@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import Sidebar from '../components/Sidebar'
+import HomeContent from '../components/HomeContent'
+import LazarEonContent from '../components/LazarEonContent'
+import LazarHubContent from '../components/LazarHubContent'
+import ProfileContent from '../components/ProfileContent'
+import CreateTournamentModal from '../components/CreateTournamentModal'
 import './Dashboard.css'
 
 function Dashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('home')
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -52,6 +60,54 @@ function Dashboard() {
     }
   }
 
+  const handleCreateClick = () => {
+    setIsCreateModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsCreateModalOpen(false)
+  }
+
+  const handleCreateTournament = async (tournamentData) => {
+    try {
+      console.log('📝 Creating tournament directly in Supabase...')
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        alert('You must be logged in to create a tournament')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('tournaments')
+        .insert([
+          {
+            name: tournamentData.name,
+            game: tournamentData.game,
+            points_system: tournamentData.pointsSystem,
+            kill_points: tournamentData.killPoints,
+            user_id: user.id,
+            status: 'active',
+          },
+        ])
+        .select()
+
+      if (error) {
+        console.error('❌ Database error:', error)
+        throw error
+      }
+
+      console.log('✅ Tournament created:', data)
+      setIsCreateModalOpen(false)
+      alert('✅ Tournament created successfully!')
+      // Trigger refresh of HomeContent by setting a refresh flag
+      window.location.reload()
+    } catch (error) {
+      console.error('❌ Failed to create tournament:', error)
+      alert(`Failed to create tournament: ${error.message}`)
+    }
+  }
+
   if (loading) {
     return (
       <div className="dashboard-container">
@@ -60,27 +116,32 @@ function Dashboard() {
     )
   }
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'home':
+        return <HomeContent />
+      case 'lazareon':
+        return <LazarEonContent />
+      case 'hub':
+        return <LazarHubContent />
+      case 'profile':
+        return <ProfileContent user={user} onLogout={handleLogout} />
+      default:
+        return <HomeContent />
+    }
+  }
+
   return (
     <div className="dashboard-container">
-      <nav className="dashboard-nav">
-        <div className="nav-left">
-          <h1>Dashboard</h1>
-        </div>
-        <div className="nav-right">
-          <span className="user-email">{user?.email}</span>
-          <button onClick={handleLogout} className="logout-button">
-            Logout
-          </button>
-        </div>
-      </nav>
-
-      <div className="dashboard-content">
-        <div className="welcome-card">
-          <h2>Welcome to Esports Points Table Maker</h2>
-          <p>You are logged in as <strong>{user?.email}</strong></p>
-          <p>This is your dashboard. More features coming soon!</p>
-        </div>
-      </div>
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onCreateClick={handleCreateClick} />
+      <main className="dashboard-main">
+        {renderContent()}
+      </main>
+      <CreateTournamentModal 
+        isOpen={isCreateModalOpen}
+        onClose={handleCloseModal}
+        onSubmit={handleCreateTournament}
+      />
     </div>
   )
 }
