@@ -1,21 +1,31 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import AddTeamsModal from './AddTeamsModal'
-import TeamDetailsModal from './TeamDetailsModal'
+import CalculateResultsModal from './CalculateResultsModal'
 import './TabContent.css'
 
-function HomeContent() {
+function HomeContent({ newTournament, onTournamentProcessed }) {
   const [tournaments, setTournaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isTeamsModalOpen, setIsTeamsModalOpen] = useState(false)
   const [selectedTournament, setSelectedTournament] = useState(null)
-  const [isTeamDetailsOpen, setIsTeamDetailsOpen] = useState(false)
-  const [teamsForDetails, setTeamsForDetails] = useState([])
+  const [teamCounts, setTeamCounts] = useState({})
+  const [isCalculateModalOpen, setIsCalculateModalOpen] = useState(false)
+  const [calculateTournament, setCalculateTournament] = useState(null)
 
   useEffect(() => {
     fetchTournaments()
   }, [])
+
+  // Auto-open teams modal when a new tournament is created
+  useEffect(() => {
+    if (newTournament) {
+      console.log('🎯 Auto-opening teams modal for new tournament:', newTournament.name)
+      setSelectedTournament(newTournament)
+      setIsTeamsModalOpen(true)
+    }
+  }, [newTournament])
 
   const fetchTournaments = async () => {
     try {
@@ -42,6 +52,21 @@ function HomeContent() {
       console.log('✅ Tournaments fetched:', data)
       setTournaments(data || [])
       setError(null)
+
+      // Fetch team counts for each tournament
+      const counts = {}
+      for (const tournament of (data || [])) {
+        const { count, error: countError } = await supabase
+          .from('tournament_teams')
+          .select('*', { count: 'exact' })
+          .eq('tournament_id', tournament.id)
+
+        if (!countError) {
+          counts[tournament.id] = count || 0
+        }
+      }
+      setTeamCounts(counts)
+      console.log('✅ Team counts fetched:', counts)
     } catch (err) {
       console.error('❌ Error fetching tournaments:', err.message)
       setError('Failed to load tournaments')
@@ -77,6 +102,37 @@ function HomeContent() {
     setIsTeamsModalOpen(true)
   }
 
+  const handleCalculateClick = (tournament) => {
+    console.log('Opening calculate modal for:', tournament.name)
+    setCalculateTournament(tournament)
+    setIsCalculateModalOpen(true)
+  }
+
+  const handleCloseCalculateModal = () => {
+    setIsCalculateModalOpen(false)
+    setCalculateTournament(null)
+    // Refresh team counts after calculating
+    fetchTournaments()
+  }
+
+  const getTeamCount = async (tournamentId) => {
+    try {
+      const { count, error } = await supabase
+        .from('tournament_teams')
+        .select('*', { count: 'exact' })
+        .eq('tournament_id', tournamentId)
+
+      if (error) {
+        console.error('Error fetching team count:', error)
+        return 0
+      }
+      return count || 0
+    } catch (err) {
+      console.error('Exception fetching team count:', err)
+      return 0
+    }
+  }
+
   const handleAddTeams = async (teams) => {
     try {
       console.log('Saving teams for', selectedTournament.name, ':', teams)
@@ -104,26 +160,19 @@ function HomeContent() {
       }
       
       console.log('✅ Teams saved successfully:', data)
+      alert(`✅ Added ${teams.length} teams to ${selectedTournament.name}!`)
       
-      // Close teams modal and fetch the saved teams to display
+      // Close modal and refresh
       setIsTeamsModalOpen(false)
+      setSelectedTournament(null)
       
-      // Fetch teams and open details modal
-      const { data: fetchedTeams, error: fetchError } = await supabase
-        .from('tournament_teams')
-        .select('*')
-        .eq('tournament_id', selectedTournament.id)
-      
-      if (fetchError) {
-        console.error('❌ Error fetching teams:', fetchError)
-        alert(`✅ Added ${teams.length} teams!`)
-        return
+      // Notify parent that we've processed the new tournament
+      if (onTournamentProcessed) {
+        onTournamentProcessed()
       }
       
-      console.log('✅ Fetched teams:', fetchedTeams)
-      setTeamsForDetails(fetchedTeams)
-      setIsTeamDetailsOpen(true)
-      
+      // Refresh tournaments list
+      fetchTournaments()
     } catch (err) {
       console.error('❌ Exception saving teams:', err)
       alert('❌ Failed to save teams')
@@ -133,12 +182,57 @@ function HomeContent() {
   const handleCloseTeamsModal = () => {
     setIsTeamsModalOpen(false)
     setSelectedTournament(null)
+    // Notify parent that we've processed the new tournament
+    if (onTournamentProcessed) {
+      onTournamentProcessed()
+    }
   }
 
-  const handleCloseTeamDetails = () => {
-    setIsTeamDetailsOpen(false)
-    setTeamsForDetails([])
-    setSelectedTournament(null)
+  const handleDeleteTournament = async (tournamentId, tournamentName) => {
+    if (!window.confirm(`Are you sure you want to delete "${tournamentName}"?`)) {
+      return
+    }
+
+    try {
+      console.log('🗑️ Deleting tournament:', tournamentId)
+      
+      const { error } = await supabase
+        .from('tournaments')
+        .delete()
+        .eq('id', tournamentId)
+
+      if (error) {
+        console.error('❌ Error deleting tournament:', error)
+        alert(`❌ Error: ${error.message}`)
+        return
+      }
+
+      console.log('✅ Tournament deleted successfully')
+      alert(`✅ "${tournamentName}" deleted!`)
+      
+      // Refresh tournaments list
+      fetchTournaments()
+    } catch (err) {
+      console.error('❌ Exception deleting tournament:', err)
+      alert('❌ Failed to delete tournament')
+    }
+  }
+
+  const handleEditTournament = (tournament) => {
+    console.log('Opening edit menu for:', tournament.name)
+    // Show edit options/modal
+    const editOptions = `
+    Options for "${tournament.name}":
+    1. Edit tournament details
+    2. Delete tournament
+    
+    Use the delete option with caution!
+    `
+    
+    if (window.confirm(`${editOptions}\n\nClick OK for edit, Cancel to close`)) {
+      // TODO: Open tournament edit modal
+      alert('Edit functionality coming soon!')
+    }
   }
 
   return (
@@ -165,27 +259,50 @@ function HomeContent() {
               <p>Loading tournaments...</p>
             </div>
           ) : activeTournaments.length > 0 ? (
-            <div className="tournaments-grid">
+            <div className="tournaments-list">
               {activeTournaments.map((tournament) => (
-                <div key={tournament.id} className="tournament-card">
-                  <div className="tournament-header">
+                <div key={tournament.id} className="tournament-row">
+                  <div className="tournament-row-info">
                     <h4>{tournament.name}</h4>
-                    <span className="game-badge">{getGameIcon(tournament.game)} {tournament.game === 'freeFire' ? 'Free Fire' : tournament.game === 'bgmi' ? 'BGMI' : 'Other'}</span>
+                    <div className="tournament-meta-info">
+                      <span className="team-count-badge">{teamCounts[tournament.id] || 0} Teams</span>
+                      <span className="created-date">{formatDate(tournament.created_at)}</span>
+                    </div>
                   </div>
-                  <div className="tournament-details">
-                    <p><strong>Created:</strong> {formatDate(tournament.created_at)}</p>
-                    <p><strong>Kill Points:</strong> {tournament.kill_points}</p>
-                    <p><strong>Placements:</strong> {tournament.points_system?.length || 0}</p>
-                  </div>
-                  <div className="tournament-actions">
+
+                  <div className="tournament-row-buttons">
                     <button 
-                      className="action-btn teams-btn"
-                      onClick={() => handleAddTeamsClick(tournament)}
+                      className="tournament-btn calculate-btn" 
+                      title="Calculate Results"
+                      onClick={() => handleCalculateClick(tournament)}
                     >
-                      ➕ Teams
+                      Calculate
                     </button>
-                    <button className="action-btn edit-btn">Edit</button>
-                    <button className="action-btn delete-btn">Delete</button>
+                    <button className="tournament-btn tables-btn" title="View Points Table">
+                      Tables
+                    </button>
+                    <button className="tournament-btn warheads-btn" title="View Warheads">
+                      WarHeads
+                    </button>
+                    <button className="tournament-btn fraggers-btn" title="View Top Fraggers">
+                      Fraggers
+                    </button>
+                    <button className="tournament-btn posters-btn" title="Team Posters">
+                      Team Posters
+                    </button>
+                    <button className="tournament-btn slot-btn" title="Slot List">
+                      Slot List
+                    </button>
+                    <button className="tournament-btn share-btn" title="Share Tournament">
+                      Share
+                    </button>
+                    <button 
+                      className="tournament-btn edit-btn" 
+                      title="Edit or Delete"
+                      onClick={() => handleEditTournament(tournament)}
+                    >
+                      Edit
+                    </button>
                   </div>
                 </div>
               ))}
@@ -198,34 +315,7 @@ function HomeContent() {
           )}
         </div>
 
-        <div className="section">
-          <h3>Past Tournaments</h3>
-          {pastTournaments.length > 0 ? (
-            <div className="tournaments-grid">
-              {pastTournaments.map((tournament) => (
-                <div key={tournament.id} className="tournament-card completed">
-                  <div className="tournament-header">
-                    <h4>{tournament.name}</h4>
-                    <span className="game-badge">{getGameIcon(tournament.game)} {tournament.game === 'freeFire' ? 'Free Fire' : tournament.game === 'bgmi' ? 'BGMI' : 'Other'}</span>
-                  </div>
-                  <div className="tournament-details">
-                    <p><strong>Created:</strong> {formatDate(tournament.created_at)}</p>
-                    <p><strong>Kill Points:</strong> {tournament.kill_points}</p>
-                    <p><strong>Placements:</strong> {tournament.points_system?.length || 0}</p>
-                  </div>
-                  <div className="tournament-actions">
-                    <button className="action-btn view-btn">View</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-icon">◆</div>
-              <p>No past tournaments</p>
-            </div>
-          )}
-        </div>
+
       </div>
 
       {/* Add Teams Modal */}
@@ -236,12 +326,11 @@ function HomeContent() {
         tournamentName={selectedTournament?.name}
       />
 
-      {/* Team Details Modal */}
-      <TeamDetailsModal
-        isOpen={isTeamDetailsOpen}
-        onClose={handleCloseTeamDetails}
-        tournament={selectedTournament}
-        teams={teamsForDetails}
+      {/* Calculate Results Modal */}
+      <CalculateResultsModal
+        isOpen={isCalculateModalOpen}
+        onClose={handleCloseCalculateModal}
+        tournament={calculateTournament}
       />
     </div>
   )

@@ -14,6 +14,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('home')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [newTournament, setNewTournament] = useState(null)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -99,9 +100,10 @@ function Dashboard() {
 
       console.log('✅ Tournament created:', data)
       setIsCreateModalOpen(false)
-      alert('✅ Tournament created successfully!')
-      // Trigger refresh of HomeContent by setting a refresh flag
-      window.location.reload()
+      
+      // Store the new tournament and navigate to home tab
+      setNewTournament(data[0])
+      setActiveTab('home')
     } catch (error) {
       console.error('❌ Failed to create tournament:', error)
       alert(`Failed to create tournament: ${error.message}`)
@@ -119,7 +121,7 @@ function Dashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <HomeContent />
+        return <HomeContent newTournament={newTournament} onTournamentProcessed={() => setNewTournament(null)} />
       case 'lazareon':
         return <LazarEonContent />
       case 'hub':
