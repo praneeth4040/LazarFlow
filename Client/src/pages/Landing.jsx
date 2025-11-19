@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { TrendingUp, Trophy, Settings, Smartphone, Shield, Zap } from 'lucide-react'
 import './Landing.css'
 
 function Landing() {
@@ -37,32 +38,44 @@ function Landing() {
         <h2>Why Choose LazarFlow?</h2>
         <div className="features-grid">
           <div className="feature-card">
-            <div className="feature-icon">▲</div>
+            <div className="feature-icon">
+              <TrendingUp size={32} />
+            </div>
             <h3>Real-time Rankings</h3>
             <p>Instant leaderboard updates as matches progress</p>
           </div>
           <div className="feature-card">
-            <div className="feature-icon">◆</div>
+            <div className="feature-icon">
+              <Trophy size={32} />
+            </div>
             <h3>Tournament Ready</h3>
             <p>Manage multiple tournaments simultaneously</p>
           </div>
           <div className="feature-card">
-            <div className="feature-icon">◎</div>
+            <div className="feature-icon">
+              <Settings size={32} />
+            </div>
             <h3>Fully Customizable</h3>
             <p>Configure scoring systems to your needs</p>
           </div>
           <div className="feature-card">
-            <div className="feature-icon">▢</div>
+            <div className="feature-icon">
+              <Smartphone size={32} />
+            </div>
             <h3>Mobile Friendly</h3>
             <p>Perfect viewing experience on all devices</p>
           </div>
           <div className="feature-card">
-            <div className="feature-icon">♦</div>
+            <div className="feature-icon">
+              <Shield size={32} />
+            </div>
             <h3>Secure & Reliable</h3>
             <p>Enterprise-grade security for your data</p>
           </div>
           <div className="feature-card">
-            <div className="feature-icon">►</div>
+            <div className="feature-icon">
+              <Zap size={32} />
+            </div>
             <h3>Lightning Fast</h3>
             <p>Optimized performance for seamless experience</p>
           </div>
@@ -71,30 +84,32 @@ function Landing() {
 
       {/* How It Works Section */}
       <section className="how-it-works">
-        <h2>How It Works</h2>
-        <div className="steps">
-          <div className="step">
-            <div className="step-number">1</div>
-            <h3>Sign Up</h3>
-            <p>Create your free account in seconds</p>
-          </div>
-          <div className="step-arrow">→</div>
-          <div className="step">
-            <div className="step-number">2</div>
-            <h3>Create Tournament</h3>
-            <p>Set up your tournament and teams</p>
-          </div>
-          <div className="step-arrow">→</div>
-          <div className="step">
-            <div className="step-number">3</div>
-            <h3>Manage Results</h3>
-            <p>Update scores and watch rankings change</p>
-          </div>
-          <div className="step-arrow">→</div>
-          <div className="step">
-            <div className="step-number">4</div>
-            <h3>Share & Celebrate</h3>
-            <p>Share results with your community</p>
+        <div className="how-it-works-container">
+          <h2>How It Works</h2>
+          <div className="steps">
+            <div className="step">
+              <div className="step-number">1</div>
+              <h3>Sign Up</h3>
+              <p>Create your free account in seconds</p>
+            </div>
+            <div className="step-arrow">→</div>
+            <div className="step">
+              <div className="step-number">2</div>
+              <h3>Create Tournament</h3>
+              <p>Set up your tournament and teams</p>
+            </div>
+            <div className="step-arrow">→</div>
+            <div className="step">
+              <div className="step-number">3</div>
+              <h3>Manage Results</h3>
+              <p>Update scores and watch rankings change</p>
+            </div>
+            <div className="step-arrow">→</div>
+            <div className="step">
+              <div className="step-number">4</div>
+              <h3>Share & Celebrate</h3>
+              <p>Share results with your community</p>
+            </div>
           </div>
         </div>
       </section>

@@ -1,45 +1,25 @@
-import apiClient from './api'
+// Client-side Team Extraction Logic
+// Replaces the previous Server API call with local processing
 
-// AI Team Extraction API
 export const extractTeamsFromText = async (text) => {
-  try {
-    console.log('📤 Sending request to AI extraction API...')
-    
-    // Call the backend API endpoint
-    const response = await apiClient.post('/ai/extract-teams', {
-      text: text,
-      language: 'en'
-    })
+  console.log('🔍 Extracting teams locally...')
 
-    console.log('✅ API Response:', response.data)
+  // Simulate async delay for better UX (optional, but keeps interface consistent)
+  await new Promise(resolve => setTimeout(resolve, 500))
 
-    if (response.data.teams && Array.isArray(response.data.teams)) {
-      return response.data.teams.map(team => ({ name: team }))
-    }
-
-    return null
-  } catch (err) {
-    console.error('❌ API Error:', err)
-    return null
-  }
-}
-
-// Fallback local extraction (used when API is unavailable)
-export const extractTeamsLocally = (text) => {
-  console.log('🔍 Using local extraction method...')
-  
   const lines = text.split('\n')
   const extractedTeams = []
 
   for (const line of lines) {
     const trimmed = line.trim()
-    
+
     // Skip empty lines, links, dates, times, emojis, and instructions
     if (
       !trimmed ||
       trimmed.startsWith('http') ||
       trimmed.startsWith('*') ||
       trimmed.startsWith('`') ||
+      trimmed.match(/^\d{1,2}[:\/]\d{1,2}/) || // Skip times and dates (from Server logic)
       trimmed.includes(':') ||
       trimmed.includes('-') ||
       trimmed.startsWith('Prize') ||
@@ -57,11 +37,18 @@ export const extractTeamsLocally = (text) => {
       continue
     }
 
-    // Add valid team names
-    if (trimmed && trimmed.length > 0 && trimmed.length < 100) {
+    // Add valid team names (3-100 chars, no numbers at start)
+    // Merged logic: added !trimmed.match(/^\d/) from Server
+    if (trimmed.length > 2 && trimmed.length < 100 && !trimmed.match(/^\d/)) {
       extractedTeams.push({ name: trimmed })
     }
   }
 
+  console.log(`✅ Extracted ${extractedTeams.length} teams`)
   return extractedTeams.length > 0 ? extractedTeams : null
 }
+
+// Export alias for backward compatibility if needed, though we updated the main function
+export const extractTeamsLocally = extractTeamsFromText
+export const extractTeamsFromImage = extractTeamsFromText
+

@@ -1,0 +1,51 @@
+<svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f0f1e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="headerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#16213e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f3460;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <rect width="1200" height="800" fill="url(#bgGradient)"/>
+  
+  <!-- Accent Lines -->
+  <rect x="0" y="0" width="1200" height="3" fill="#e94560"/>
+  <rect x="0" y="797" width="1200" height="3" fill="#e94560"/>
+  
+  <!-- Header -->
+  <rect y="15" width="1200" height="110" fill="url(#headerGradient)"/>
+  <text x="600" y="85" font-size="52" font-weight="bold" text-anchor="middle" fill="#e94560" font-family="Arial, sans-serif">{TOURNAMENT_NAME}</text>
+  
+  <!-- Title Bar -->
+  <rect y="130" width="1200" height="55" fill="#e94560"/>
+  <text x="600" y="170" font-size="26" font-weight="bold" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif">LEADERBOARD</text>
+  
+  <!-- Table Header -->
+  <rect y="185" width="1200" height="50" fill="#0f3460" stroke="#e94560" stroke-width="2"/>
+  <text x="100" y="225" font-size="18" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif">POS</text>
+  <text x="250" y="225" font-size="18" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif">TEAM</text>
+  <text x="700" y="225" font-size="18" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif">WINS</text>
+  <text x="850" y="225" font-size="18" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif">PP</text>
+  <text x="950" y="225" font-size="18" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif">KP</text>
+  <text x="1050" y="225" font-size="18" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif">SCORE</text>
+  
+  <!-- Team Rows Template -->
+  <!-- TEAM_ROW_START -->
+  <rect y="235" width="1200" height="48" fill="#16213e" stroke="#e94560" stroke-width="1" opacity="0.6"/>
+  <text x="100" y="270" font-size="18" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif">{RANK}</text>
+  <text x="250" y="270" font-size="17" fill="#ffffff" font-family="Arial, sans-serif">{TEAM_NAME}</text>
+  <text x="700" y="270" font-size="17" fill="#ffffff" font-family="Arial, sans-serif" text-anchor="middle">{WINS}</text>
+  <text x="850" y="270" font-size="17" fill="#ffffff" font-family="Arial, sans-serif" text-anchor="middle">{PP}</text>
+  <text x="950" y="270" font-size="17" fill="#ffffff" font-family="Arial, sans-serif" text-anchor="middle">{KP}</text>
+  <text x="1050" y="270" font-size="19" font-weight="bold" fill="#e94560" font-family="Arial, sans-serif" text-anchor="middle">{TP}</text>
+  <!-- TEAM_ROW_END -->
+  
+  <!-- Footer -->
+  <rect y="720" width="1200" height="80" fill="#0f3460" stroke="#e94560" stroke-width="2"/>
+  <text x="600" y="775" font-size="15" text-anchor="middle" fill="#e94560" font-family="Arial, sans-serif">Professional Esports Tournament • LazarFlow</text>
+</svg>

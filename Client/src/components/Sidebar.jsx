@@ -1,61 +1,92 @@
 import React from 'react'
+import { LayoutDashboard, Trophy, Globe, User, Plus, X, LogOut } from 'lucide-react'
 import './Sidebar.css'
 
-function Sidebar({ activeTab, setActiveTab, onCreateClick }) {
+function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
   return (
-    <aside className="sidebar">
-      <div className="sidebar-header">
-        <div className="logo-container">
-          <div className="logo-icon">L</div>
-          <h1>LazarFlow</h1>
+    <>
+      {/* Overlay for mobile */}
+      <div
+        className={`sidebar-overlay ${isOpen ? 'open' : ''}`}
+        onClick={onClose}
+      />
+
+      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="logo-container">
+            <div className="logo-icon">L</div>
+            <h1>LazarFlow</h1>
+          </div>
+          <button className="close-sidebar-btn" onClick={onClose}>
+            <X size={24} />
+          </button>
         </div>
-      </div>
 
-      <button className="create-button" onClick={onCreateClick}>
-        <span className="create-icon">+</span>
-        Create
-      </button>
-
-      <nav className="sidebar-nav">
-        <button
-          className={`nav-item ${activeTab === 'home' ? 'active' : ''}`}
-          onClick={() => setActiveTab('home')}
-        >
-          <span className="nav-icon">■</span>
-          <span className="nav-label">Home</span>
+        <button className="create-button" onClick={() => {
+          onCreateClick();
+          if (window.innerWidth < 768) onClose();
+        }}>
+          <Plus size={20} />
+          Create
         </button>
 
-        <button
-          className={`nav-item ${activeTab === 'lazareon' ? 'active' : ''}`}
-          onClick={() => setActiveTab('lazareon')}
-        >
-          <span className="nav-icon">◆</span>
-          <span className="nav-label">LazarEon</span>
-        </button>
+        <nav className="sidebar-nav">
+          <button
+            className={`nav-item ${activeTab === 'home' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('home');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <LayoutDashboard size={20} />
+            <span className="nav-label">Home</span>
+          </button>
 
-        <button
-          className={`nav-item ${activeTab === 'hub' ? 'active' : ''}`}
-          onClick={() => setActiveTab('hub')}
-        >
-          <span className="nav-icon">▲</span>
-          <span className="nav-label">Lazar Hub</span>
-        </button>
+          <button
+            className={`nav-item ${activeTab === 'lazareon' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('lazareon');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <Trophy size={20} />
+            <span className="nav-label">LazarEon</span>
+          </button>
 
-        <button
-          className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
-        >
-          <span className="nav-icon">●</span>
-          <span className="nav-label">Profile</span>
-        </button>
-      </nav>
+          <button
+            className={`nav-item ${activeTab === 'hub' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('hub');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <Globe size={20} />
+            <span className="nav-label">Lazar Hub</span>
+          </button>
 
-      <div className="sidebar-footer">
-        <div className="user-info">
-          <div className="user-avatar">P</div>
+          <button
+            className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('profile');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <User size={20} />
+            <span className="nav-label">Profile</span>
+          </button>
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-avatar">P</div>
+            <div className="user-details">
+              <span className="user-name">Praneeth</span>
+              <span className="user-role">Admin</span>
+            </div>
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }
 

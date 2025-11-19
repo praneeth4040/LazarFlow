@@ -6,107 +6,85 @@ import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
 import LazarHubContent from '../components/LazarHubContent'
 import ProfileContent from '../components/ProfileContent'
-import CreateTournamentModal from '../components/CreateTournamentModal'
 import './Dashboard.css'
+import { Menu } from 'lucide-react'
 
 function Dashboard() {
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('home')
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('home')
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [newTournament, setNewTournament] = useState(null)
-  const navigate = useNavigate()
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        if (error) throw error
-        
-        if (!session) {
-          navigate('/login')
-          return
-        }
-        
-        setUser(session.user)
-      } catch (err) {
-        console.error('Session check failed:', err)
-        navigate('/login')
-      } finally {
-        setLoading(false)
-      }
-    }
+    checkUser()
 
-    checkSession()
-
-    // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
         setUser(session.user)
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         navigate('/login')
       }
     })
 
-    return () => subscription?.unsubscribe()
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
   }, [navigate])
+
+  async function checkUser() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        navigate('/login')
+      } else {
+        setUser(user)
+      }
+    } catch (error) {
+      console.error('Error checking user:', error)
+      navigate('/login')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
       navigate('/login')
-    } catch (err) {
-      console.error('Logout failed:', err)
+    } catch (error) {
+      console.error('Error logging out:', error)
     }
   }
 
-  const handleCreateClick = () => {
-    setIsCreateModalOpen(true)
-  }
+  const handleCreateClick = async () => {
+    if (!user) return
 
-  const handleCloseModal = () => {
-    setIsCreateModalOpen(false)
-  }
-
-  const handleCreateTournament = async (tournamentData) => {
     try {
-      console.log('📝 Creating tournament directly in Supabase...')
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        alert('You must be logged in to create a tournament')
-        return
-      }
-
       const { data, error } = await supabase
         .from('tournaments')
         .insert([
           {
-            name: tournamentData.name,
-            game: tournamentData.game,
-            points_system: tournamentData.pointsSystem,
-            kill_points: tournamentData.killPoints,
+            name: 'New Tournament',
             user_id: user.id,
-            status: 'active',
-          },
+            status: 'draft',
+            teams: []
+          }
         ])
         .select()
 
-      if (error) {
-        console.error('❌ Database error:', error)
-        throw error
-      }
+      if (error) throw error
 
-      console.log('✅ Tournament created:', data)
-      setIsCreateModalOpen(false)
-      
-      // Store the new tournament and navigate to home tab
-      setNewTournament(data[0])
-      setActiveTab('home')
+      if (data && data[0]) {
+        // Refresh the home content or navigate to the new tournament
+        // For now, we'll just switch to home tab which should refresh the list
+        setNewTournament(data[0])
+        setActiveTab('home')
+      }
     } catch (error) {
-      console.error('❌ Failed to create tournament:', error)
-      alert(`Failed to create tournament: ${error.message}`)
+      console.error('Error creating tournament:', error)
+      alert('Error creating tournament')
     }
   }
 
@@ -135,15 +113,22 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onCreateClick={handleCreateClick} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onCreateClick={handleCreateClick}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
       <main className="dashboard-main">
+        <div className="mobile-header">
+          <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
+            <Menu size={24} />
+          </button>
+          <h2>LazarFlow</h2>
+        </div>
         {renderContent()}
       </main>
-      <CreateTournamentModal 
-        isOpen={isCreateModalOpen}
-        onClose={handleCloseModal}
-        onSubmit={handleCreateTournament}
-      />
     </div>
   )
 }

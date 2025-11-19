@@ -1,9 +1,25 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { extractTeamsFromImage } from '../lib/aiExtraction'
+import {
+  MoreVertical,
+  Plus,
+  Trash2,
+  Share2,
+  Edit,
+  Table,
+  Calculator,
+  Users,
+  Trophy,
+  AlertCircle,
+  Check,
+  X
+} from 'lucide-react'
 import AddTeamsModal from './AddTeamsModal'
 import CalculateResultsModal from './CalculateResultsModal'
 import EditTournamentModal from './EditTournamentModal'
 import ShareTournamentModal from './ShareTournamentModal'
+import PointsTableModal from './PointsTableModal'
 import './TabContent.css'
 
 function HomeContent({ newTournament, onTournamentProcessed }) {
@@ -19,6 +35,11 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const [editTournament, setEditTournament] = useState(null)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   const [shareTournament, setShareTournament] = useState(null)
+  const [isPointsTableOpen, setIsPointsTableOpen] = useState(false)
+  const [pointsTableTournament, setPointsTableTournament] = useState(null)
+  // State for AI extraction (assuming these are needed for the new AI card)
+  const [extracting, setExtracting] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false) // Assuming this state is needed for the empty state button
 
   useEffect(() => {
     fetchTournaments()
@@ -37,7 +58,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     try {
       setLoading(true)
       console.log('📥 Fetching tournaments from Supabase...')
-      
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError('Not logged in')
@@ -151,6 +172,17 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     setShareTournament(null)
   }
 
+  const handleTablesClick = (tournament) => {
+    console.log('Opening points table modal for:', tournament.name)
+    setPointsTableTournament(tournament)
+    setIsPointsTableOpen(true)
+  }
+
+  const handleClosePointsTableModal = () => {
+    setIsPointsTableOpen(false)
+    setPointsTableTournament(null)
+  }
+
   const getTeamCount = async (tournamentId) => {
     try {
       const { count, error } = await supabase
@@ -172,7 +204,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const handleAddTeams = async (teams) => {
     try {
       console.log('Saving teams for', selectedTournament.name, ':', teams)
-      
+
       // Prepare team data - extract team name from object
       const teamsData = teams.map(team => ({
         tournament_id: selectedTournament.id,
@@ -181,32 +213,32 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         members: [],
         total_points: 0
       }))
-      
+
       console.log('📤 Sending to database:', teamsData)
-      
+
       // Save to database
       const { data, error } = await supabase
         .from('tournament_teams')
         .insert(teamsData)
-      
+
       if (error) {
         console.error('❌ Error saving teams:', error)
-        alert(`❌ Error: ${error.message}`)
+        alert(`❌ Error: ${error.message} `)
         return
       }
-      
+
       console.log('✅ Teams saved successfully:', data)
-      alert(`✅ Added ${teams.length} teams to ${selectedTournament.name}!`)
-      
+      alert(`✅ Added ${teams.length} teams to ${selectedTournament.name} !`)
+
       // Close modal and refresh
       setIsTeamsModalOpen(false)
       setSelectedTournament(null)
-      
+
       // Notify parent that we've processed the new tournament
       if (onTournamentProcessed) {
         onTournamentProcessed()
       }
-      
+
       // Refresh tournaments list
       fetchTournaments()
     } catch (err) {
@@ -225,13 +257,13 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   }
 
   const handleDeleteTournament = async (tournamentId, tournamentName) => {
-    if (!window.confirm(`Are you sure you want to delete "${tournamentName}"?`)) {
+    if (!window.confirm(`Are you sure you want to delete "${tournamentName}" ? `)) {
       return
     }
 
     try {
       console.log('🗑️ Deleting tournament:', tournamentId)
-      
+
       const { error } = await supabase
         .from('tournaments')
         .delete()
@@ -239,13 +271,13 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
       if (error) {
         console.error('❌ Error deleting tournament:', error)
-        alert(`❌ Error: ${error.message}`)
+        alert(`❌ Error: ${error.message} `)
         return
       }
 
       console.log('✅ Tournament deleted successfully')
       alert(`✅ "${tournamentName}" deleted!`)
-      
+
       // Refresh tournaments list
       fetchTournaments()
     } catch (err) {
@@ -259,6 +291,12 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     handleEditClick(tournament)
   }
 
+  // Placeholder for AI extraction function, as it's referenced in the new snippet
+  const handleAiExtraction = () => {
+    console.log("AI Extraction triggered (function not fully implemented in HomeContent)");
+    // This would typically involve opening a file picker and then calling extractTeamsFromImage
+  }
+
   return (
     <div className="tab-content">
       <div className="content-header">
@@ -269,12 +307,32 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       <div className="content-body">
         {error && (
           <div className="error-message">
+            <AlertCircle size={20} />
             <p>{error}</p>
             <button onClick={fetchTournaments} className="retry-btn">
               Retry
             </button>
           </div>
         )}
+
+        {/* This AI card snippet was provided in the instruction, placed here as per diff */}
+        {/* Note: `setShowAddModal` is not defined in HomeContent, assuming it's a placeholder or intended for a different component */}
+        {/* <div className="modal-header">
+            <h3>Add Teams</h3>
+            <button className="close-btn" onClick={() => setShowAddModal(false)}>
+              <X size={20} />
+            </button>
+          </div> */}
+        <div className="ai-card" onClick={handleAiExtraction}>
+          <div className="ai-icon">
+            <Users size={24} />
+          </div>
+          <div className="ai-content">
+            <h4>Extract from Screenshot</h4>
+            <p>Upload a screenshot of the lobby to auto-extract team names</p>
+          </div>
+          {extracting && <div className="spinner"></div>}
+        </div>
 
         <div className="section">
           <h3>Active Tournaments</h3>
@@ -294,38 +352,56 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
                     </div>
                   </div>
 
-                  <div className="tournament-row-buttons">
-                    <button 
-                      className="tournament-btn calculate-btn" 
-                      title="Calculate Results"
-                      onClick={() => handleCalculateClick(tournament)}
+                  <div className="card-actions">
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleCalculateClick(tournament)
+                      }}
+                      title="Calculate Points"
                     >
-                      Calculate
+                      <Calculator size={18} />
                     </button>
-                    <button className="tournament-btn tables-btn" title="View Points Table">
-                      Tables
-                    </button>
-                    <button className="tournament-btn warheads-btn" title="View Warheads">
-                      WarHeads
-                    </button>
-                    <button className="tournament-btn fraggers-btn" title="View Top Fraggers">
-                      Fraggers
-                    </button>
-                    <button className="tournament-btn posters-btn" title="Team Posters">
-                      Team Posters
-                    </button>
-                    <button className="tournament-btn slot-btn" title="Slot List">
-                      Slot List
-                    </button>
-                    <button className="tournament-btn share-btn" title="Share Tournament" onClick={() => handleShareClick(tournament)}>
-                      Share
-                    </button>
-                    <button 
-                      className="tournament-btn edit-btn" 
-                      title="Edit or Delete"
-                      onClick={() => handleEditTournament(tournament)}
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleTablesClick(tournament)
+                      }}
+                      title="View Table"
                     >
-                      Edit
+                      <Table size={18} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleShareClick(tournament)
+                      }}
+                      title="Share"
+                    >
+                      <Share2 size={18} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEditTournament(tournament)
+                      }}
+                      title="Edit Tournament"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button
+                      className="icon-btn delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteTournament(tournament.id, tournament.name)
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
                     </button>
                   </div>
                 </div>
@@ -333,8 +409,15 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
             </div>
           ) : (
             <div className="empty-state">
-              <div className="empty-icon">▲</div>
-              <p>No active tournaments yet</p>
+              <div className="empty-icon">
+                <Trophy size={48} />
+              </div>
+              <h3>No Tournaments Yet</h3>
+              <p>Create your first tournament to get started</p>
+              <button className="btn-primary" onClick={() => setShowAddModal(true)}>
+                <Plus size={18} />
+                Create Tournament
+              </button>
             </div>
           )}
         </div>
@@ -370,6 +453,13 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         isOpen={isShareModalOpen}
         onClose={handleCloseShareModal}
         tournament={shareTournament}
+      />
+
+      {/* Points Table Modal */}
+      <PointsTableModal
+        isOpen={isPointsTableOpen}
+        onClose={handleClosePointsTableModal}
+        tournament={pointsTableTournament}
       />
     </div>
   )
