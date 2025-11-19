@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import './CalculateResultsModal.css'
 
 function CalculateResultsModal({ isOpen, onClose, tournament }) {
@@ -155,26 +155,26 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-container calculate-modal" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-header">
-        <h2>Calculate Results - {tournament.name}</h2>
-        <button className="close-btn" onClick={onClose}>×</button>
-      </div>
+        <div className="modal-header">
+          <h2>Calculate Results - {tournament.name}</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
 
-      {/* Mode Selector */}
-      <div className="mode-selector">
-        <button
-          className={`mode-btn ${mode === 'manual' ? 'active' : ''}`}
-          onClick={() => setMode('manual')}
-        >
-          🎯 Manual Entry
-        </button>
-        <button
-          className={`mode-btn ${mode === 'ai' ? 'active' : ''}`}
-          onClick={() => setMode('ai')}
-        >
-          ✨ AI Powered
-        </button>
-      </div>        {/* Manual Mode */}
+        {/* Mode Selector */}
+        <div className="mode-selector">
+          <button
+            className={`mode-btn ${mode === 'manual' ? 'active' : ''}`}
+            onClick={() => setMode('manual')}
+          >
+            🎯 Manual Entry
+          </button>
+          <button
+            className={`mode-btn ${mode === 'ai' ? 'active' : ''}`}
+            onClick={() => setMode('ai')}
+          >
+            ✨ AI Powered
+          </button>
+        </div>        {/* Manual Mode */}
         {mode === 'manual' && (
           <div className="modal-content">
             {/* Reference Image Section */}

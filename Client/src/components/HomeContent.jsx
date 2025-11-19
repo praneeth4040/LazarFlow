@@ -15,11 +15,11 @@ import {
   Check,
   X
 } from 'lucide-react'
-import AddTeamsModal from './AddTeamsModal'
-import CalculateResultsModal from './CalculateResultsModal'
-import EditTournamentModal from './EditTournamentModal'
-import ShareTournamentModal from './ShareTournamentModal'
-import PointsTableModal from './PointsTableModal'
+import AddTeamsModal from './modals/AddTeamsModal'
+import CalculateResultsModal from './modals/CalculateResultsModal'
+import EditTournamentModal from './modals/EditTournamentModal'
+import ShareTournamentModal from './modals/ShareTournamentModal'
+import PointsTableModal from './modals/PointsTableModal'
 import './TabContent.css'
 
 function HomeContent({ newTournament, onTournamentProcessed }) {

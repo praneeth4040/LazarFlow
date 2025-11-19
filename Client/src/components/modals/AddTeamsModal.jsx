@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { extractTeamsFromText, extractTeamsLocally } from '../lib/aiExtraction'
+import { extractTeamsFromText, extractTeamsLocally } from '../../lib/aiExtraction'
 import './AddTeamsModal.css'
 
 const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
@@ -32,10 +32,10 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
     setLoading(true)
     try {
       console.log('🤖 Extracting teams from AI mode...')
-      
+
       // Try API first
       let extractedTeams = await extractTeamsFromText(aiText)
-      
+
       // Fallback to local extraction if API fails
       if (!extractedTeams) {
         console.log('⚙️ Using fallback local extraction...')

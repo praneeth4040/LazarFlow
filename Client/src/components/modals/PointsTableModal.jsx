@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
-import TemplateRenderer from './TemplateRenderer'
-import TemplateSelector from './TemplateSelector'
-import { exportAsPNG, copyShareLink, generateShareLink } from '../utils/exportHandler'
+import { supabase } from '../../lib/supabaseClient'
+import TemplateRenderer from '../TemplateRenderer'
+import TemplateSelector from '../TemplateSelector'
+import { exportAsPNG, copyShareLink, generateShareLink } from '../../utils/exportHandler'
 import './PointsTableModal.css'
 
 const PointsTableModal = ({ isOpen, tournament, onClose }) => {

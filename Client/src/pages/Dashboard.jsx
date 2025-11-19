@@ -6,6 +6,7 @@ import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
 import LazarHubContent from '../components/LazarHubContent'
 import ProfileContent from '../components/ProfileContent'
+import CreateTournamentModal from '../components/modals/CreateTournamentModal'
 import './Dashboard.css'
 import { Menu } from 'lucide-react'
 
@@ -16,6 +17,7 @@ function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [newTournament, setNewTournament] = useState(null)
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -58,7 +60,11 @@ function Dashboard() {
     }
   }
 
-  const handleCreateClick = async () => {
+  const handleCreateClick = () => {
+    setIsCreateModalOpen(true)
+  }
+
+  const handleCreateTournament = async (tournamentData) => {
     if (!user) return
 
     try {
@@ -66,10 +72,12 @@ function Dashboard() {
         .from('tournaments')
         .insert([
           {
-            name: 'New Tournament',
+            name: tournamentData.name,
             user_id: user.id,
-            status: 'draft',
-            teams: []
+            status: 'active', // Set to active immediately for now
+            game: tournamentData.game,
+            points_system: tournamentData.pointsSystem,
+            kill_points: tournamentData.killPoints
           }
         ])
         .select()
@@ -77,14 +85,13 @@ function Dashboard() {
       if (error) throw error
 
       if (data && data[0]) {
-        // Refresh the home content or navigate to the new tournament
-        // For now, we'll just switch to home tab which should refresh the list
         setNewTournament(data[0])
         setActiveTab('home')
+        setIsCreateModalOpen(false)
       }
     } catch (error) {
       console.error('Error creating tournament:', error)
-      alert('Error creating tournament')
+      alert('Error creating tournament: ' + error.message)
     }
   }
 
@@ -129,6 +136,11 @@ function Dashboard() {
         </div>
         {renderContent()}
       </main>
+      <CreateTournamentModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateTournament}
+      />
     </div>
   )
 }
