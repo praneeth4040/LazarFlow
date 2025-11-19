@@ -323,16 +323,6 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
               <X size={20} />
             </button>
           </div> */}
-        <div className="ai-card" onClick={handleAiExtraction}>
-          <div className="ai-icon">
-            <Users size={24} />
-          </div>
-          <div className="ai-content">
-            <h4>Extract from Screenshot</h4>
-            <p>Upload a screenshot of the lobby to auto-extract team names</p>
-          </div>
-          {extracting && <div className="spinner"></div>}
-        </div>
 
         <div className="section">
           <h3>Active Tournaments</h3>

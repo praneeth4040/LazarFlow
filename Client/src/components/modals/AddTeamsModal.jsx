@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { extractTeamsFromText, extractTeamsLocally } from '../../lib/aiExtraction'
+import { PenLine, Bot, Plus, X, Loader2 } from 'lucide-react'
 import './AddTeamsModal.css'
 
 const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
@@ -81,7 +82,7 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
       <div className="modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Add Teams to "{tournamentName}"</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         {/* Mode Selector */}
@@ -90,13 +91,13 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
             className={`mode-btn ${mode === 'manual' ? 'active' : ''}`}
             onClick={() => setMode('manual')}
           >
-            ✍️ Manual Entry
+            <PenLine size={16} /> Manual Entry
           </button>
           <button
             className={`mode-btn ${mode === 'ai' ? 'active' : ''}`}
             onClick={() => setMode('ai')}
           >
-            🤖 AI Extract
+            <Bot size={16} /> AI Extract
           </button>
         </div>
 
@@ -116,7 +117,7 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
                   }}
                 />
                 <button className="add-btn" onClick={handleAddTeam}>
-                  ➕ Add
+                  <Plus size={16} /> Add
                 </button>
               </div>
               <p className="hint">Press Enter or click Add to add a team</p>
@@ -134,7 +135,7 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
                 onClick={handleExtractTeams}
                 disabled={loading}
               >
-                {loading ? '⏳ Extracting...' : '🤖 Extract Teams'}
+                {loading ? <><Loader2 size={16} className="animate-spin" /> Extracting...</> : <><Bot size={16} /> Extract Teams</>}
               </button>
               <p className="hint">
                 Paste any text with team names and the AI will extract them.
@@ -159,7 +160,7 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
                       onClick={() => handleRemoveTeam(index)}
                       title="Remove team"
                     >
-                      ✕
+                      <X size={16} />
                     </button>
                   </div>
                 ))}

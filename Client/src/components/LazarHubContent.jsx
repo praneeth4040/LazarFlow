@@ -1,4 +1,5 @@
 import React from 'react'
+import { Sparkles } from 'lucide-react'
 import './TabContent.css'
 
 function LazarHubContent() {
@@ -13,7 +14,7 @@ function LazarHubContent() {
       id: 2,
       name: 'Quick Tournament',
       description: 'Single-day tournament template',
-      icon: '◆',
+      icon: <Sparkles size={20} />,
     },
     {
       id: 3,

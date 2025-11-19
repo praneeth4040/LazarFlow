@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 import './TeamDetailsModal.css'
 
 const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
@@ -44,7 +45,7 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
             <h2>Tournament Teams</h2>
             <p className="tournament-name">{tournament?.name}</p>
           </div>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="details-body">
@@ -61,7 +62,7 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
                 <div className="col-points">Points</div>
                 <div className="col-actions">Actions</div>
               </div>
-              
+
               {localTeams.map((team, index) => (
                 <div key={team.id} className="table-row">
                   {editingTeamId === team.id ? (
@@ -103,7 +104,7 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
                           className="action-cancel"
                           onClick={() => setEditingTeamId(null)}
                         >
-                          ✕ Cancel
+                          <X size={16} /> Cancel
                         </button>
                       </div>
                     </>

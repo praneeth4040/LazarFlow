@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { X, Sparkles } from 'lucide-react';
 import './CreateTournamentModal.css';
 
 const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
@@ -46,6 +47,7 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
 
   const [pointsSystem, setPointsSystem] = useState(defaultPointsSystems.freeFire);
   const [killPoints, setKillPoints] = useState(1);
+  const [placementCount, setPlacementCount] = useState(12);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -53,11 +55,51 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
       ...prev,
       [name]: value,
     }));
-    
+
     // Reset points system when game changes
     if (name === 'game') {
-      setPointsSystem([...defaultPointsSystems[value]]);
+      const defaultSystem = [...defaultPointsSystems[value]];
+      // Remove range row from default system
+      const hasRangeRow = typeof defaultSystem[defaultSystem.length - 1].placement === 'string';
+      const numericSystem = hasRangeRow ? defaultSystem.slice(0, -1) : defaultSystem;
+
+      setPointsSystem(numericSystem);
+      setPlacementCount(numericSystem.length);
     }
+  };
+
+  const handlePlacementCountChange = (e) => {
+    const count = parseInt(e.target.value);
+    if (isNaN(count) || count < 1) return;
+
+    setPlacementCount(count);
+
+    setPointsSystem(prevSystem => {
+      // Create a copy of the previous system
+      const currentSystem = [...prevSystem];
+
+      // Check for and remove existing range row
+      const lastRow = currentSystem[currentSystem.length - 1];
+      const hasRangeRow = lastRow && typeof lastRow.placement === 'string';
+
+      // Get only the numeric placement rows
+      const numericRows = hasRangeRow ? currentSystem.slice(0, -1) : currentSystem;
+
+      let newSystem = [];
+
+      // Rebuild the system with the new count - only exact positions
+      for (let i = 0; i < count; i++) {
+        if (i < numericRows.length) {
+          // Keep existing row data but update placement number
+          newSystem.push({ ...numericRows[i], placement: i + 1 });
+        } else {
+          // Add new row
+          newSystem.push({ placement: i + 1, points: 0 });
+        }
+      }
+
+      return newSystem;
+    });
   };
 
   const handlePointsChange = (index, newPoints) => {
@@ -89,7 +131,7 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
       <div className="modal-container" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Create New Tournament</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -123,6 +165,20 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
             </select>
           </div>
 
+          {/* Placement Count */}
+          <div className="form-group">
+            <label htmlFor="placementCount">Number of Positions</label>
+            <input
+              type="number"
+              id="placementCount"
+              min="1"
+              max="100"
+              value={placementCount}
+              onChange={handlePlacementCountChange}
+              className="form-control"
+            />
+          </div>
+
           {/* Points System Display */}
           <div className="form-group">
             <label>Points System ({formData.game === 'freeFire' ? 'Free Fire' : formData.game === 'bgmi' ? 'BGMI' : 'Other'})</label>
@@ -137,10 +193,10 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
                     <div className="table-cell placement-col">#{row.placement}</div>
                     <div className="table-cell points-col">
                       <div className="points-slider-container">
-                        <input 
-                          type="range" 
-                          min="0" 
-                          max="20" 
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
                           value={row.points}
                           onChange={(e) => handlePointsChange(idx, e.target.value)}
                           className="points-slider"
@@ -153,13 +209,13 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
               </div>
             </div>
             <div className="kill-points-info">
-              <span>◆</span>
+              <span><Sparkles size={16} /></span>
               <span>Per Kill: </span>
               <div className="kill-points-slider-container">
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="10" 
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
                   value={killPoints}
                   onChange={(e) => setKillPoints(parseInt(e.target.value) || 0)}
                   className="points-slider"

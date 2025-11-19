@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { Target, Sparkles, Camera, X } from 'lucide-react'
 import './CalculateResultsModal.css'
 
 function CalculateResultsModal({ isOpen, onClose, tournament }) {
@@ -20,15 +21,18 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
 
   useEffect(() => {
     if (teamSearch.trim()) {
+      // Filter teams by search term AND exclude teams already added to results
+      const addedTeamIds = results.map(r => r.team_id)
       setFilteredTeams(
         teams.filter(team =>
-          team.team_name.toLowerCase().includes(teamSearch.toLowerCase())
+          team.team_name.toLowerCase().includes(teamSearch.toLowerCase()) &&
+          !addedTeamIds.includes(team.id)
         )
       )
     } else {
       setFilteredTeams([])
     }
-  }, [teamSearch, teams])
+  }, [teamSearch, teams, results])
 
   const fetchTeams = async () => {
     try {
@@ -50,12 +54,6 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   }
 
   const handleAddResult = (team) => {
-    // Check if team already added
-    if (results.some(r => r.team_id === team.id)) {
-      alert('Team already added to results')
-      return
-    }
-
     const newResult = {
       team_id: team.id,
       team_name: team.team_name,
@@ -157,7 +155,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       <div className="modal-container calculate-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Calculate Results - {tournament.name}</h2>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         {/* Mode Selector */}
@@ -166,13 +164,13 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
             className={`mode-btn ${mode === 'manual' ? 'active' : ''}`}
             onClick={() => setMode('manual')}
           >
-            🎯 Manual Entry
+            <Target size={16} /> Manual Entry
           </button>
           <button
             className={`mode-btn ${mode === 'ai' ? 'active' : ''}`}
             onClick={() => setMode('ai')}
           >
-            ✨ AI Powered
+            <Sparkles size={16} /> AI Powered
           </button>
         </div>        {/* Manual Mode */}
         {mode === 'manual' && (
@@ -188,7 +186,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                       onClick={handleRemoveImage}
                       title="Remove image"
                     >
-                      ✕
+                      <X size={16} />
                     </button>
                   </div>
                   <img src={referenceImage} alt="Reference" className="reference-image" />
@@ -196,7 +194,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
               ) : (
                 <div className="image-upload-placeholder">
                   <label htmlFor="image-upload" className="image-upload-label">
-                    <div className="upload-icon">📸</div>
+                    <div className="upload-icon"><Camera size={32} /></div>
                     <span>Upload screenshot for reference</span>
                   </label>
                   <input
@@ -255,7 +253,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                           onClick={() => handleRemoveResult(results.length - 1 - idx)}
                           title="Remove"
                         >
-                          ✕
+                          <X size={16} />
                         </button>
                       </div>
 
@@ -340,7 +338,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
           <div className="modal-content">
             <div className="ai-section">
               <div className="ai-upload-area">
-                <div className="upload-icon">📸</div>
+                <div className="upload-icon"><Camera size={48} /></div>
                 <h3>Upload Screenshot</h3>
                 <p>Take a screenshot of the results screen and upload it here</p>
                 <input

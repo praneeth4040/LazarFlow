@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { X } from 'lucide-react'
 import './EditTournamentModal.css'
 
 function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
@@ -94,7 +95,7 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
       <div className="modal-container edit-modal" onClick={(e) => e.stopPropagation()}>
         <div className="edit-header">
           <h2>Edit Tournament</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <form onSubmit={handleSubmit}>

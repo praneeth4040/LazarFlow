@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { validateTemplateFile, compressImage } from '../utils/templateHandler'
 import './TemplateUploader.css'
 
@@ -72,8 +73,8 @@ function TemplateUploader({ tournamentId, onUploadSuccess, onClose }) {
       setProgress(50)
 
       // 4. Upload to Supabase Storage
-      const fileName = `template-${user.id}-${tournamentId}-${Date.now()}.${validation.format}`
-      const filePath = `custom-templates/${user.id}/${fileName}`
+      const fileName = `template - ${user.id} -${tournamentId} -${Date.now()}.${validation.format} `
+      const filePath = `custom - templates / ${user.id}/${fileName}`
 
       console.log(`Uploading file to ${filePath}...`)
 
@@ -187,7 +188,7 @@ function TemplateUploader({ tournamentId, onUploadSuccess, onClose }) {
 
       {error && (
         <div className="upload-error">
-          <span className="error-icon">⚠️</span>
+          <span className="error-icon"><AlertTriangle size={20} /></span>
           <p>{error}</p>
           <button
             className="error-dismiss"
@@ -201,10 +202,10 @@ function TemplateUploader({ tournamentId, onUploadSuccess, onClose }) {
       <div className="uploader-info">
         <h4>Template Requirements</h4>
         <ul>
-          <li>✅ SVG or PNG format</li>
-          <li>✅ Maximum 5MB file size</li>
-          <li>✅ Width: 800px (recommended)</li>
-          <li>✅ Include placeholders like {'{TOURNAMENT_NAME}'}, {'{TEAM_NAME}'}</li>
+          <li><CheckCircle2 size={16} /> SVG or PNG format</li>
+          <li><CheckCircle2 size={16} /> Maximum 5MB file size</li>
+          <li><CheckCircle2 size={16} /> Width: 800px (recommended)</li>
+          <li><CheckCircle2 size={16} /> Include placeholders like {'{TOURNAMENT_NAME}'}, {'{TEAM_NAME}'}</li>
         </ul>
       </div>
     </div>

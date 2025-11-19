@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React from 'react'
+import { Sparkles } from 'lucide-react'
 import './TabContent.css'
 
 function LazarEonContent() {
@@ -12,7 +13,7 @@ function LazarEonContent() {
       <div className="content-body">
         <div className="ai-section">
           <div className="ai-card">
-            <div className="ai-icon">◆</div>
+            <div className="ai-icon"><Sparkles size={24} /></div>
             <h3>Auto Tournament Setup</h3>
             <p>Let AI automatically configure your tournament based on your requirements</p>
             <button className="feature-btn">Try Now</button>

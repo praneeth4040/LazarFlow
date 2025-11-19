@@ -1,13 +1,14 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 import './ShareTournamentModal.css'
 
 function ShareTournamentModal({ isOpen, onClose, tournament }) {
   const [copied, setCopied] = useState(null)
-  
+
   // Generate unique tournament code (first 8 chars of ID + tournament name first 3 chars)
   const tournamentCode = tournament?.id?.substring(0, 8).toUpperCase() || 'N/A'
-  const shareUrl = `${window.location.origin}/tournament/${tournament?.id}` || ''
-  
+  const shareUrl = `${window.location.origin} /tournament/${tournament?.id} ` || ''
+
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl)
@@ -54,7 +55,7 @@ function ShareTournamentModal({ isOpen, onClose, tournament }) {
       <div className="modal-container share-modal" onClick={(e) => e.stopPropagation()}>
         <div className="share-header">
           <h2>Share Tournament</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="share-content">

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import {
   replaceSVGPlaceholders,
   replaceSVGTeamData,
@@ -135,7 +136,7 @@ const TemplateRenderer = ({ template, tournament, teams, isLoading = false }) =>
     return (
       <div className="template-renderer error">
         <div className="error-box">
-          <p className="error-title">⚠️ Render Error</p>
+          <p className="error-title"><AlertTriangle size={20} /> Render Error</p>
           <p className="error-message">{renderError}</p>
         </div>
       </div>

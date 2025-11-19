@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import TemplateRenderer from '../TemplateRenderer'
-import TemplateSelector from '../TemplateSelector'
 import { exportAsPNG, copyShareLink, generateShareLink } from '../../utils/exportHandler'
+import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import './PointsTableModal.css'
 
 const PointsTableModal = ({ isOpen, tournament, onClose }) => {
   const [teams, setTeams] = useState([])
   const [templates, setTemplates] = useState([])
-  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [currentTemplateIndex, setCurrentTemplateIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('render') // 'render' or 'upload'
@@ -42,11 +42,7 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
         if (templatesError) throw templatesError
 
         setTemplates(templatesData || [])
-
-        // Auto-select first template
-        if (templatesData && templatesData.length > 0) {
-          setSelectedTemplate(templatesData[0])
-        }
+        setCurrentTemplateIndex(0)
       } catch (err) {
         console.error('Error fetching data:', err)
         setError(err.message || 'Failed to load templates or teams')
@@ -58,9 +54,28 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
     fetchData()
   }, [isOpen, tournament])
 
+  // Carousel navigation
+  const handlePrevious = () => {
+    setCurrentTemplateIndex((prev) =>
+      prev > 0 ? prev - 1 : templates.length - 1
+    )
+  }
+
+  const handleNext = () => {
+    setCurrentTemplateIndex((prev) =>
+      prev < templates.length - 1 ? prev + 1 : 0
+    )
+  }
+
+  const handleDotClick = (index) => {
+    setCurrentTemplateIndex(index)
+  }
+
+  const currentTemplate = templates[currentTemplateIndex]
+
   const handleExportPNG = async () => {
-    if (!selectedTemplate) {
-      setError('Please select a template')
+    if (!currentTemplate) {
+      setError('No template available')
       return
     }
 
@@ -93,7 +108,7 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
 
   const handleCopyLink = async () => {
     try {
-      const shareUrl = generateShareLink(tournament.id, selectedTemplate?.id)
+      const shareUrl = generateShareLink(tournament.id, currentTemplate?.id)
       await copyShareLink(shareUrl)
       setError(null)
 
@@ -115,7 +130,7 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
         {/* Header */}
         <div className="modal-header">
           <h2 className="modal-title">Points Table</h2>
-          <button className="close-button" onClick={onClose}>✕</button>
+          <button className="close-button" onClick={onClose}><X size={20} /></button>
         </div>
 
         {/* Content */}
@@ -139,25 +154,70 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
           {/* Preview Tab */}
           {activeTab === 'render' && (
             <div className="render-section">
-              {/* Template Selector */}
-              {templates.length > 0 && (
-                <div className="selector-wrapper">
-                  <TemplateSelector
-                    templates={templates}
-                    selectedTemplate={selectedTemplate}
-                    onSelectTemplate={setSelectedTemplate}
-                  />
-                </div>
-              )}
-
-              {/* Renderer */}
               {teams.length > 0 ? (
-                <TemplateRenderer
-                  template={selectedTemplate}
-                  tournament={tournament}
-                  teams={teams}
-                  isLoading={isLoading}
-                />
+                <div className="templates-carousel">
+                  {/* Navigation Arrows */}
+                  {templates.length > 1 && (
+                    <>
+                      <button
+                        className="carousel-arrow carousel-arrow-left"
+                        onClick={handlePrevious}
+                        aria-label="Previous template"
+                      >
+                        <ChevronLeft size={24} />
+                      </button>
+                      <button
+                        className="carousel-arrow carousel-arrow-right"
+                        onClick={handleNext}
+                        aria-label="Next template"
+                      >
+                        <ChevronRight size={24} />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Carousel Track */}
+                  <div className="carousel-track-container">
+                    <div
+                      className="carousel-track"
+                      style={{
+                        transform: `translateX(-${currentTemplateIndex * 100}%)`,
+                      }}
+                    >
+                      {templates.map((template, index) => (
+                        <div key={template.id} className="carousel-slide">
+                          <TemplateRenderer
+                            template={template}
+                            tournament={tournament}
+                            teams={teams}
+                            isLoading={isLoading && index === currentTemplateIndex}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Carousel Indicators (Dots) */}
+                  {templates.length > 1 && (
+                    <div className="carousel-indicators">
+                      {templates.map((_, index) => (
+                        <button
+                          key={index}
+                          className={`carousel-dot ${index === currentTemplateIndex ? 'active' : ''}`}
+                          onClick={() => handleDotClick(index)}
+                          aria-label={`Go to template ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Template Counter */}
+                  {templates.length > 1 && (
+                    <div className="carousel-counter">
+                      {currentTemplateIndex + 1} / {templates.length}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="empty-message">
                   <p>No teams added yet. Add teams to see standings.</p>
@@ -168,7 +228,7 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
               {error && !error.includes('copied') && (
                 <div className="error-banner">
                   <span>{error}</span>
-                  <button onClick={() => setError(null)}>✕</button>
+                  <button onClick={() => setError(null)}><X size={16} /></button>
                 </div>
               )}
 
@@ -207,7 +267,7 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
             <button
               className="action-button primary"
               onClick={handleExportPNG}
-              disabled={isLoading || !selectedTemplate}
+              disabled={isLoading || !currentTemplate}
             >
               {isLoading ? 'Exporting...' : 'Export PNG'}
             </button>
