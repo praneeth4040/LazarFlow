@@ -1,9 +1,34 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { TrendingUp, Trophy, Settings, Smartphone, Shield, Zap, Download, Cloud } from 'lucide-react'
 import './Landing.css'
 
 function Landing() {
+  const observerRef = useRef(null);
+
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('animate-in');
+          observerRef.current.unobserve(entry.target); // Only animate once
+        }
+      });
+    }, {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    });
+
+    const hiddenElements = document.querySelectorAll('.scroll-hidden');
+    hiddenElements.forEach((el) => observerRef.current.observe(el));
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
+
   return (
     <div className="landing">
       {/* Header/Navigation */}
@@ -67,44 +92,44 @@ function Landing() {
 
       {/* Features Section */}
       <section className="features">
-        <h2>Why Choose LazarFlow?</h2>
+        <h2 className="scroll-hidden">Why Choose LazarFlow?</h2>
         <div className="features-grid">
-          <div className="feature-card">
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '0ms' }}>
             <div className="feature-icon">
               <Zap size={32} />
             </div>
             <h3>LazarEon</h3>
             <p>AI Agent for automatic points table making. Just upload a screenshot and let AI do the work.</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '100ms' }}>
             <div className="feature-icon">
               <TrendingUp size={32} />
             </div>
             <h3>LazarHub</h3>
             <p>An Open marketplace to share leaderboards and connect with the esports community.</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '200ms' }}>
             <div className="feature-icon">
               <Trophy size={32} />
             </div>
             <h3>Tournament Ready</h3>
             <p>Manage multiple tournaments simultaneously with ease.</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '300ms' }}>
             <div className="feature-icon">
               <Settings size={32} />
             </div>
             <h3>Fully Customizable</h3>
             <p>Configure scoring systems to your specific tournament rules.</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '400ms' }}>
             <div className="feature-icon">
               <Smartphone size={32} />
             </div>
             <h3>Mobile Friendly</h3>
             <p>Perfect viewing experience on all devices, anywhere, anytime.</p>
           </div>
-          <div className="feature-card">
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '500ms' }}>
             <div className="feature-icon">
               <Shield size={32} />
             </div>
@@ -117,27 +142,27 @@ function Landing() {
       {/* How It Works Section */}
       <section className="how-it-works">
         <div className="how-it-works-container">
-          <h2>How It Works</h2>
+          <h2 className="scroll-hidden">How It Works</h2>
           <div className="steps">
-            <div className="step">
+            <div className="step scroll-hidden" style={{ transitionDelay: '0ms' }}>
               <div className="step-number">1</div>
               <h3>Sign Up</h3>
               <p>Create your free account in seconds</p>
             </div>
-            <div className="step-arrow">→</div>
-            <div className="step">
+            <div className="step-arrow scroll-hidden" style={{ transitionDelay: '100ms' }}>→</div>
+            <div className="step scroll-hidden" style={{ transitionDelay: '200ms' }}>
               <div className="step-number">2</div>
               <h3>Create Tournament</h3>
               <p>Set up your tournament and teams</p>
             </div>
-            <div className="step-arrow">→</div>
-            <div className="step">
+            <div className="step-arrow scroll-hidden" style={{ transitionDelay: '300ms' }}>→</div>
+            <div className="step scroll-hidden" style={{ transitionDelay: '400ms' }}>
               <div className="step-number">3</div>
               <h3>Manage Results</h3>
               <p>Update scores and watch rankings change</p>
             </div>
-            <div className="step-arrow">→</div>
-            <div className="step">
+            <div className="step-arrow scroll-hidden" style={{ transitionDelay: '500ms' }}>→</div>
+            <div className="step scroll-hidden" style={{ transitionDelay: '600ms' }}>
               <div className="step-number">4</div>
               <h3>Share & Celebrate</h3>
               <p>Share results with your community</p>
@@ -147,10 +172,15 @@ function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="cta">
-        <h2>Ready to Get Started?</h2>
-        <p>Join thousands of esports organizers using LazarFlow</p>
-        <Link to="/signup" className="btn btn-primary btn-large">Create Your Account</Link>
+      <section className="cta scroll-hidden">
+        <div className="cta-content">
+          <h2>Ready to Get Started?</h2>
+          <p>Join thousands of esports organizers using LazarFlow</p>
+          <Link to="/signup" className="btn btn-primary btn-large">
+            <span>Create Your Account</span>
+            <span className="btn-arrow">→</span>
+          </Link>
+        </div>
       </section>
 
       {/* Footer */}
