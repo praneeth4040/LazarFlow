@@ -11,7 +11,6 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
   const [currentTemplateIndex, setCurrentTemplateIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('render') // 'render' or 'upload'
 
   // Fetch teams and templates on modal open
   useEffect(() => {
@@ -135,127 +134,95 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
 
         {/* Content */}
         <div className="modal-content points-table-content">
-          {/* Tabs */}
-          <div className="modal-tabs">
-            <button
-              className={`tab-button ${activeTab === 'render' ? 'active' : ''}`}
-              onClick={() => setActiveTab('render')}
-            >
-              Preview
-            </button>
-            <button
-              className={`tab-button ${activeTab === 'upload' ? 'active' : ''}`}
-              onClick={() => setActiveTab('upload')}
-            >
-              Upload Template
-            </button>
-          </div>
-
-          {/* Preview Tab */}
-          {activeTab === 'render' && (
-            <div className="render-section">
-              {teams.length > 0 ? (
-                <div className="templates-carousel">
-                  {/* Navigation Arrows */}
-                  {templates.length > 1 && (
-                    <>
-                      <button
-                        className="carousel-arrow carousel-arrow-left"
-                        onClick={handlePrevious}
-                        aria-label="Previous template"
-                      >
-                        <ChevronLeft size={24} />
-                      </button>
-                      <button
-                        className="carousel-arrow carousel-arrow-right"
-                        onClick={handleNext}
-                        aria-label="Next template"
-                      >
-                        <ChevronRight size={24} />
-                      </button>
-                    </>
-                  )}
-
-                  {/* Carousel Track */}
-                  <div className="carousel-track-container">
-                    <div
-                      className="carousel-track"
-                      style={{
-                        transform: `translateX(-${currentTemplateIndex * 100}%)`,
-                      }}
+          <div className="render-section">
+            {teams.length > 0 ? (
+              <div className="templates-carousel">
+                {/* Navigation Arrows */}
+                {templates.length > 1 && (
+                  <>
+                    <button
+                      className="carousel-arrow carousel-arrow-left"
+                      onClick={handlePrevious}
+                      aria-label="Previous template"
                     >
-                      {templates.map((template, index) => (
-                        <div key={template.id} className="carousel-slide">
-                          <TemplateRenderer
-                            template={template}
-                            tournament={tournament}
-                            teams={teams}
-                            isLoading={isLoading && index === currentTemplateIndex}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                      <ChevronLeft size={24} />
+                    </button>
+                    <button
+                      className="carousel-arrow carousel-arrow-right"
+                      onClick={handleNext}
+                      aria-label="Next template"
+                    >
+                      <ChevronRight size={24} />
+                    </button>
+                  </>
+                )}
 
-                  {/* Carousel Indicators (Dots) */}
-                  {templates.length > 1 && (
-                    <div className="carousel-indicators">
-                      {templates.map((_, index) => (
-                        <button
-                          key={index}
-                          className={`carousel-dot ${index === currentTemplateIndex ? 'active' : ''}`}
-                          onClick={() => handleDotClick(index)}
-                          aria-label={`Go to template ${index + 1}`}
+                {/* Carousel Track */}
+                <div className="carousel-track-container">
+                  <div
+                    className="carousel-track"
+                    style={{
+                      transform: `translateX(-${currentTemplateIndex * 100}%)`,
+                    }}
+                  >
+                    {templates.map((template, index) => (
+                      <div key={template.id} className="carousel-slide">
+                        <TemplateRenderer
+                          template={template}
+                          tournament={tournament}
+                          teams={teams}
+                          isLoading={isLoading && index === currentTemplateIndex}
                         />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Template Counter */}
-                  {templates.length > 1 && (
-                    <div className="carousel-counter">
-                      {currentTemplateIndex + 1} / {templates.length}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="empty-message">
-                  <p>No teams added yet. Add teams to see standings.</p>
-                </div>
-              )}
 
-              {/* Error Message */}
-              {error && !error.includes('copied') && (
-                <div className="error-banner">
-                  <span>{error}</span>
-                  <button onClick={() => setError(null)}><X size={16} /></button>
-                </div>
-              )}
+                {/* Carousel Indicators (Dots) */}
+                {templates.length > 1 && (
+                  <div className="carousel-indicators">
+                    {templates.map((_, index) => (
+                      <button
+                        key={index}
+                        className={`carousel-dot ${index === currentTemplateIndex ? 'active' : ''}`}
+                        onClick={() => handleDotClick(index)}
+                        aria-label={`Go to template ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+                )}
 
-              {error && error.includes('copied') && (
-                <div className="success-banner">
-                  <span>{error}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Upload Tab */}
-          {activeTab === 'upload' && (
-            <div className="upload-section">
-              <p className="upload-notice">
-                Upload custom SVG or PNG templates to be used across all tournaments.
-              </p>
-              {/* TemplateUploader will be imported here */}
-              <div className="uploader-placeholder">
-                TemplateUploader component will be rendered here
+                {/* Template Counter */}
+                {templates.length > 1 && (
+                  <div className="carousel-counter">
+                    {currentTemplateIndex + 1} / {templates.length}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="empty-message">
+                <p>No teams added yet. Add teams to see standings.</p>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && !error.includes('copied') && (
+              <div className="error-banner">
+                <span>{error}</span>
+                <button onClick={() => setError(null)}><X size={16} /></button>
+              </div>
+            )}
+
+            {error && error.includes('copied') && (
+              <div className="success-banner">
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Footer - Actions */}
-        {activeTab === 'render' && teams.length > 0 && (
+        {teams.length > 0 && (
           <div className="modal-footer">
             <button
               className="action-button secondary"

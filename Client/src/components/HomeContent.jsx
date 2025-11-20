@@ -20,6 +20,7 @@ import CalculateResultsModal from './modals/CalculateResultsModal'
 import EditTournamentModal from './modals/EditTournamentModal'
 import ShareTournamentModal from './modals/ShareTournamentModal'
 import PointsTableModal from './modals/PointsTableModal'
+import CreateTournamentModal from './modals/CreateTournamentModal'
 import './TabContent.css'
 
 function HomeContent({ newTournament, onTournamentProcessed }) {
@@ -198,6 +199,45 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     } catch (err) {
       console.error('Exception fetching team count:', err)
       return 0
+    }
+  }
+
+  const handleCreateTournament = async (tournamentData) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        alert('You must be logged in to create a tournament')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('tournaments')
+        .insert([
+          {
+            name: tournamentData.name,
+            game: tournamentData.game,
+            points_system: tournamentData.pointsSystem,
+            kill_points: tournamentData.killPoints,
+            user_id: user.id,
+            status: 'active'
+          }
+        ])
+        .select()
+
+      if (error) throw error
+
+      console.log('✅ Tournament created:', data)
+      setShowAddModal(false)
+      fetchTournaments()
+
+      // Open teams modal for the new tournament
+      if (data && data[0]) {
+        setSelectedTournament(data[0])
+        setIsTeamsModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Error creating tournament:', error)
+      alert('Failed to create tournament: ' + error.message)
     }
   }
 
@@ -450,6 +490,13 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         isOpen={isPointsTableOpen}
         onClose={handleClosePointsTableModal}
         tournament={pointsTableTournament}
+      />
+
+      {/* Create Tournament Modal */}
+      <CreateTournamentModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSubmit={handleCreateTournament}
       />
     </div>
   )
