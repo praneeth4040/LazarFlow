@@ -1,10 +1,14 @@
 *:root {
   /* Google-like Color Palette */
   --bg-primary: #FFFFFF;
-  --bg-secondary: #F8F9FA; /* Google Grey */
-  --text-primary: #202124; /* Google Black */
-  --text-secondary: #5F6368; /* Google Grey Text */
-  --accent-blue: #1A73E8; /* Google Blue */
+  --bg-secondary: #F8F9FA;
+  /* Google Grey */
+  --text-primary: #202124;
+  /* Google Black */
+  --text-secondary: #5F6368;
+  /* Google Grey Text */
+  --accent-blue: #1A73E8;
+  /* Google Blue */
   --accent-blue-hover: #1557B0;
   --border-color: #DADCE0;
   --danger-red: #EA4335;
@@ -12,7 +16,7 @@
   --warning-yellow: #FBBC04;
 
   /* Shadows & Radius */
-  --shadow-sm: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+  --shadow-sm: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --radius-md: 8px;
   --radius-lg: 16px;
@@ -40,8 +44,6 @@
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
   background-color: var(--bg-secondary);
@@ -49,7 +51,7 @@ body {
 
 #root {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 a {
@@ -57,6 +59,7 @@ a {
   color: var(--accent-blue);
   text-decoration: inherit;
 }
+
 a:hover {
   color: var(--accent-blue-hover);
 }
@@ -77,7 +80,7 @@ button {
 
 button:hover {
   background-color: #f1f3f4;
-  box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
+  box-shadow: 0 1px 3px 0 rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
 }
 
 button:focus,

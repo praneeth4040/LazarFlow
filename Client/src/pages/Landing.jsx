@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { TrendingUp, Trophy, Settings, Smartphone, Shield, Zap } from 'lucide-react'
+import { TrendingUp, Trophy, Settings, Smartphone, Shield, Zap, Download, Cloud } from 'lucide-react'
 import './Landing.css'
 
 function Landing() {
@@ -22,13 +22,45 @@ function Landing() {
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-content">
-          <h1 className="hero-title">Esports Points Table Maker</h1>
+          <div className="hero-badge">
+            <Zap size={16} />
+            <span>Powered by AI</span>
+          </div>
+          <h1 className="hero-title">
+            Build Stunning
+            <span className="gradient-text"> Esports Leaderboards</span>
+          </h1>
           <p className="hero-subtitle">
-            Create, manage, and visualize esports tournament leaderboards effortlessly
+            The fastest way to create, customize, and share professional points tables for your tournaments. No design skills required.
           </p>
           <div className="hero-buttons">
-            <Link to="/signup" className="btn btn-primary">Get Started</Link>
-            <Link to="/login" className="btn btn-secondary">Sign In</Link>
+            <Link to="/signup" className="btn btn-primary">
+              <span>Start Free</span>
+              <span className="btn-arrow">→</span>
+            </Link>
+            <Link to="/login" className="btn btn-secondary">
+              <span>Sign In</span>
+            </Link>
+          </div>
+          <div className="hero-stats">
+            <div className="stat-item">
+              <div className="stat-number">100%</div>
+              <div className="stat-label">Free to Use</div>
+            </div>
+            <div className="stat-divider"></div>
+            <div className="stat-item">
+              <div className="stat-icon">
+                <Download size={28} />
+              </div>
+              <div className="stat-label">Instant Export</div>
+            </div>
+            <div className="stat-divider"></div>
+            <div className="stat-item">
+              <div className="stat-icon">
+                <Cloud size={28} />
+              </div>
+              <div className="stat-label">Cloud Sync</div>
+            </div>
           </div>
         </div>
       </section>
@@ -39,45 +71,45 @@ function Landing() {
         <div className="features-grid">
           <div className="feature-card">
             <div className="feature-icon">
+              <Zap size={32} />
+            </div>
+            <h3>LazarEon</h3>
+            <p>AI Agent for automatic points table making. Just upload a screenshot and let AI do the work.</p>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon">
               <TrendingUp size={32} />
             </div>
-            <h3>Real-time Rankings</h3>
-            <p>Instant leaderboard updates as matches progress</p>
+            <h3>LazarHub</h3>
+            <p>An Open marketplace to share leaderboards and connect with the esports community.</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <Trophy size={32} />
             </div>
             <h3>Tournament Ready</h3>
-            <p>Manage multiple tournaments simultaneously</p>
+            <p>Manage multiple tournaments simultaneously with ease.</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <Settings size={32} />
             </div>
             <h3>Fully Customizable</h3>
-            <p>Configure scoring systems to your needs</p>
+            <p>Configure scoring systems to your specific tournament rules.</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <Smartphone size={32} />
             </div>
             <h3>Mobile Friendly</h3>
-            <p>Perfect viewing experience on all devices</p>
+            <p>Perfect viewing experience on all devices, anywhere, anytime.</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">
               <Shield size={32} />
             </div>
             <h3>Secure & Reliable</h3>
-            <p>Enterprise-grade security for your data</p>
-          </div>
-          <div className="feature-card">
-            <div className="feature-icon">
-              <Zap size={32} />
-            </div>
-            <h3>Lightning Fast</h3>
-            <p>Optimized performance for seamless experience</p>
+            <p>Enterprise-grade security to keep your tournament data safe.</p>
           </div>
         </div>
       </section>
@@ -126,7 +158,7 @@ function Landing() {
         <div className="footer-content">
           <div className="footer-section">
             <h4>LazarFlow</h4>
-            <p>Professional esports tournament management</p>
+            <p>Professional esports points table maker</p>
           </div>
           <div className="footer-section">
             <h4>Quick Links</h4>

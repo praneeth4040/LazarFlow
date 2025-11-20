@@ -7,12 +7,8 @@
   box-sizing: border-box;
 }
 
-html,
-body {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
+/* Removed global html/body overflow:hidden as it was preventing scroll on landing page */
+/* Dashboard-specific overflow should be handled by .dashboard-container */
 
 .dashboard-container {
   display: flex;
@@ -105,7 +101,4 @@ body {
   }
 }
 
-/* Ensure no overflow on body */
-body#root {
-  overflow: hidden;
-}
+/* Dashboard container handles overflow internally */
