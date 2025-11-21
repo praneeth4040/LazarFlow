@@ -58,7 +58,6 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
               <div className="table-header">
                 <div className="col-num">#</div>
                 <div className="col-name">Team Name</div>
-                <div className="col-captain">Captain</div>
                 <div className="col-points">Points</div>
                 <div className="col-actions">Actions</div>
               </div>
@@ -76,22 +75,11 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
                           className="edit-input"
                         />
                       </div>
-                      <div className="col-captain">
-                        <input
-                          type="text"
-                          value={editingTeam.captain_name || ''}
-                          onChange={(e) => handleInputChange('captain_name', e.target.value)}
-                          placeholder="Add captain name"
-                          className="edit-input"
-                        />
-                      </div>
                       <div className="col-points">
-                        <input
-                          type="number"
-                          value={editingTeam.total_points}
-                          onChange={(e) => handleInputChange('total_points', parseInt(e.target.value) || 0)}
-                          className="edit-input"
-                        />
+                        {/* Display total points (read-only in this view) */}
+                        {typeof editingTeam.total_points === 'object'
+                          ? (editingTeam.total_points?.kill_points || 0) + (editingTeam.total_points?.placement_points || 0)
+                          : (editingTeam.total_points || 0)}
                       </div>
                       <div className="col-actions">
                         <button
@@ -112,8 +100,11 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
                     <>
                       <div className="col-num">{index + 1}</div>
                       <div className="col-name">{team.team_name}</div>
-                      <div className="col-captain">{team.captain_name || '—'}</div>
-                      <div className="col-points">{team.total_points}</div>
+                      <div className="col-points">
+                        {typeof team.total_points === 'object'
+                          ? (team.total_points?.kill_points || 0) + (team.total_points?.placement_points || 0)
+                          : (team.total_points || 0)}
+                      </div>
                       <div className="col-actions">
                         <button
                           className="action-edit"

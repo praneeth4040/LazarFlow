@@ -27,9 +27,8 @@ CREATE TABLE tournament_teams (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
   team_name VARCHAR(255) NOT NULL,
-  captain_name VARCHAR(255),
   members TEXT[] DEFAULT '{}',
-  total_points INTEGER DEFAULT 0,
+  total_points JSONB DEFAULT '{"matches_played": 0, "wins": 0, "kill_points": 0, "placement_points": 0}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -167,9 +166,8 @@ tournament_teams {
   id: UUID (PK)
   tournament_id: UUID (FK → tournaments.id)
   team_name: VARCHAR(255) [NOT NULL]
-  captain_name: VARCHAR(255) [nullable]
   members: TEXT[] [default: {}]
-  total_points: INTEGER [default: 0]
+  total_points: JSONB [default: {...}]
   created_at: TIMESTAMP
   updated_at: TIMESTAMP
 }

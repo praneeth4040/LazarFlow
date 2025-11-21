@@ -250,20 +250,29 @@ export const calculateStandings = (teams) => {
 
     // Sort by total points descending
     const sorted = [...teams].sort((a, b) => {
-      const pointsA = (a.total_points || a.totalPoints || 0)
-      const pointsB = (b.total_points || b.totalPoints || 0)
-      return pointsB - pointsA
+      const getPoints = (t) => {
+        if (t.total_points && typeof t.total_points === 'object') {
+          return (t.total_points.kill_points || 0) + (t.total_points.placement_points || 0)
+        }
+        return t.total_points || t.totalPoints || 0
+      }
+      return getPoints(b) - getPoints(a)
     })
 
     // Add rankings
-    return sorted.map((team, index) => ({
-      rank: index + 1,
-      name: team.team_name || team.name || 'Unknown Team',
-      wins: team.wins || 0,
-      placementPoints: team.placement_points || team.placementPoints || 0,
-      killPoints: team.kill_points || team.killPoints || 0,
-      totalPoints: team.total_points || team.totalPoints || 0
-    }))
+    return sorted.map((team, index) => {
+      const tp = team.total_points
+      const isObj = tp && typeof tp === 'object'
+
+      return {
+        rank: index + 1,
+        name: team.team_name || team.name || 'Unknown Team',
+        wins: isObj ? (tp.wins || 0) : (team.wins || 0),
+        placementPoints: isObj ? (tp.placement_points || 0) : (team.placement_points || team.placementPoints || 0),
+        killPoints: isObj ? (tp.kill_points || 0) : (team.kill_points || team.killPoints || 0),
+        totalPoints: isObj ? ((tp.kill_points || 0) + (tp.placement_points || 0)) : (tp || team.totalPoints || 0)
+      }
+    })
   } catch (error) {
     console.error('Error calculating standings:', error)
     return []
@@ -282,7 +291,7 @@ export const formatTournamentData = (tournament, standings) => {
       tournamentName: tournament.name || 'Tournament',
       organizer: tournament.organizer || 'LazarFlow',
       eventName: tournament.event_name || tournament.name || '',
-      date: tournament.created_at 
+      date: tournament.created_at
         ? new Date(tournament.created_at).toLocaleDateString()
         : new Date().toLocaleDateString(),
       gameType: tournament.game_type || tournament.game || 'Esports',

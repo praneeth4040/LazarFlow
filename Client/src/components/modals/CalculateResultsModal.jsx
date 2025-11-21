@@ -61,7 +61,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       kills: 0,
       placement_points: 0,
       kill_points: 0,
-      total_points: 0,
+      total_points: 0, // Points for this specific match
     }
 
     setResults([...results, newResult])
@@ -121,11 +121,25 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       console.log('📤 Submitting results:', results)
 
       // Update each team with their points
+      // Update each team with their points
       for (const result of results) {
+        const team = teams.find(t => t.id === result.team_id)
+        // Handle legacy data or default structure
+        const currentStats = (team && typeof team.total_points === 'object' && team.total_points)
+          ? team.total_points
+          : { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 }
+
+        const newStats = {
+          matches_played: (currentStats.matches_played || 0) + 1,
+          wins: (currentStats.wins || 0) + (parseInt(result.position) === 1 ? 1 : 0),
+          kill_points: (currentStats.kill_points || 0) + (result.kill_points || 0),
+          placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0)
+        }
+
         const { error } = await supabase
           .from('tournament_teams')
           .update({
-            total_points: result.total_points,
+            total_points: newStats,
           })
           .eq('id', result.team_id)
 

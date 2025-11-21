@@ -249,9 +249,13 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       const teamsData = teams.map(team => ({
         tournament_id: selectedTournament.id,
         team_name: team.name || team, // Handle both object and string formats
-        captain_name: null,
         members: [],
-        total_points: 0
+        total_points: {
+          matches_played: 0,
+          wins: 0,
+          kill_points: 0,
+          placement_points: 0
+        }
       }))
 
       console.log('📤 Sending to database:', teamsData)
