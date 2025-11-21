@@ -15,32 +15,34 @@
  *   ]
  * }
  */
-const DEMO_API_ENDPOINT = '/api/extract-teams' // Replace with your actual API URL
+const API_ENDPOINT = 'http://localhost:5000/api/extract-teams'
 
 export const extractTeamsFromText = async (text) => {
   console.log('🔍 Calling team extraction API...')
 
   try {
-    // TODO: Replace this demo implementation with actual API call
-    // Example:
-    // const response = await fetch(DEMO_API_ENDPOINT, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({ text })
-    // })
-    // const data = await response.json()
-    // return data.teams
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text })
+    })
 
-    // DEMO: Simulate API call with delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
 
-    // DEMO: Local extraction logic (to be replaced with API response)
-    const extractedTeams = extractTeamsLocally(text)
+    const data = await response.json()
+    
+    if (data.teams && Array.isArray(data.teams)) {
+      console.log(`✅ API returned ${data.teams.length} teams`)
+      // Map strings to objects if needed, or ensure format matches expected {name: string}
+      return data.teams.map(name => ({ name }))
+    } else {
+      throw new Error('Invalid response format')
+    }
 
-    console.log(`✅ API returned ${extractedTeams?.length || 0} teams`)
-    return extractedTeams
   } catch (error) {
     console.error('❌ API call failed:', error)
 
