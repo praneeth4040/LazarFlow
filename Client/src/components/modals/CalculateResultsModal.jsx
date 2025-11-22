@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { Target, Sparkles, Camera, X } from 'lucide-react'
+import { Target, Sparkles, Camera, X, Upload } from 'lucide-react'
+import { extractResultsFromScreenshot, needsMapping, autoMatchPlayers } from '../../lib/aiResultExtraction'
+import RankMappingModal from './RankMappingModal'
 import './CalculateResultsModal.css'
 
 function CalculateResultsModal({ isOpen, onClose, tournament }) {
@@ -12,6 +14,12 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [referenceImage, setReferenceImage] = useState(null)
+
+  // AI extraction state
+  const [aiScreenshot, setAiScreenshot] = useState(null)
+  const [extractedData, setExtractedData] = useState(null)
+  const [showMappingModal, setShowMappingModal] = useState(false)
+  const [extracting, setExtracting] = useState(false)
 
   useEffect(() => {
     if (isOpen && tournament) {
@@ -109,6 +117,99 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   const handleRemoveImage = () => {
     setReferenceImage(null)
   }
+
+  // AI Extraction Handlers
+  const handleAIUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setExtracting(true)
+      setAiScreenshot(file)
+
+      // Extract data from screenshot
+      const extracted = await extractResultsFromScreenshot(file)
+      setExtractedData(extracted)
+
+      // Check if teams need mapping (first time)
+      if (needsMapping(teams)) {
+        // Show mapping modal
+        setShowMappingModal(true)
+      } else {
+        // Auto-match players to teams
+        const { results: matchedResults, unmappedRanks } = autoMatchPlayers(extracted, teams, tournament)
+
+        if (unmappedRanks.length > 0) {
+          console.warn(`⚠️ ${unmappedRanks.length} ranks could not be auto-matched`)
+          // Show mapping modal for unmapped ranks
+          setExtractedData(unmappedRanks)
+          setShowMappingModal(true)
+        } else {
+          setResults(matchedResults)
+        }
+      }
+    } catch (error) {
+      console.error('❌ AI extraction failed:', error)
+      alert('Failed to extract data from screenshot. Please try again.')
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  const handleSaveMapping = async (mappings, extractedRanks) => {
+    try {
+      setLoading(true)
+
+      // Update members array for each team
+      for (const [rank, teamId] of Object.entries(mappings)) {
+        const rankData = extractedRanks.find(r => r.rank === parseInt(rank))
+        if (!rankData) continue
+
+        await supabase
+          .from('tournament_teams')
+          .update({ members: rankData.players })
+          .eq('id', teamId)
+      }
+
+      // Refresh teams
+      await fetchTeams()
+
+      // Calculate results
+      const calculatedResults = []
+      for (const [rank, teamId] of Object.entries(mappings)) {
+        const rankData = extractedRanks.find(r => r.rank === parseInt(rank))
+        const team = teams.find(t => t.id === teamId)
+
+        if (!rankData || !team) continue
+
+        const placementPoints = tournament.points_system?.find(
+          p => p.placement === rankData.rank
+        )?.points || 0
+        const killPoints = rankData.eliminations * (tournament.kill_points || 1)
+
+        calculatedResults.push({
+          team_id: teamId,
+          team_name: team.team_name,
+          position: rankData.rank,
+          kills: rankData.eliminations,
+          placement_points: placementPoints,
+          kill_points: killPoints,
+          total_points: placementPoints + killPoints
+        })
+      }
+
+      setResults(calculatedResults)
+      setShowMappingModal(false)
+
+      console.log('✅ Mapping saved and results calculated')
+    } catch (error) {
+      console.error('❌ Error saving mapping:', error)
+      alert('Failed to save mapping. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
 
   const handleSubmit = async () => {
     if (results.length === 0) {
@@ -350,26 +451,118 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
         {/* AI Mode */}
         {mode === 'ai' && (
           <div className="modal-content">
-            <div className="ai-section">
-              <div className="ai-upload-area">
-                <div className="upload-icon"><Camera size={48} /></div>
-                <h3>Upload Screenshot</h3>
-                <p>Take a screenshot of the results screen and upload it here</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="file-input"
-                  disabled
-                />
-                <p className="coming-soon">Coming Soon</p>
+            {!extractedData ? (
+              <div className="ai-section">
+                <div className="ai-upload-area">
+                  <div className="upload-icon"><Upload size={48} /></div>
+                  <h3>Upload Screenshot</h3>
+                  <p>Take a screenshot of the Free Fire results screen</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="file-input"
+                    onChange={handleAIUpload}
+                    disabled={extracting}
+                  />
+                  {extracting && <p className="extracting-text">Extracting data...</p>}
+                </div>
+                <div className="ai-info">
+                  <p><strong>How it works:</strong></p>
+                  <ul>
+                    <li>Upload a screenshot of the match results</li>
+                    <li>AI will extract ranks, players, and kills</li>
+                    <li>First time: Map ranks to your teams</li>
+                    <li>Future matches: Auto-detect teams!</li>
+                  </ul>
+                </div>
               </div>
-              <p className="ai-info">
-                This feature will use AI to automatically detect team names, positions, and kills
-                from the screenshot. Please use the manual entry method for now.
-              </p>
-            </div>
+            ) : (
+              <div className="ai-results-section">
+                <div className="extraction-success">
+                  <h3>✅ Extraction Complete!</h3>
+                  <p>Detected {results.length} teams from screenshot</p>
+                </div>
+
+                <div className="results-section">
+                  <h3>Match Results</h3>
+                  {results.length > 0 ? (
+                    <div className="results-list">
+                      {results.map((result, idx) => (
+                        <div key={idx} className="result-card">
+                          <div className="result-card-header">
+                            <div className="team-info">
+                              <h4>{result.team_name}</h4>
+                              <span className="result-index">Rank #{result.position}</span>
+                            </div>
+                          </div>
+                          <div className="result-card-body">
+                            <div className="result-row">
+                              <div className="result-field readonly">
+                                <label>Position</label>
+                                <div className="value-display">{result.position}</div>
+                              </div>
+                              <div className="result-field readonly">
+                                <label>Kills</label>
+                                <div className="value-display">{result.kills}</div>
+                              </div>
+                            </div>
+                            <div className="result-row">
+                              <div className="result-field readonly">
+                                <label>Placement Points</label>
+                                <div className="value-display">{result.placement_points}</div>
+                              </div>
+                              <div className="result-field readonly">
+                                <label>Kill Points</label>
+                                <div className="value-display">{result.kill_points}</div>
+                              </div>
+                              <div className="result-field readonly highlight">
+                                <label>Total Points</label>
+                                <div className="value-display total">{result.total_points}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-results">
+                      <p>No teams matched. Please try again or use manual entry.</p>
+                    </div>
+                  )}
+                </div>
+
+                {results.length > 0 && (
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      onClick={() => { setExtractedData(null); setResults([]); setAiScreenshot(null) }}
+                      disabled={loading}
+                    >
+                      Upload Different Screenshot
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-submit"
+                      onClick={handleSubmit}
+                      disabled={loading}
+                    >
+                      {loading ? 'Submitting...' : 'Submit Results'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
+        {/* Rank Mapping Modal */}
+        <RankMappingModal
+          isOpen={showMappingModal}
+          extractedData={extractedData || []}
+          teams={teams}
+          onSave={handleSaveMapping}
+          onCancel={() => setShowMappingModal(false)}
+        />
       </div>
     </div>
   )

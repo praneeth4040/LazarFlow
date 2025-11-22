@@ -397,7 +397,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
                       className="icon-btn"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleEditTournament(tournament)
+                        handleEditClick(tournament)
                       }}
                       title="Edit Tournament"
                     >
