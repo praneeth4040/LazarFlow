@@ -399,6 +399,49 @@
     box-shadow: 0 2px 4px rgba(26, 115, 232, 0.15);
 }
 
+/* Card Actions - Icon Buttons */
+.card-actions {
+    display: flex;
+    gap: 0.75rem;
+    /* Increased gap between buttons */
+    align-items: center;
+}
+
+.icon-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 0.6rem;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    background: #f1f3f4;
+    color: var(--text-primary);
+    border-color: var(--accent-blue);
+    transform: translateY(-1px);
+}
+
+.icon-btn:active {
+    transform: translateY(0);
+}
+
+.icon-btn.delete-btn {
+    color: var(--danger-red);
+}
+
+.icon-btn.delete-btn:hover {
+    background: #fce8e6;
+    border-color: var(--danger-red);
+    color: var(--danger-red);
+}
+
+
 /* Profile Section */
 .profile-section {
     max-width: 800px;

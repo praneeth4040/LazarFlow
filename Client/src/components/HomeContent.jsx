@@ -5,7 +5,6 @@ import {
   MoreVertical,
   Plus,
   Trash2,
-  Share2,
   Edit,
   Table,
   Calculator,
@@ -13,14 +12,14 @@ import {
   Trophy,
   AlertCircle,
   Check,
-  X
+  X,
+  Radio
 } from 'lucide-react'
 import AddTeamsModal from './modals/AddTeamsModal'
 import CalculateResultsModal from './modals/CalculateResultsModal'
 import EditTournamentModal from './modals/EditTournamentModal'
-import ShareTournamentModal from './modals/ShareTournamentModal'
-import PointsTableModal from './modals/PointsTableModal'
 import CreateTournamentModal from './modals/CreateTournamentModal'
+import LiveTournamentModal from './modals/LiveTournamentModal'
 import './TabContent.css'
 
 function HomeContent({ newTournament, onTournamentProcessed }) {
@@ -34,10 +33,9 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const [calculateTournament, setCalculateTournament] = useState(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editTournament, setEditTournament] = useState(null)
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
-  const [shareTournament, setShareTournament] = useState(null)
-  const [isPointsTableOpen, setIsPointsTableOpen] = useState(false)
-  const [pointsTableTournament, setPointsTableTournament] = useState(null)
+  const [isLiveModalOpen, setIsLiveModalOpen] = useState(false)
+  const [liveTournament, setLiveTournament] = useState(null)
+
   // State for AI extraction (assuming these are needed for the new AI card)
   const [extracting, setExtracting] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false) // Assuming this state is needed for the empty state button
@@ -162,27 +160,9 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     fetchTournaments()
   }
 
-  const handleShareClick = (tournament) => {
-    console.log('Opening share modal for:', tournament.name)
-    setShareTournament(tournament)
-    setIsShareModalOpen(true)
-  }
 
-  const handleCloseShareModal = () => {
-    setIsShareModalOpen(false)
-    setShareTournament(null)
-  }
 
-  const handleTablesClick = (tournament) => {
-    console.log('Opening points table modal for:', tournament.name)
-    setPointsTableTournament(tournament)
-    setIsPointsTableOpen(true)
-  }
 
-  const handleClosePointsTableModal = () => {
-    setIsPointsTableOpen(false)
-    setPointsTableTournament(null)
-  }
 
   const getTeamCount = async (tournamentId) => {
     try {
@@ -330,9 +310,15 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     }
   }
 
-  const handleEditTournament = (tournament) => {
-    console.log('Opening edit menu for:', tournament.name)
-    handleEditClick(tournament)
+  const handleGoLive = (tournament) => {
+    console.log('Opening live modal for:', tournament.name)
+    setLiveTournament(tournament)
+    setIsLiveModalOpen(true)
+  }
+
+  const handleCloseLiveModal = () => {
+    setIsLiveModalOpen(false)
+    setLiveTournament(null)
   }
 
   // Placeholder for AI extraction function, as it's referenced in the new snippet
@@ -391,31 +377,21 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
                       className="icon-btn"
                       onClick={(e) => {
                         e.stopPropagation()
+                        handleGoLive(tournament)
+                      }}
+                      title="Go Live"
+                    >
+                      <Radio size={18} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
                         handleCalculateClick(tournament)
                       }}
                       title="Calculate Points"
                     >
                       <Calculator size={18} />
-                    </button>
-                    <button
-                      className="icon-btn"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleTablesClick(tournament)
-                      }}
-                      title="View Table"
-                    >
-                      <Table size={18} />
-                    </button>
-                    <button
-                      className="icon-btn"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleShareClick(tournament)
-                      }}
-                      title="Share"
-                    >
-                      <Share2 size={18} />
                     </button>
                     <button
                       className="icon-btn"
@@ -482,25 +458,21 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         onUpdate={handleEditTournamentSave}
       />
 
-      {/* Share Tournament Modal */}
-      <ShareTournamentModal
-        isOpen={isShareModalOpen}
-        onClose={handleCloseShareModal}
-        tournament={shareTournament}
-      />
 
-      {/* Points Table Modal */}
-      <PointsTableModal
-        isOpen={isPointsTableOpen}
-        onClose={handleClosePointsTableModal}
-        tournament={pointsTableTournament}
-      />
+
+
 
       {/* Create Tournament Modal */}
       <CreateTournamentModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSubmit={handleCreateTournament}
+      />
+      {/* Live Tournament Modal */}
+      <LiveTournamentModal
+        isOpen={isLiveModalOpen}
+        onClose={handleCloseLiveModal}
+        tournament={liveTournament}
       />
     </div>
   )

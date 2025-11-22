@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
+import { supabase } from '../../lib/supabaseClient'
 import './TeamDetailsModal.css'
 
 const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
@@ -20,12 +21,26 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
 
   const handleSaveEdit = async (teamId) => {
     console.log('Saving team edit:', editingTeam)
-    // TODO: Save to database
-    setLocalTeams(
-      localTeams.map(t => (t.id === teamId ? editingTeam : t))
-    )
-    setEditingTeamId(null)
-    setEditingTeam(null)
+
+    try {
+      const { error } = await supabase
+        .from('tournament_teams')
+        .update({
+          team_name: editingTeam.team_name
+        })
+        .eq('id', teamId)
+
+      if (error) throw error
+
+      setLocalTeams(
+        localTeams.map(t => (t.id === teamId ? editingTeam : t))
+      )
+      setEditingTeamId(null)
+      setEditingTeam(null)
+    } catch (error) {
+      console.error('Error updating team:', error)
+      alert('Failed to save changes')
+    }
   }
 
   const handleInputChange = (field, value) => {

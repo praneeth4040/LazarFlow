@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutDashboard, Trophy, Globe, User, Plus, X, LogOut } from 'lucide-react'
+import { LayoutDashboard, Trophy, User, Plus, X, LogOut } from 'lucide-react'
 import './Sidebar.css'
 
 function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
@@ -51,17 +51,6 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
           >
             <Trophy size={20} />
             <span className="nav-label">LazarEon</span>
-          </button>
-
-          <button
-            className={`nav-item ${activeTab === 'hub' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('hub');
-              if (window.innerWidth < 768) onClose();
-            }}
-          >
-            <Globe size={20} />
-            <span className="nav-label">Lazar Hub</span>
           </button>
 
           <button

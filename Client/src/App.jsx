@@ -4,6 +4,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Dashboard from './pages/Dashboard'
+import LiveTournament from './pages/LiveTournament'
 import './App.css'
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/live/:liveid" element={<LiveTournament />} />
       </Routes>
     </Router>
   )

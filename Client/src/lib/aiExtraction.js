@@ -15,7 +15,7 @@
  *   ]
  * }
  */
-const API_ENDPOINT = 'http://localhost:5000/api/extract-teams'
+const API_ENDPOINT = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/extract-teams'
 
 export const extractTeamsFromText = async (text) => {
   console.log('🔍 Calling team extraction API...')
@@ -34,7 +34,7 @@ export const extractTeamsFromText = async (text) => {
     }
 
     const data = await response.json()
-    
+
     if (data.teams && Array.isArray(data.teams)) {
       console.log(`✅ API returned ${data.teams.length} teams`)
       // Map strings to objects if needed, or ensure format matches expected {name: string}

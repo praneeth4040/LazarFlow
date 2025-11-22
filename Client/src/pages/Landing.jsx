@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { TrendingUp, Trophy, Settings, Smartphone, Shield, Zap, Download, Cloud } from 'lucide-react'
+import { Trophy, Settings, Smartphone, Shield, Zap, Download, Cloud } from 'lucide-react'
 import './Landing.css'
 
 function Landing() {
@@ -103,33 +103,26 @@ function Landing() {
           </div>
           <div className="feature-card scroll-hidden" style={{ transitionDelay: '100ms' }}>
             <div className="feature-icon">
-              <TrendingUp size={32} />
-            </div>
-            <h3>LazarHub</h3>
-            <p>An Open marketplace to share leaderboards and connect with the esports community.</p>
-          </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '200ms' }}>
-            <div className="feature-icon">
               <Trophy size={32} />
             </div>
             <h3>Tournament Ready</h3>
             <p>Manage multiple tournaments simultaneously with ease.</p>
           </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '300ms' }}>
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '200ms' }}>
             <div className="feature-icon">
               <Settings size={32} />
             </div>
             <h3>Fully Customizable</h3>
             <p>Configure scoring systems to your specific tournament rules.</p>
           </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '400ms' }}>
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '300ms' }}>
             <div className="feature-icon">
               <Smartphone size={32} />
             </div>
             <h3>Mobile Friendly</h3>
             <p>Perfect viewing experience on all devices, anywhere, anytime.</p>
           </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '500ms' }}>
+          <div className="feature-card scroll-hidden" style={{ transitionDelay: '400ms' }}>
             <div className="feature-icon">
               <Shield size={32} />
             </div>

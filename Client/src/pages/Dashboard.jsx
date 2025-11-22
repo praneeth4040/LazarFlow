@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabaseClient'
 import Sidebar from '../components/Sidebar'
 import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
-import LazarHubContent from '../components/LazarHubContent'
 import ProfileContent from '../components/ProfileContent'
 import CreateTournamentModal from '../components/modals/CreateTournamentModal'
 import './Dashboard.css'
@@ -109,8 +108,6 @@ function Dashboard() {
         return <HomeContent newTournament={newTournament} onTournamentProcessed={() => setNewTournament(null)} />
       case 'lazareon':
         return <LazarEonContent />
-      case 'hub':
-        return <LazarHubContent />
       case 'profile':
         return <ProfileContent user={user} onLogout={handleLogout} />
       default:
