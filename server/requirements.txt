@@ -3,3 +3,4 @@ flask-cors
 python-dotenv
 langchain
 langchain-google-genai
+Pillow
