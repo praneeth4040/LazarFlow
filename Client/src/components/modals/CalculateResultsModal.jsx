@@ -120,15 +120,16 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
 
   // AI Extraction Handlers
   const handleAIUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
 
     try {
       setExtracting(true)
-      setAiScreenshot(file)
+      // Use the first image as preview if needed, or just set a flag
+      setAiScreenshot(files[0])
 
-      // Extract data from screenshot
-      const extracted = await extractResultsFromScreenshot(file)
+      // Extract data from screenshots
+      const extracted = await extractResultsFromScreenshot(files)
       setExtractedData(extracted)
 
       // Check if teams need mapping (first time)
@@ -460,6 +461,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="file-input"
                     onChange={handleAIUpload}
                     disabled={extracting}

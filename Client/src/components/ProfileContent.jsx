@@ -47,19 +47,7 @@ function ProfileContent({ user, onLogout }) {
             </div>
           </div>
 
-          <div className="profile-card">
-            <h4>Preferences</h4>
-            <div className="preference-item">
-              <label>
-                <input type="checkbox" defaultChecked /> Email notifications
-              </label>
-            </div>
-            <div className="preference-item">
-              <label>
-                <input type="checkbox" defaultChecked /> Tournament updates
-              </label>
-            </div>
-          </div>
+
 
           <div className="danger-zone">
             <h4>Danger Zone</h4>

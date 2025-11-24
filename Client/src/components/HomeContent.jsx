@@ -229,7 +229,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       const teamsData = teams.map(team => ({
         tournament_id: selectedTournament.id,
         team_name: team.name || team, // Handle both object and string formats
-        members: [],
+        members: team.members || [],
         total_points: {
           matches_played: 0,
           wins: 0,

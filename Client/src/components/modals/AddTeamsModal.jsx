@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { extractTeamsFromText, extractTeamsLocally } from '../../lib/aiExtraction'
-import { PenLine, Bot, Plus, X, Loader2 } from 'lucide-react'
+import { PenLine, Bot, Plus, X, Loader2, User } from 'lucide-react'
+import AddMembersModal from './AddMembersModal'
 import './AddTeamsModal.css'
 
 const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
@@ -9,6 +10,21 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
   const [currentTeam, setCurrentTeam] = useState('')
   const [aiText, setAiText] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Member addition state
+  const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
+  const [selectedTeamIndex, setSelectedTeamIndex] = useState(null)
+
+  const handleAddMembersClick = (index) => {
+    setSelectedTeamIndex(index)
+    setIsMembersModalOpen(true)
+  }
+
+  const handleSaveMembers = (members) => {
+    const newTeams = [...teams]
+    newTeams[selectedTeamIndex].members = members
+    setTeams(newTeams)
+  }
 
   // Manual mode: Add single team
   const handleAddTeam = () => {
@@ -62,8 +78,8 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
   }
 
   const handleSubmit = () => {
-    if (teams.length === 0) {
-      alert('Please add at least one team')
+    if (teams.length < 2) {
+      alert('Please add at least 2 teams to create a tournament')
       return
     }
 
@@ -157,6 +173,15 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
                     </span>
                     <button
                       className="remove-btn"
+                      onClick={() => handleAddMembersClick(index)}
+                      title="Add Members"
+                      style={{ marginRight: '8px', color: team.members?.length > 0 ? '#646cff' : '#888' }}
+                    >
+                      <User size={16} />
+                      {team.members?.length > 0 && <span style={{ marginLeft: '4px', fontSize: '0.8rem' }}>{team.members.length}</span>}
+                    </button>
+                    <button
+                      className="remove-btn"
                       onClick={() => handleRemoveTeam(index)}
                       title="Remove team"
                     >
@@ -183,6 +208,14 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
           </button>
         </div>
       </div>
+
+      <AddMembersModal
+        isOpen={isMembersModalOpen}
+        onClose={() => setIsMembersModalOpen(false)}
+        teamName={selectedTeamIndex !== null ? teams[selectedTeamIndex]?.name : ''}
+        currentMembers={selectedTeamIndex !== null ? teams[selectedTeamIndex]?.members : []}
+        onSave={handleSaveMembers}
+      />
     </div>
   )
 }

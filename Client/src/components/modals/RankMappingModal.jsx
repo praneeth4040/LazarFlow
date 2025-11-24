@@ -85,11 +85,20 @@ const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) =>
                                             className={`team-select ${selectedTeamId ? 'selected' : ''}`}
                                         >
                                             <option value="">Select Team...</option>
-                                            {teams.map(team => (
-                                                <option key={team.id} value={team.id}>
-                                                    {team.team_name}
-                                                </option>
-                                            ))}
+                                            {teams.map(team => {
+                                                const isSelectedElsewhere = Object.entries(mappings).some(
+                                                    ([rank, teamId]) => teamId === team.id && parseInt(rank) !== rankData.rank
+                                                )
+                                                return (
+                                                    <option
+                                                        key={team.id}
+                                                        value={team.id}
+                                                        disabled={isSelectedElsewhere}
+                                                    >
+                                                        {team.team_name} {isSelectedElsewhere ? '(Assigned)' : ''}
+                                                    </option>
+                                                )
+                                            })}
                                         </select>
                                         {selectedTeamId && (
                                             <Check size={20} className="check-icon" />

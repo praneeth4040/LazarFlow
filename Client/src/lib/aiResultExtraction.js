@@ -6,17 +6,21 @@
 const API_ENDPOINT = import.meta.env.VITE_AI_EXTRACTION_API || 'http://localhost:5000/api/extract-results'
 
 /**
- * Extract tournament results from screenshot
- * @param {File} imageFile - Screenshot file
+ * Extract tournament results from screenshots
+ * @param {Array<File>} imageFiles - Array of screenshot files
  * @returns {Promise<Array>} Extracted rank data
  */
-export const extractResultsFromScreenshot = async (imageFile) => {
-    console.log('🔍 Extracting results from screenshot...')
+export const extractResultsFromScreenshot = async (imageFiles) => {
+    console.log(`🔍 Extracting results from ${imageFiles.length} screenshots...`)
 
     try {
         // Create FormData for image upload
         const formData = new FormData()
-        formData.append('image', imageFile)
+
+        // Append all images
+        imageFiles.forEach(file => {
+            formData.append('images', file)
+        })
 
         // Call AI API
         const response = await fetch(API_ENDPOINT, {
