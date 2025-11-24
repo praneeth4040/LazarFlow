@@ -3,7 +3,7 @@
  * Extracts tournament results from Free Fire screenshots
  */
 
-const API_ENDPOINT = import.meta.env.VITE_AI_EXTRACTION_API || 'http://localhost:5000/api/extract-results'
+const API_ENDPOINT = import.meta.env.VITE_AI_EXTRACTION_API || 'https://lazarflow-backend.onrender.com/api/extract-results'
 
 /**
  * Extract tournament results from screenshots

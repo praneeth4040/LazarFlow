@@ -27,7 +27,7 @@ app = Flask(__name__)
 
 # CORS Configuration
 # Get allowed origins from environment variable or use defaults
-ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:3000').split(',')
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'https://lazar-flow.vercel.app,http://localhost:5173').split(',')
 CORS(app, resources={
     r"/api/*": {
         "origins": ALLOWED_ORIGINS,

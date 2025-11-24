@@ -48,18 +48,18 @@ In the Render dashboard, add the following environment variables:
 |-----|-------|-------------|
 | `ENVIRONMENT` | `production` | Sets the environment mode |
 | `GOOGLE_API_KEY` | `your_actual_api_key` | Your Google Gemini API key |
-| `ALLOWED_ORIGINS` | `https://your-frontend-url.com,http://localhost:5173` | Comma-separated list of allowed CORS origins |
+| `ALLOWED_ORIGINS` | `https://lazar-flow.vercel.app,http://localhost:5173` | Comma-separated list of allowed CORS origins |
 
 > [!IMPORTANT]
 > Replace `your_actual_api_key` with your actual Google API key from Google Cloud Console.
-> Replace `https://your-frontend-url.com` with your production frontend URL.
+> The production frontend URL is: `https://lazar-flow.vercel.app`
 
 ### 5. Deploy
 
 1. Click **"Create Web Service"**
 2. Render will automatically build and deploy your application
 3. Wait for the deployment to complete (usually 2-5 minutes)
-4. Your server will be available at: `https://lazarflow-server.onrender.com` (or your chosen name)
+4. Your server will be available at: `https://lazarflow-backend.onrender.com`
 
 ### 6. Verify Deployment
 
@@ -67,7 +67,7 @@ Test your deployed server:
 
 ```bash
 # Health check
-curl https://your-app-name.onrender.com/health
+curl https://lazarflow-backend.onrender.com/health
 
 # Expected response:
 # {"status":"healthy","environment":"production","version":"1.0.0"}
@@ -78,8 +78,9 @@ curl https://your-app-name.onrender.com/health
 Update your frontend to use the production API URL:
 
 ```javascript
-// In your frontend .env or config file
-VITE_API_URL=https://your-app-name.onrender.com
+// In your frontend .env or Vercel environment variables
+VITE_API_URL=https://lazarflow-backend.onrender.com
+VITE_AI_EXTRACTION_API=https://lazarflow-backend.onrender.com
 ```
 
 ## Monitoring and Logs
@@ -145,7 +146,7 @@ To manually trigger a deployment:
 |----------|----------|---------|-------------|
 | `ENVIRONMENT` | No | `development` | Environment mode (`development` or `production`) |
 | `GOOGLE_API_KEY` | Yes | - | Google Gemini API key for AI extraction |
-| `ALLOWED_ORIGINS` | No | `http://localhost:5173,http://localhost:3000` | Comma-separated CORS origins |
+| `ALLOWED_ORIGINS` | No | `https://lazar-flow.vercel.app,http://localhost:5173` | Comma-separated CORS origins |
 | `PORT` | No | Auto-set by Render | Server port (automatically set by Render) |
 
 ## Security Best Practices

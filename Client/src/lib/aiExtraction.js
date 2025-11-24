@@ -15,7 +15,7 @@
  *   ]
  * }
  */
-const API_ENDPOINT = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/extract-teams'
+const API_ENDPOINT = import.meta.env.VITE_API_URL || 'https://lazarflow-backend.onrender.com/api/extract-teams'
 
 export const extractTeamsFromText = async (text) => {
   console.log('🔍 Calling team extraction API...')
