@@ -2,14 +2,40 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 import os
-from ai_service import extract_teams_from_text
-from image_extraction_service import extract_results_from_image
+import logging
+
+# Use relative imports for Gunicorn compatibility
+try:
+    from .ai_service import extract_teams_from_text
+    from .image_extraction_service import extract_results_from_image
+except ImportError:
+    # Fallback for direct execution
+    from ai_service import extract_teams_from_text
+    from image_extraction_service import extract_results_from_image
 
 # Load environment variables
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes
+
+# CORS Configuration
+# Get allowed origins from environment variable or use defaults
+ALLOWED_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:3000').split(',')
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ALLOWED_ORIGINS,
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "max_age": 3600
+    }
+})
 
 # File upload configuration
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
@@ -25,7 +51,12 @@ def hello_world():
 
 @app.route('/health')
 def health_check():
-    return jsonify({"status": "healthy"})
+    """Health check endpoint for monitoring"""
+    return jsonify({
+        "status": "healthy",
+        "environment": os.getenv('ENVIRONMENT', 'development'),
+        "version": "1.0.0"
+    })
 
 @app.route('/api/extract-teams', methods=['POST'])
 def extract_teams():
@@ -66,14 +97,14 @@ def extract_results():
                 "error": "No selected files"
             }), 400
             
-        print(f"📥 Received {len(image_files)} images")
+        logger.info(f"📥 Received {len(image_files)} images")
         
         all_results_map = {}
         
         for image_file in image_files:
             # Validate file type
             if not allowed_file(image_file.filename):
-                print(f"⚠️ Skipping invalid file: {image_file.filename}")
+                logger.warning(f"⚠️ Skipping invalid file: {image_file.filename}")
                 continue
             
             # Check file size
@@ -82,10 +113,10 @@ def extract_results():
             image_file.seek(0)
             
             if file_size > MAX_FILE_SIZE:
-                print(f"⚠️ Skipping large file: {image_file.filename}")
+                logger.warning(f"⚠️ Skipping large file: {image_file.filename}")
                 continue
             
-            print(f"Processing {image_file.filename} ({file_size / 1024:.2f} KB)...")
+            logger.info(f"Processing {image_file.filename} ({file_size / 1024:.2f} KB)...")
             
             try:
                 # Extract results from image
@@ -106,7 +137,7 @@ def extract_results():
                         all_results_map[rank] = result
                         
             except Exception as e:
-                print(f"❌ Error processing {image_file.filename}: {e}")
+                logger.error(f"❌ Error processing {image_file.filename}: {e}")
                 # Continue with other images even if one fails
         
         # Convert map to list and sort by rank
@@ -127,7 +158,7 @@ def extract_results():
                 first_image.seek(0)
                 # storage_info = store_results_in_supabase(...) # Uncomment if storage is needed
             except Exception as e:
-                print(f"⚠️ Storage warning: {e}")
+                logger.warning(f"⚠️ Storage warning: {e}")
         
         return jsonify({
             "success": True,
@@ -138,14 +169,14 @@ def extract_results():
         
     except ValueError as e:
         # Client errors (bad input, validation failures)
-        print(f"❌ Validation error: {e}")
+        logger.error(f"❌ Validation error: {e}")
         return jsonify({
             "success": False,
             "error": str(e)
         }), 400
     except Exception as e:
         # Server errors (API failures, etc.)
-        print(f"❌ Server error: {e}")
+        logger.error(f"❌ Server error: {e}", exc_info=True)
         return jsonify({
             "success": False,
             "error": "Internal server error. Please try again."
@@ -157,12 +188,12 @@ if __name__ == '__main__':
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
-        print(f"❌ Missing environment variables: {', '.join(missing_vars)}")
-        print("Please set them in .env file")
+        logger.error(f"❌ Missing environment variables: {', '.join(missing_vars)}")
+        logger.error("Please set them in .env file")
         exit(1)
     
-    print("✅ All environment variables set")
-    print("🚀 Starting LazarFlow Server...")
+    logger.info("✅ All environment variables set")
+    logger.info("🚀 Starting LazarFlow Server...")
     app.run(debug=True, port=5000)
 
 

@@ -1,6 +1,14 @@
-flask
-flask-cors
-python-dotenv
-langchain
-langchain-google-genai
-Pillow
+# Core Flask dependencies
+flask==3.0.0
+flask-cors==4.0.0
+python-dotenv==1.0.0
+
+# Production WSGI server
+gunicorn==21.2.0
+
+# AI/ML dependencies
+langchain==0.3.27
+langchain-google-genai==2.0.4
+
+# Image processing
+Pillow==12.0.0
