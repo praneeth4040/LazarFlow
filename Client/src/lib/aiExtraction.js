@@ -37,8 +37,8 @@ export const extractTeamsFromText = async (text) => {
 
     if (data.teams && Array.isArray(data.teams)) {
       console.log(`✅ API returned ${data.teams.length} teams`)
-      // Map strings to objects if needed, or ensure format matches expected {name: string}
-      return data.teams.map(name => ({ name }))
+      // Map strings to objects with name property
+      return data.teams.map(team => ({ name: team }))
     } else {
       throw new Error('Invalid response format')
     }
