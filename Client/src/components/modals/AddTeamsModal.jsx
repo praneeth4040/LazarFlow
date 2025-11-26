@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { extractTeamsFromText, extractTeamsLocally } from '../../lib/aiExtraction'
+import { extractTeamsFromText } from '../../lib/aiExtraction'
 import { PenLine, Bot, Plus, X, Loader2, User } from 'lucide-react'
 import AddMembersModal from './AddMembersModal'
 import './AddTeamsModal.css'
@@ -48,16 +48,9 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
 
     setLoading(true)
     try {
-      console.log('🤖 Extracting teams from AI mode...')
+      console.log('🤖 Extracting teams using AI backend...')
 
-      // Try API first
-      let extractedTeams = await extractTeamsFromText(aiText)
-
-      // Fallback to local extraction if API fails
-      if (!extractedTeams) {
-        console.log('⚙️ Using fallback local extraction...')
-        extractedTeams = extractTeamsLocally(aiText)
-      }
+      const extractedTeams = await extractTeamsFromText(aiText)
 
       if (!extractedTeams || extractedTeams.length === 0) {
         alert('No teams could be extracted. Please check the format and try again.')
@@ -70,8 +63,8 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
       setAiText('')
       alert(`✅ Extracted ${extractedTeams.length} teams!`)
     } catch (err) {
-      console.error('Error extracting teams:', err)
-      alert('Error extracting teams. Please try again.')
+      console.error('❌ Error extracting teams:', err)
+      alert(`Error extracting teams: ${err.message || 'Please check your connection and try again.'}`)
     } finally {
       setLoading(false)
     }

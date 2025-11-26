@@ -1,78 +1,115 @@
 import os
 import json
 import re
+import logging
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 def extract_teams_from_text(text):
     """
-    Extracts a list of team names from unstructured text using Google Gemini
-    and returns a JSON object compatible with your frontend.
+    Extracts a list of team names from unstructured text using Google Gemini.
+    
+    Args:
+        text (str): Unstructured text containing team names
+        
+    Returns:
+        list: List of team name strings
+        
+    Raises:
+        ValueError: If input is invalid or API key is missing
     """
+    logger.info("🔍 Starting team extraction from text")
+    
+    # Input validation
+    if not text or not isinstance(text, str):
+        logger.error("❌ Invalid input: text is empty or not a string")
+        raise ValueError("Text input is required and must be a string")
+    
+    if len(text.strip()) == 0:
+        logger.warning("⚠️ Empty text provided after stripping whitespace")
+        return []
+    
+    logger.info(f"📝 Input text length: {len(text)} characters")
 
+    # Check API key
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
+        logger.error("❌ GOOGLE_API_KEY environment variable not set")
         raise ValueError("GOOGLE_API_KEY environment variable not set")
 
-    # Initialize Gemini model
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-pro",
-        google_api_key=api_key
-    )
-
-    # Prompt template
-    template = """
-    You are an AI that extracts esports team names from unstructured text.
-
-    Extract ONLY the team names and return ONLY a JSON array of strings.
-    NO explanations, NO markdown.
-
-    Text:
-    {text}
-
-    JSON Output:
-    """
-
-    prompt = PromptTemplate(
-        template=template,
-        input_variables=["text"]
-    )
-
-    # Build chain
-    chain = prompt | llm
-
     try:
+        # Initialize Gemini model
+        logger.info("🤖 Initializing Gemini model (gemini-2.5-pro)")
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-pro",
+            google_api_key=api_key
+        )
+
+        # Prompt template
+        template = """
+        You are an AI that extracts esports team names from unstructured text.
+
+        Extract ONLY the team names and return ONLY a JSON array of strings.
+        NO explanations, NO markdown.
+
+        Text:
+        {text}
+
+        JSON Output:
+        """
+
+        prompt = PromptTemplate(
+            template=template,
+            input_variables=["text"]
+        )
+
+        # Build chain
+        chain = prompt | llm
+
         # Invoke model
+        logger.info("📡 Calling Gemini API...")
         response = chain.invoke({"text": text})
         content = response.content.strip()
+        
+        logger.info(f"📥 Received response from Gemini (length: {len(content)} chars)")
+        logger.debug(f"Raw response: {content[:200]}...")  # Log first 200 chars
 
         # Remove backticks if LLM adds them
         content = content.replace("```json", "").replace("```", "").strip()
 
-        # Extract only the JSON array using regex (very safe)
+        # Extract only the JSON array using regex
         json_match = re.search(r"\[[\s\S]*\]", content)
         if not json_match:
+            logger.error("❌ No JSON array found in LLM output")
+            logger.debug(f"Content received: {content}")
             raise ValueError("No JSON array found in LLM output")
 
         json_text = json_match.group(0)
+        logger.debug(f"Extracted JSON: {json_text[:200]}...")
+        
         teams = json.loads(json_text)
 
         # Force all entries to strings
         if isinstance(teams, list):
-            teams = [str(t) for t in teams]
+            teams = [str(t).strip() for t in teams if t]  # Also strip and filter empty
         else:
+            logger.warning("⚠️ Parsed result is not a list, returning empty array")
             teams = []
 
-        # Final response (IMPORTANT FOR FRONTEND)
-        return {
-            "success": True,
-            "teams": teams
-        }
+        logger.info(f"✅ Successfully extracted {len(teams)} teams")
+        logger.debug(f"Teams: {teams}")
+        
+        return teams
 
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON parsing error: {e}")
+        logger.debug(f"Failed to parse: {json_text if 'json_text' in locals() else 'N/A'}")
+        raise ValueError(f"Failed to parse JSON from AI response: {e}")
+    
     except Exception as e:
-        print("Error extracting teams:", e)
-        return {
-            "success": False,
-            "teams": []
-        }
+        logger.error(f"❌ Error extracting teams: {type(e).__name__}: {e}", exc_info=True)
+        raise

@@ -1,9 +1,4 @@
-/**
- * AI Result Extraction Service
- * Extracts tournament results from Free Fire screenshots
- */
-
-const API_ENDPOINT = import.meta.env.VITE_AI_EXTRACTION_API || 'https://lazarflow-backend.onrender.com/api/extract-results'
+import apiClient from './apiClient'
 
 /**
  * Extract tournament results from screenshots
@@ -13,110 +8,27 @@ const API_ENDPOINT = import.meta.env.VITE_AI_EXTRACTION_API || 'https://lazarflo
 export const extractResultsFromScreenshot = async (imageFiles) => {
     console.log(`🔍 Extracting results from ${imageFiles.length} screenshots...`)
 
-    try {
-        // Create FormData for image upload
-        const formData = new FormData()
+    // Create FormData for image upload
+    const formData = new FormData()
 
-        // Append all images
-        imageFiles.forEach(file => {
-            formData.append('images', file)
-        })
+    // Append all images
+    imageFiles.forEach(file => {
+        formData.append('images', file)
+    })
 
-        // Call AI API
-        const response = await fetch(API_ENDPOINT, {
-            method: 'POST',
-            body: formData
-        })
-
-        if (!response.ok) {
-            throw new Error(`API error: ${response.status}`)
+    // Call AI API with FormData (axios automatically sets correct Content-Type)
+    const response = await apiClient.post('/api/extract-results', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
         }
+    })
 
-        const data = await response.json()
-
-        if (data.success && data.results && Array.isArray(data.results)) {
-            console.log(`✅ Extracted ${data.results.length} ranks from screenshot`)
-            return data.results
-        } else {
-            throw new Error('Invalid API response format')
-        }
-
-    } catch (error) {
-        console.error('❌ API extraction failed:', error)
-        console.log('⚙️ Using mock data for demo...')
-
-        // Fallback to mock data for testing
-        return getMockExtractionData()
+    if (response.data.success && response.data.results && Array.isArray(response.data.results)) {
+        console.log(`✅ Extracted ${response.data.results.length} ranks from screenshot`)
+        return response.data.results
+    } else {
+        throw new Error('Invalid API response format')
     }
-}
-
-/**
- * Mock extraction data for testing
- * Simulates AI extraction output
- */
-const getMockExtractionData = () => {
-    return [
-        {
-            rank: 1,
-            players: ["4R RAINOX!!", "LE DAKSH!!", "4R SCOUT!!", "Gold!.z7"],
-            eliminations: 20
-        },
-        {
-            rank: 2,
-            players: ["XM•RAIDEN", "XM•HUSSAIN", "HIMU•BHAGWAN", "XM•KRISHU5"],
-            eliminations: 15
-        },
-        {
-            rank: 3,
-            players: ["DMS•PURE", "DMS•IGNIS 13", "DMS•AMGOD", "DMS•AATANK"],
-            eliminations: 12
-        },
-        {
-            rank: 4,
-            players: ["DAD•DINO 69", "BFA DEBRAJ", "TSG EXPORT", "RNTE•KRISH"],
-            eliminations: 10
-        },
-        {
-            rank: 5,
-            players: ["Supreme.OB!", "SINNU", "ANGAD.071", "SYN CAPTAIN"],
-            eliminations: 8
-        },
-        {
-            rank: 6,
-            players: ["C:B-X•WinG", "RAAYAN", "HerLastSin", "C:B.Zuhaib!"],
-            eliminations: 7
-        },
-        {
-            rank: 7,
-            players: ["RBG.VAIBHAV", "RBG.ROHIT", "THE OG 07", "RBG.ROBIN"],
-            eliminations: 6
-        },
-        {
-            rank: 8,
-            players: ["GZ BHAVESH !", "GZ BHAVESH", "GZ BHAVESH 2", "GZ BHAVESH 3"],
-            eliminations: 5
-        },
-        {
-            rank: 9,
-            players: ["FG.Invicto !", "KK•ANSH.07", "TUX.ATHKB", "KK•Addy.28"],
-            eliminations: 4
-        },
-        {
-            rank: 10,
-            players: ["VAIBHAV", "PA•TOPIO", "PA•FLASH.11", "PA•JENAM01"],
-            eliminations: 3
-        },
-        {
-            rank: 11,
-            players: ["WIB ARAVNOOB", "WIB AWSOM", "WIB ERROR", "WIB AMAAN"],
-            eliminations: 2
-        },
-        {
-            rank: 12,
-            players: ["TEAM12•P1", "TEAM12•P2", "TEAM12•P3", "TEAM12•P4"],
-            eliminations: 1
-        }
-    ]
 }
 
 /**
