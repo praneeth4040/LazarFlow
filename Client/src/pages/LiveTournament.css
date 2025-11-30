@@ -27,7 +27,43 @@
     margin: 0 auto;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 1rem;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.download-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #0ea5e9;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: inherit;
+}
+
+.download-btn:hover {
+    background-color: #0284c7;
+}
+
+@media (max-width: 640px) {
+    .btn-text {
+        display: none;
+    }
+
+    .download-btn {
+        padding: 0.5rem;
+    }
 }
 
 .trophy-icon {
@@ -150,18 +186,127 @@
     font-size: 1.1rem;
 }
 
-/* Responsive */
+/* Responsive Card Layout */
 @media (max-width: 640px) {
-
-    .matches-col,
-    .wins-col,
-    .kills-col,
-    .place-col {
+    .standings-table thead {
         display: none;
     }
 
-    .standings-table th,
+    .standings-table,
+    .standings-table tbody,
+    .standings-table tr,
     .standings-table td {
-        padding: 0.75rem 0.5rem;
+        display: block;
+        width: 100%;
     }
+
+    .standings-table tr {
+        margin-bottom: 1rem;
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 1rem;
+        position: relative;
+    }
+
+    .standings-table td {
+        text-align: right;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #334155;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .standings-table td:last-child {
+        border-bottom: none;
+    }
+
+    .standings-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+    }
+
+    /* Special styling for Rank and Team */
+    .standings-table td.rank-col {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        width: auto;
+        border: none;
+        padding: 0;
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+
+    .standings-table td.rank-col::before {
+        display: none;
+    }
+
+    .standings-table td.team-col {
+        text-align: left;
+        padding-left: 2.5rem;
+        font-size: 1.1rem;
+        border-bottom: 2px solid #334155;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.75rem;
+        display: block;
+        color: #f8fafc;
+    }
+
+    .standings-table td.team-col::before {
+        display: none;
+    }
+}
+
+/* Force Desktop Styles for Image Generation */
+.force-desktop .standings-table {
+    display: table !important;
+}
+
+.force-desktop .standings-table thead {
+    display: table-header-group !important;
+}
+
+.force-desktop .standings-table tbody {
+    display: table-row-group !important;
+}
+
+.force-desktop .standings-table tr {
+    display: table-row !important;
+    margin-bottom: 0 !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+.force-desktop .standings-table td {
+    display: table-cell !important;
+    width: auto !important;
+    text-align: center !important;
+    padding: 1rem !important;
+    border-bottom: 1px solid #334155 !important;
+}
+
+.force-desktop .standings-table td::before {
+    display: none !important;
+}
+
+.force-desktop .standings-table td.team-col {
+    text-align: left !important;
+    padding-left: 1rem !important;
+    border-bottom: 1px solid #334155 !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 1rem !important;
+}
+
+.force-desktop .standings-table td.rank-col {
+    position: static !important;
+    width: auto !important;
+    border-bottom: 1px solid #334155 !important;
+    padding: 1rem !important;
+    font-size: inherit !important;
 }

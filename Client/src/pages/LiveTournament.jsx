@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { Trophy, AlertCircle } from 'lucide-react'
+import { Trophy, AlertCircle, Download } from 'lucide-react'
+import html2canvas from 'html2canvas'
 import './LiveTournament.css'
 
 const LiveTournament = () => {
@@ -62,6 +63,59 @@ const LiveTournament = () => {
         }
     }
 
+    const handleDownloadImage = async () => {
+        const element = document.querySelector('.standings-card')
+        if (!element) return
+
+        try {
+            const canvas = await html2canvas(element, {
+                backgroundColor: '#1e293b', // Match card background
+                scale: 2, // Higher quality
+                windowWidth: 1400, // Force desktop width to bypass mobile media queries
+                onclone: (clonedDoc) => {
+                    const clonedElement = clonedDoc.querySelector('.standings-card')
+                    if (clonedElement) {
+                        // 1. Force a fixed width on the clone
+                        clonedElement.style.width = '1200px'
+                        clonedElement.style.maxWidth = 'none'
+                        clonedElement.style.margin = '0 auto'
+
+                        // 2. Add the force-desktop class to trigger the CSS overrides in LiveTournament.css
+                        clonedElement.classList.add('force-desktop')
+
+                        // 3. Remove data-labels to prevent mobile pseudo-elements from showing text
+                        const cells = clonedElement.querySelectorAll('td')
+                        cells.forEach(cell => cell.removeAttribute('data-label'))
+
+                        // 4. Inject critical CSS overrides directly into the clone (Backup safety net)
+                        const style = clonedDoc.createElement('style')
+                        style.innerHTML = `
+                            .standings-table { display: table !important; }
+                            .standings-table thead { display: table-header-group !important; }
+                            .standings-table tbody { display: table-row-group !important; }
+                            .standings-table tr { display: table-row !important; margin-bottom: 0 !important; border: none !important; background-color: transparent !important; }
+                            .standings-table td { display: table-cell !important; width: auto !important; text-align: center !important; padding: 1rem !important; border-bottom: 1px solid #334155 !important; }
+                            .standings-table td::before { display: none !important; content: none !important; }
+                            .standings-table td.team-col { text-align: left !important; padding-left: 1rem !important; margin-bottom: 0 !important; padding-bottom: 1rem !important; border-bottom: 1px solid #334155 !important; }
+                            .standings-table td.rank-col { position: static !important; width: auto !important; border: none !important; padding: 1rem !important; font-size: inherit !important; }
+                        `
+                        clonedElement.appendChild(style)
+                    }
+                }
+            })
+
+            const image = canvas.toDataURL('image/png')
+            const link = document.createElement('a')
+            link.href = image
+            link.download = `${tournament?.name || 'tournament'}-standings.png`
+            link.click()
+        } catch (err) {
+            console.error('Error generating image:', err)
+        }
+    }
+
+    // Scaling logic removed - reverted to responsive layout
+
     if (loading) {
         return (
             <div className="live-container loading">
@@ -85,11 +139,17 @@ const LiveTournament = () => {
         <div className="live-container">
             <header className="live-header">
                 <div className="header-inner">
-                    <Trophy className="trophy-icon" size={32} />
-                    <div>
-                        <h1>{tournament.name}</h1>
-                        <span className="live-badge">LIVE</span>
+                    <div className="header-left">
+                        <Trophy className="trophy-icon" size={32} />
+                        <div>
+                            <h1>{tournament.name}</h1>
+                            <span className="live-badge">LIVE</span>
+                        </div>
                     </div>
+                    <button onClick={handleDownloadImage} className="download-btn" title="Download Image">
+                        <Download size={20} />
+                        <span className="btn-text">Download</span>
+                    </button>
                 </div>
             </header>
 
@@ -110,15 +170,15 @@ const LiveTournament = () => {
                         <tbody>
                             {teams.map((team, index) => (
                                 <tr key={team.id} className={index < 3 ? `top-${index + 1}` : ''}>
-                                    <td className="rank-col">
+                                    <td className="rank-col" data-label="#">
                                         <span className="rank-number">{index + 1}</span>
                                     </td>
-                                    <td className="team-col">{team.team_name}</td>
-                                    <td className="matches-col">{team.points.matches_played || 0}</td>
-                                    <td className="wins-col">{team.points.wins || 0}</td>
-                                    <td className="place-col">{team.points.placement_points || 0}</td>
-                                    <td className="kills-col">{team.points.kill_points || 0}</td>
-                                    <td className="points-col">{team.total}</td>
+                                    <td className="team-col" data-label="Team">{team.team_name}</td>
+                                    <td className="matches-col" data-label="M">{team.points.matches_played || 0}</td>
+                                    <td className="wins-col" data-label="WWCD">{team.points.wins || 0}</td>
+                                    <td className="place-col" data-label="Place">{team.points.placement_points || 0}</td>
+                                    <td className="kills-col" data-label="Kills">{team.points.kill_points || 0}</td>
+                                    <td className="points-col" data-label="Total">{team.total}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -130,3 +190,4 @@ const LiveTournament = () => {
 }
 
 export default LiveTournament
+
