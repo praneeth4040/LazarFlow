@@ -92,7 +92,8 @@ export const autoMatchPlayers = (extractedData, teams, tournament) => {
                 kills: kills,
                 placement_points: placementPoints,
                 kill_points: killPoints,
-                total_points: placementPoints + killPoints
+                total_points: placementPoints + killPoints,
+                players: rankData.players // Preserve player data for member stats update
             })
         } else {
             // No match found - needs manual mapping

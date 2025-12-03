@@ -214,7 +214,8 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
           kills: totalKills,
           placement_points: placementPoints,
           kill_points: killPoints,
-          total_points: placementPoints + killPoints
+          total_points: placementPoints + killPoints,
+          players: rankData.players // Preserve player data for member stats update
         })
       }
 
@@ -250,10 +251,18 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       setLoading(true)
       console.log('📤 Submitting results:', results)
 
-      // Update each team with their points
-      // Update each team with their points
+      // Helper function to normalize names for matching
+      const normalizePlayerName = (input) => {
+        const name = (typeof input === 'object' && input !== null) ? (input.name || '') : input
+        if (typeof name !== 'string') return ''
+        return name.toLowerCase().replace(/[^a-z0-9]/g, '')
+      }
+
+      // Update each team with their points and player stats
       for (const result of results) {
         const team = teams.find(t => t.id === result.team_id)
+        if (!team) continue
+
         // Handle legacy data or default structure
         const currentStats = (team && typeof team.total_points === 'object' && team.total_points)
           ? team.total_points
@@ -266,10 +275,51 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
           placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0)
         }
 
+        // Update individual player stats if we have player data from AI extraction
+        let updatedMembers = team.members || []
+
+        // Check if result has player-level data (from AI extraction via handleSaveMapping)
+        if (result.players && Array.isArray(result.players) && result.players.length > 0) {
+          // We have player data from AI extraction - update cumulative stats
+          updatedMembers = team.members.map(member => {
+            // Find matching player in result
+            const resultPlayer = result.players.find(p =>
+              normalizePlayerName(p) === normalizePlayerName(member)
+            )
+
+            if (resultPlayer && typeof resultPlayer === 'object') {
+              // Update cumulative stats
+              return {
+                name: member.name || member,
+                kills: (member.kills || 0) + (resultPlayer.kills || 0),
+                wwcd: (member.wwcd || 0) + (resultPlayer.wwcd || 0),
+                matches_played: (member.matches_played || 0) + 1
+              }
+            } else {
+              // Player not in this result, just increment matches
+              return {
+                name: member.name || member,
+                kills: member.kills || 0,
+                wwcd: member.wwcd || 0,
+                matches_played: (member.matches_played || 0) + 1
+              }
+            }
+          })
+        } else {
+          // No player data (manual entry) - just increment matches_played for all members
+          updatedMembers = team.members.map(member => ({
+            name: member.name || member,
+            kills: member.kills || 0,
+            wwcd: member.wwcd || 0,
+            matches_played: (member.matches_played || 0) + 1
+          }))
+        }
+
         const { error } = await supabase
           .from('tournament_teams')
           .update({
             total_points: newStats,
+            members: updatedMembers
           })
           .eq('id', result.team_id)
 

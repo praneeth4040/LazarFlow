@@ -1,7 +1,5 @@
 AI Powered Predictions to predict the cut off for each round(Avg Score per match + present gap = score needed to overcome that particular team)
 
-Personal Player stats of each team in the tournament (Kills done by individual player in a team )
-
 AI Powered Theme generator / design generator for the tournament
 
 Live Points table Section divides with all the MVP stats of Players
