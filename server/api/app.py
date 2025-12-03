@@ -155,13 +155,13 @@ def extract_results():
         
         all_results_map = {}
         
+        # Validate all files first
+        valid_files = []
         for image_file in image_files:
-            # Validate file type
             if not allowed_file(image_file.filename):
                 logger.warning(f"⚠️ Skipping invalid file: {image_file.filename}")
                 continue
             
-            # Check file size
             image_file.seek(0, os.SEEK_END)
             file_size = image_file.tell()
             image_file.seek(0)
@@ -169,30 +169,31 @@ def extract_results():
             if file_size > MAX_FILE_SIZE:
                 logger.warning(f"⚠️ Skipping large file: {image_file.filename}")
                 continue
-            
-            logger.info(f"Processing {image_file.filename} ({file_size / 1024:.2f} KB)...")
-            
-            try:
-                # Extract results from image
-                results = extract_results_from_image(image_file)
                 
-                # Merge results (deduplicate by rank)
-                for result in results:
-                    rank = result['rank']
-                    # Strategy: Overwrite if exists (assuming later images might correct earlier ones, 
-                    # or just simple merge. Since we can't know which is 'better', last one wins is simple)
-                    # Alternatively, we could check which has more players?
-                    if rank in all_results_map:
-                        existing = all_results_map[rank]
-                        # If new result has more players, use it
-                        if len(result['players']) > len(existing['players']):
-                            all_results_map[rank] = result
-                    else:
-                        all_results_map[rank] = result
-                        
-            except Exception as e:
-                logger.error(f"❌ Error processing {image_file.filename}: {e}")
-                # Continue with other images even if one fails
+            valid_files.append(image_file)
+        
+        if not valid_files:
+            return jsonify({
+                "success": False,
+                "error": "No valid files to process"
+            }), 400
+
+        logger.info(f"Processing {len(valid_files)} valid images...")
+        
+        try:
+            # Extract results from ALL images at once (AI handles merging)
+            results = extract_results_from_image(valid_files, detailed=True)
+            
+            # DEBUG: Log the extracted results
+            logger.info(f"🔍 AI Extracted Results: {results}")
+            
+            # Assign to all_results_map for compatibility with existing return structure logic
+            # (Though we can just use results directly now)
+            all_results_map = {i: r for i, r in enumerate(results)}
+                    
+        except Exception as e:
+            logger.error(f"❌ Error processing images: {e}")
+            raise e
         
         # Convert map to list and sort by rank
         final_results = sorted(list(all_results_map.values()), key=lambda x: x['rank'])

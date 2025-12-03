@@ -186,6 +186,80 @@
     font-size: 1.1rem;
 }
 
+/* Expandable team members */
+.team-col.clickable:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.members-row {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+.members-cell {
+    padding: 1.5rem 2rem !important;
+    text-align: left !important;
+    border-bottom: 2px solid #334155 !important;
+}
+
+.members-container {
+    color: #cbd5e1;
+}
+
+.members-container strong {
+    display: block;
+    margin-bottom: 1rem;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.player-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+}
+
+.player-stats-table th {
+    background-color: rgba(51, 65, 85, 0.5);
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 2px solid #334155;
+}
+
+.player-stats-table th:not(:first-child) {
+    text-align: center;
+}
+
+.player-stats-table tbody tr {
+    border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+}
+
+.player-stats-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.player-stats-table td {
+    padding: 0.75rem 1rem;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+}
+
+.player-stats-table td:not(:first-child) {
+    text-align: center;
+    font-weight: 500;
+}
+
+.player-stats-table td.player-name {
+    font-weight: 600;
+    color: #f8fafc;
+    border-left: 3px solid #38bdf8;
+}
+
 /* Responsive Card Layout */
 @media (max-width: 640px) {
     .standings-table thead {
@@ -259,6 +333,105 @@
 
     .standings-table td.team-col::before {
         display: none;
+    }
+
+    /* Mobile Player Stats Styling */
+    .members-cell {
+        padding: 1rem !important;
+    }
+
+    .members-container {
+        background-color: rgba(15, 23, 42, 0.5);
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .members-container strong {
+        display: block;
+        margin-bottom: 1rem;
+        color: #38bdf8;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .player-stats-table {
+        width: 100%;
+        display: table;
+        border-collapse: separate;
+        border-spacing: 0 0.5rem;
+    }
+
+    .player-stats-table thead {
+        display: table-header-group;
+    }
+
+    .player-stats-table thead tr {
+        display: table-row;
+    }
+
+    .player-stats-table thead th {
+        display: table-cell;
+        background-color: rgba(51, 65, 85, 0.5);
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.7rem;
+        padding: 0.5rem;
+        text-align: center;
+        border-bottom: 2px solid #334155;
+    }
+
+    .player-stats-table thead th:first-child {
+        text-align: left;
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+    }
+
+    .player-stats-table thead th:last-child {
+        border-top-right-radius: 6px;
+        border-bottom-right-radius: 6px;
+    }
+
+    .player-stats-table tbody {
+        display: table-row-group;
+    }
+
+    .player-stats-table tbody tr {
+        display: table-row;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(51, 65, 85, 0.6) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.15);
+        border-left: 3px solid #38bdf8;
+        transition: all 0.2s ease;
+    }
+
+    .player-stats-table tbody tr:hover {
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(51, 65, 85, 0.8) 100%);
+        border-left-color: #0ea5e9;
+    }
+
+    .player-stats-table tbody td {
+        display: table-cell;
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+        text-align: center;
+        color: #cbd5e1;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .player-stats-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .player-stats-table td.player-name {
+        text-align: left;
+        font-weight: 700;
+        color: #f8fafc;
+        border-left: none;
+        padding-left: 0.75rem;
     }
 }
 

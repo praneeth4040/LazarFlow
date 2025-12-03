@@ -35,7 +35,11 @@ export const extractResultsFromScreenshot = async (imageFiles) => {
  * Normalize player name for matching
  * Removes special characters and converts to lowercase
  */
-export const normalizePlayerName = (name) => {
+export const normalizePlayerName = (input) => {
+    // Handle if input is an object (new format) or string (legacy)
+    const name = (typeof input === 'object' && input !== null) ? (input.name || '') : input
+
+    if (typeof name !== 'string') return ''
     return name.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
@@ -76,13 +80,16 @@ export const autoMatchPlayers = (extractedData, teams, tournament) => {
         if (team) {
             // Calculate points
             const placementPoints = getPlacementPoints(rankData.rank, tournament.points_system)
-            const killPoints = rankData.eliminations * (tournament.kill_points || 1)
+
+            // Handle both field names (eliminations vs total_eliminations)
+            const kills = rankData.total_eliminations !== undefined ? rankData.total_eliminations : (rankData.eliminations || 0)
+            const killPoints = kills * (tournament.kill_points || 1)
 
             results.push({
                 team_id: team.id,
                 team_name: team.team_name,
                 position: rankData.rank,
-                kills: rankData.eliminations,
+                kills: kills,
                 placement_points: placementPoints,
                 kill_points: killPoints,
                 total_points: placementPoints + killPoints
@@ -116,7 +123,7 @@ export const validateExtractionData = (data) => {
         item.rank &&
         Array.isArray(item.players) &&
         item.players.length > 0 &&
-        typeof item.eliminations === 'number'
+        (typeof item.eliminations === 'number' || typeof item.total_eliminations === 'number')
     )
 }
 

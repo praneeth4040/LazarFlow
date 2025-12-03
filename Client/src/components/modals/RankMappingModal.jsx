@@ -69,11 +69,13 @@ const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) =>
                                         <div className="rank-details">
                                             <div className="players-list">
                                                 {rankData.players.slice(0, 4).map((player, idx) => (
-                                                    <span key={idx} className="player-name">{player}</span>
+                                                    <span key={idx} className="player-name">
+                                                        {typeof player === 'object' ? player.name : player}
+                                                    </span>
                                                 ))}
                                             </div>
                                             <div className="rank-stats">
-                                                {rankData.eliminations} eliminations
+                                                {rankData.total_eliminations !== undefined ? rankData.total_eliminations : rankData.eliminations} eliminations
                                             </div>
                                         </div>
                                     </div>

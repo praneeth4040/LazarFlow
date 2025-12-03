@@ -18,6 +18,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   // AI extraction state
   const [aiScreenshot, setAiScreenshot] = useState(null)
   const [extractedData, setExtractedData] = useState(null)
+  const [autoMatchedResults, setAutoMatchedResults] = useState([]) // Store successful auto-matches
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [extracting, setExtracting] = useState(false)
 
@@ -142,6 +143,10 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
 
         if (unmappedRanks.length > 0) {
           console.warn(`⚠️ ${unmappedRanks.length} ranks could not be auto-matched`)
+
+          // Store successful matches to merge later
+          setAutoMatchedResults(matchedResults)
+
           // Show mapping modal for unmapped ranks
           setExtractedData(unmappedRanks)
           setShowMappingModal(true)
@@ -166,9 +171,18 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
         const rankData = extractedRanks.find(r => r.rank === parseInt(rank))
         if (!rankData) continue
 
+        // Convert AI response to member format
+        // AI returns: {team_name, rank, players: [{name, kills, wwcd, matches_played}], total_eliminations}
+        const memberObjects = rankData.players.map(player => ({
+          name: player.name || player, // Handle both object and string formats
+          kills: player.kills || 0,
+          wwcd: player.wwcd || 0,
+          matches_played: player.matches_played || 1
+        }))
+
         await supabase
           .from('tournament_teams')
-          .update({ members: rankData.players })
+          .update({ members: memberObjects })
           .eq('id', teamId)
       }
 
@@ -186,20 +200,34 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
         const placementPoints = tournament.points_system?.find(
           p => p.placement === rankData.rank
         )?.points || 0
-        const killPoints = rankData.eliminations * (tournament.kill_points || 1)
+
+        // Use total_eliminations if available, otherwise sum player kills
+        const totalKills = rankData.total_eliminations !== undefined ? rankData.total_eliminations :
+          (rankData.players.reduce((sum, p) => sum + (p.kills || 0), 0))
+
+        const killPoints = totalKills * (tournament.kill_points || 1)
 
         calculatedResults.push({
           team_id: teamId,
           team_name: team.team_name,
           position: rankData.rank,
-          kills: rankData.eliminations,
+          kills: totalKills,
           placement_points: placementPoints,
           kill_points: killPoints,
           total_points: placementPoints + killPoints
         })
       }
 
-      setResults(calculatedResults)
+      // Merge auto-matched results with manually mapped results
+      // Sort by position (rank)
+      const allResults = [...autoMatchedResults, ...calculatedResults].sort((a, b) => a.position - b.position)
+
+      // Deduplicate by team_id (keep the first occurrence, which is usually the higher rank due to sort)
+      const uniqueResults = allResults.filter((result, index, self) =>
+        index === self.findIndex((r) => r.team_id === result.team_id)
+      )
+
+      setResults(uniqueResults)
       setShowMappingModal(false)
 
       console.log('✅ Mapping saved and results calculated')

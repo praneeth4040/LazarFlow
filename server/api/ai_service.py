@@ -5,6 +5,12 @@ import logging
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 
+# Import prompts
+try:
+    from .prompts import EXTRACT_TEAMS_PROMPT
+except ImportError:
+    from prompts import EXTRACT_TEAMS_PROMPT
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -46,21 +52,12 @@ def extract_teams_from_text(text):
         logger.info("🤖 Initializing Gemini model (gemini-2.5-pro)")
         llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-pro",
-            google_api_key=api_key
+            google_api_key=api_key,
+            model_kwargs={"response_mime_type": "application/json"}
         )
 
-        # Prompt template
-        template = """
-        You are an AI that extracts esports team names from unstructured text.
-
-        Extract ONLY the team names and return ONLY a JSON array of strings.
-        NO explanations, NO markdown.
-
-        Text:
-        {text}
-
-        JSON Output:
-        """
+        # Use centralized prompt
+        template = EXTRACT_TEAMS_PROMPT + "\n{text}"
 
         prompt = PromptTemplate(
             template=template,
