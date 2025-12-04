@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { subscribeToUserTournaments } from '../lib/realtime'
+import { subscribeToLiveUpdates } from '../lib/liveSync'
 import { extractTeamsFromImage } from '../lib/aiExtraction'
 import {
   MoreVertical,
@@ -41,7 +43,41 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const [showAddModal, setShowAddModal] = useState(false) // Assuming this state is needed for the empty state button
 
   useEffect(() => {
-    fetchTournaments()
+    let unsubscribeTournaments = null
+    let unsubscribeChannel = null
+
+    const init = async () => {
+      await fetchTournaments()
+
+      // Set up realtime subscription for this user's tournaments
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      unsubscribeTournaments = subscribeToUserTournaments(user.id, () => {
+        // Refetch whenever tournaments table changes for this user
+        fetchTournaments()
+      })
+
+      // Listen for local "results updated" events (from CalculateResultsModal)
+      unsubscribeChannel = subscribeToLiveUpdates((message) => {
+        if (message?.type === 'results-updated') {
+          // Results changed for some tournament – refresh dashboard data
+          console.log('📣 Dashboard received results-updated event, refreshing tournaments...')
+          fetchTournaments()
+        }
+      })
+    }
+
+    init()
+
+    return () => {
+      if (typeof unsubscribeTournaments === 'function') {
+        unsubscribeTournaments()
+      }
+      if (typeof unsubscribeChannel === 'function') {
+        unsubscribeChannel()
+      }
+    }
   }, [])
 
   // Auto-open teams modal when a new tournament is created

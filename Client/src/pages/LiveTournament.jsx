@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { subscribeToTournamentTeams } from '../lib/realtime'
+import { subscribeToLiveUpdates } from '../lib/liveSync'
 import { Trophy, AlertCircle, Download } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import './LiveTournament.css'
@@ -15,11 +17,50 @@ const LiveTournament = () => {
     const [expandedTeam, setExpandedTeam] = useState(null) // Track which team is expanded
 
     useEffect(() => {
-        fetchLiveData()
+        if (!liveid) return
 
-        // Auto-refresh every 1 minute
-        const interval = setInterval(fetchLiveData, 60000)
-        return () => clearInterval(interval)
+        let unsubscribeRealtime = null
+        let unsubscribeChannel = null
+        let intervalId = null
+
+        const init = async () => {
+            console.log('🌐 LiveTournament init for id:', liveid)
+            await fetchLiveData()
+
+            // Subscribe to realtime changes for this tournament's teams (primary path)
+            unsubscribeRealtime = subscribeToTournamentTeams(liveid, () => {
+                console.log('🔔 Realtime change detected for live tournament teams, refetching...')
+                fetchLiveData()
+            })
+
+            // Subscribe to local browser live updates (instant cross-tab updates)
+            unsubscribeChannel = subscribeToLiveUpdates((message) => {
+                if (message?.type === 'results-updated' && message.tournamentId === liveid) {
+                    console.log('📣 Local live update received, refetching live data...')
+                    fetchLiveData()
+                }
+            })
+
+            // Fallback: lightweight polling every 30 seconds in case realtime is not configured
+            intervalId = setInterval(() => {
+                console.log('⏱️ Polling live tournament data as fallback (30s)...')
+                fetchLiveData()
+            }, 30000)
+        }
+
+        init()
+
+        return () => {
+            if (typeof unsubscribeRealtime === 'function') {
+                unsubscribeRealtime()
+            }
+            if (typeof unsubscribeChannel === 'function') {
+                unsubscribeChannel()
+            }
+            if (intervalId) {
+                clearInterval(intervalId)
+            }
+        }
     }, [liveid])
 
     const fetchLiveData = async () => {
@@ -257,7 +298,7 @@ const LiveTournament = () => {
                         <Trophy className="trophy-icon" size={32} />
                         <h1>
                             {tournament?.name}
-                            <span className="live-badge">LIVE</span>
+                            <span className="live-badge"> LIVE </span>
                         </h1>
                     </div>
                     <button

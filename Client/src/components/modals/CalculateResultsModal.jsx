@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { Target, Sparkles, Camera, X, Upload } from 'lucide-react'
 import { extractResultsFromScreenshot, needsMapping, autoMatchPlayers } from '../../lib/aiResultExtraction'
+import { sendLiveUpdate } from '../../lib/liveSync'
 import RankMappingModal from './RankMappingModal'
 import './CalculateResultsModal.css'
 
@@ -328,6 +329,10 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
 
       console.log('✅ Results submitted successfully')
       alert(`✅ Results for ${results.length} team(s) saved!`)
+      // Notify any open live pages for this tournament to refresh immediately
+      if (tournament?.id) {
+        sendLiveUpdate(tournament.id)
+      }
       setSubmitted(true)
       setTimeout(() => {
         onClose()
@@ -520,7 +525,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                   onClick={handleSubmit}
                   disabled={loading}
                 >
-                  {loading ? 'Submitting...' : 'Submit Results'}
+                  {loading ? <span className="loader loader-small"></span> : 'Submit Results'}
                 </button>
               </div>
             )}
@@ -544,7 +549,11 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                     onChange={handleAIUpload}
                     disabled={extracting}
                   />
-                  {extracting && <p className="extracting-text">Extracting data...</p>}
+                  {extracting && (
+                    <div className="extracting-text">
+                      <span className="loader loader-medium">Loading...</span>
+                    </div>
+                  )}
                 </div>
                 <div className="ai-info">
                   <p><strong>How it works:</strong></p>
@@ -627,7 +636,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                       onClick={handleSubmit}
                       disabled={loading}
                     >
-                      {loading ? 'Submitting...' : 'Submit Results'}
+                      {loading ? <span className="loader loader-small">Loading...</span> : 'Submit Results'}
                     </button>
                   </div>
                 )}
