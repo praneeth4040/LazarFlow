@@ -10,6 +10,7 @@
     "lint": "eslint src --ext .js,.jsx"
   },
   "dependencies": {
+    "@sentry/react": "^10.28.0",
     "@supabase/supabase-js": "^2.38.0",
     "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.2",

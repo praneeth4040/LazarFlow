@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
 import { X, Check } from 'lucide-react'
 import './RankMappingModal.css'
+import { useToast } from '../../context/ToastContext'
 
 const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) => {
     const [mappings, setMappings] = useState({})
     const [saving, setSaving] = useState(false)
+    const { addToast } = useToast()
 
     const handleSelectTeam = (rank, teamId) => {
         setMappings(prev => ({
@@ -20,7 +22,11 @@ const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) =>
         )
 
         if (unmappedRanks.length > 0) {
-            alert(`Please map all ranks. ${unmappedRanks.length} rank(s) remaining.`)
+            try {
+                addToast('warning', `Please map all ranks. ${unmappedRanks.length} rank(s) remaining.`)
+            } catch (e) {
+                console.error('Toast failed:', e)
+            }
             return
         }
 

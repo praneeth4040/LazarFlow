@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '../../lib/supabaseClient'
 import './TeamDetailsModal.css'
+import { useToast } from '../../context/ToastContext'
 
 const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
   const [localTeams, setLocalTeams] = useState([])
   const [editingTeamId, setEditingTeamId] = useState(null)
   const [editingTeam, setEditingTeam] = useState(null)
+  const { addToast } = useToast()
 
   useEffect(() => {
     if (teams) {
@@ -39,7 +41,11 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
       setEditingTeam(null)
     } catch (error) {
       console.error('Error updating team:', error)
-      alert('Failed to save changes')
+      try {
+        addToast('error', 'Failed to save changes')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   }
 
