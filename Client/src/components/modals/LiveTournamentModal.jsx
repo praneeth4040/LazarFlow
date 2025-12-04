@@ -49,7 +49,7 @@ const LiveTournamentModal = ({ isOpen, onClose, tournament }) => {
                                 className={`copy-btn ${copied ? 'copied' : ''}`}
                                 onClick={handleCopyLink}
                             >
-                                {copied ? <Check size={24} /> : <Copy size={24} />}
+                                {copied ? <Check size={28} /> : <Copy size={28} />}
                             </button>
                         </div>
                     </div>

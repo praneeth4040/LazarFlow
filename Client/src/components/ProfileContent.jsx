@@ -1,64 +1,85 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
-import './TabContent.css'
 
-function ProfileContent({ user, onLogout }) {
-  const navigate = useNavigate()
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import "./TabContent.css";
+
+function ProfileContent({ user = {}, onLogout }) {
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await onLogout()
-    navigate('/login')
-  }
+    try {
+      await onLogout?.();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      navigate("/login");
+    }
+  };
 
-  const extractInitials = (email) => {
-    return email?.split('@')[0]?.charAt(0)?.toUpperCase() || 'U'
-  }
+  const initials = (email) =>
+    email?.split?.("@")?.[0]?.charAt(0)?.toUpperCase() || "U";
+
+  const displayName = user?.email?.split?.("@")?.[0] || "User";
 
   return (
-    <div className="tab-content">
-      <div className="content-header">
-        <h2>Profile</h2>
-        <p>Manage your account settings</p>
+    <div className="profile-card-wrap">
+      <div className="profile-header-hero">
+        <div className="hero-gradient" />
+        <div className="avatar-circle">
+          <img
+            alt={displayName}
+            src={user?.photoURL || ""}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+          <div className="avatar-initials">{initials(user?.email)}</div>
+        </div>
       </div>
 
-      <div className="content-body">
-        <div className="profile-section">
-          <div className="profile-header">
-            <div className="profile-avatar">{extractInitials(user?.email)}</div>
-            <div className="profile-info">
-              <h3>{user?.email?.split('@')[0]}</h3>
-              <p>{user?.email}</p>
+      <div className="profile-main">
+        <h1 className="profile-name">{displayName}</h1>
+
+        <div className="info-list">
+          <div className="info-row">
+            <div className="left">
+              <span className="label">User ID</span>
+            </div>
+            <div className="right">
+              <span className="value">{user?.id || "—"}</span>
             </div>
           </div>
 
-          <div className="profile-card">
-            <h4>Account Information</h4>
-            <div className="info-row">
-              <span className="info-label">Email:</span>
-              <span className="info-value">{user?.email}</span>
+          <hr />
+
+          <div className="info-row">
+            <div className="left">
+              <span className="label">Email</span>
             </div>
-            <div className="info-row">
-              <span className="info-label">User ID:</span>
-              <span className="info-value">{user?.id?.slice(0, 8)}...</span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Joined:</span>
-              <span className="info-value">{new Date(user?.created_at).toLocaleDateString()}</span>
+            <div className="right">
+              <span className="value">{user?.email || "—"}</span>
             </div>
           </div>
 
-
-
-          <div className="danger-zone">
-            <h4>Danger Zone</h4>
-            <button className="logout-btn" onClick={handleLogout}>
-              Logout
-            </button>
+          <hr />
+          <div className="info-row logout-row">
+            <div className="left">
+              <span className="label">⤴ Log out</span>
+            </div>
+            <div className="right">
+              <button
+                className="logout-btn"
+                onClick={handleLogout}
+                aria-label="Log out"
+              >
+                Log out
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default ProfileContent
+export default ProfileContent;
