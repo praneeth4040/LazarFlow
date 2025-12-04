@@ -3,6 +3,7 @@ import { extractTeamsFromText } from '../../lib/aiExtraction'
 import { PenLine, Bot, Plus, X, Loader2, User } from 'lucide-react'
 import AddMembersModal from './AddMembersModal'
 import './AddTeamsModal.css'
+import { useToast } from '../../context/ToastContext'
 
 const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
   const [mode, setMode] = useState('manual') // 'manual' or 'ai'
@@ -10,6 +11,7 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
   const [currentTeam, setCurrentTeam] = useState('')
   const [aiText, setAiText] = useState('')
   const [loading, setLoading] = useState(false)
+  const { addToast } = useToast()
 
   // Member addition state
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
@@ -42,7 +44,11 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
   // AI mode: Extract teams from text
   const handleExtractTeams = async () => {
     if (!aiText.trim()) {
-      alert('Please paste some text')
+      try {
+        addToast('warning', 'Please paste some text')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
       return
     }
 
@@ -53,7 +59,11 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
       const extractedTeams = await extractTeamsFromText(aiText)
 
       if (!extractedTeams || extractedTeams.length === 0) {
-        alert('No teams could be extracted. Please check the format and try again.')
+        try {
+          addToast('error', 'No teams could be extracted. Please check the format and try again.')
+        } catch (e) {
+          console.error('Toast failed:', e)
+        }
         setLoading(false)
         return
       }
@@ -61,10 +71,18 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
       console.log('✅ Extracted teams:', extractedTeams)
       setTeams(extractedTeams)
       setAiText('')
-      alert(`✅ Extracted ${extractedTeams.length} teams!`)
+      try {
+        addToast('success', `✅ Extracted ${extractedTeams.length} teams!`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     } catch (err) {
       console.error('❌ Error extracting teams:', err)
-      alert(`Error extracting teams: ${err.message || 'Please check your connection and try again.'}`)
+      try {
+        addToast('error', `Error extracting teams: ${err.message || 'Please check your connection and try again.'}`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     } finally {
       setLoading(false)
     }
@@ -72,7 +90,11 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
 
   const handleSubmit = () => {
     if (teams.length < 2) {
-      alert('Please add at least 2 teams to create a tournament')
+      try {
+        addToast('warning', 'Please add at least 2 teams to create a tournament')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
       return
     }
 

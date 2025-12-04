@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import './CreateTournamentModal.css';
+import { useToast } from '../../context/ToastContext'
 
 const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
   const defaultPointsSystems = {
@@ -48,6 +49,7 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
   const [pointsSystem, setPointsSystem] = useState(defaultPointsSystems.freeFire);
   const [killPoints, setKillPoints] = useState(1);
   const [placementCount, setPlacementCount] = useState(12);
+  const { addToast } = useToast()
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -120,7 +122,11 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
       setPointsSystem([...defaultPointsSystems.freeFire]);
       setKillPoints(1);
     } else {
-      alert('Please enter a tournament name');
+      try {
+        addToast('warning', 'Please enter a tournament name')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   };
 

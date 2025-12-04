@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { X } from 'lucide-react'
 import './EditTournamentModal.css'
+import { useToast } from '../../context/ToastContext'
+import ConfirmationModal from '../ConfirmationModal'
 
 function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
   const [formData, setFormData] = useState({
@@ -9,6 +11,8 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
     game: 'freeFire',
   })
   const [loading, setLoading] = useState(false)
+  const { addToast } = useToast()
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   useEffect(() => {
     if (isOpen && tournament) {
@@ -30,7 +34,11 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!formData.name.trim()) {
-      alert('Please enter a tournament name')
+      try {
+        addToast('warning', 'Please enter a tournament name')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
       return
     }
 
@@ -49,21 +57,31 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
       if (error) throw error
 
       console.log('✅ Tournament updated successfully')
-      alert('✅ Tournament updated successfully!')
+      try {
+        addToast('success', '✅ Tournament updated successfully!')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
       onUpdate()
       onClose()
     } catch (err) {
       console.error('❌ Error updating tournament:', err)
-      alert(`Failed to update tournament: ${err.message}`)
+      try {
+        addToast('error', `Failed to update tournament: ${err.message}`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDeleteTournament = async () => {
-    if (!window.confirm(`Are you sure you want to delete "${tournament.name}"? This cannot be undone!`)) {
-      return
-    }
+  const handleDeleteTournament = () => {
+    setShowDeleteConfirm(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    setShowDeleteConfirm(false)
 
     try {
       setLoading(true)
@@ -77,12 +95,20 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
       if (error) throw error
 
       console.log('✅ Tournament deleted successfully')
-      alert(`✅ "${tournament.name}" deleted!`)
+      try {
+        addToast('success', `✅ "${tournament.name}" deleted!`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
       onUpdate()
       onClose()
     } catch (err) {
       console.error('❌ Error deleting tournament:', err)
-      alert(`Failed to delete tournament: ${err.message}`)
+      try {
+        addToast('error', `Failed to delete tournament: ${err.message}`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     } finally {
       setLoading(false)
     }
@@ -159,6 +185,15 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
           </div>
         </form>
       </div>
+
+      {/* Confirmation Modal for Delete */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        title="Delete Tournament"
+        message={`Are you sure you want to delete "${tournament?.name}"? This cannot be undone.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   )
 }

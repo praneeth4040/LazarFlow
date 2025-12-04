@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import './ShareTournamentModal.css'
+import { useToast } from '../../context/ToastContext'
 
 function ShareTournamentModal({ isOpen, onClose, tournament }) {
   const [copied, setCopied] = useState(null)
+  const { addToast } = useToast()
 
   // Generate unique tournament code (first 8 chars of ID + tournament name first 3 chars)
   const tournamentCode = tournament?.id?.substring(0, 8).toUpperCase() || 'N/A'
@@ -15,7 +17,11 @@ function ShareTournamentModal({ isOpen, onClose, tournament }) {
       setCopied('link')
       setTimeout(() => setCopied(null), 2000)
     } catch (err) {
-      alert('Failed to copy link')
+      try {
+        addToast('error', 'Failed to copy link')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   }
 
@@ -25,7 +31,11 @@ function ShareTournamentModal({ isOpen, onClose, tournament }) {
       setCopied('code')
       setTimeout(() => setCopied(null), 2000)
     } catch (err) {
-      alert('Failed to copy code')
+      try {
+        addToast('error', 'Failed to copy code')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   }
 

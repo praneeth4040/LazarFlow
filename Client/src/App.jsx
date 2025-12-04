@@ -6,6 +6,8 @@ import SignUp from './pages/SignUp'
 import Dashboard from './pages/Dashboard'
 import LiveTournament from './pages/LiveTournament'
 import './App.css'
+import ErrorBoundary from './components/ErrorBoundary'
+import { ToastProvider } from './context/ToastContext'
 
 function App() {
   return (
