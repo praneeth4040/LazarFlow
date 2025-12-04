@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Trophy, Settings, Smartphone, Shield, Zap, Download, Cloud } from 'lucide-react'
+import SEO from '../components/SEO'
+import { PAGE_SEO } from '../utils/seoConfig'
 import './Landing.css'
 
 function Landing() {
@@ -31,13 +33,21 @@ function Landing() {
 
   return (
     <div className="landing">
+      {/* SEO Meta Tags */}
+      <SEO
+        title={PAGE_SEO.home.title}
+        description={PAGE_SEO.home.description}
+        keywords={PAGE_SEO.home.keywords}
+        url="https://lazarflow.com/"
+      />
+
       {/* Header/Navigation */}
       <header className="landing-header">
         <div className="header-container">
           <div className="logo">
-            <h1>LazarFlow</h1>
+            <div className="logo-text">LazarFlow</div>
           </div>
-          <nav className="header-nav">
+          <nav className="header-nav" aria-label="Main navigation">
             <Link to="/login" className="nav-link">Login</Link>
             <Link to="/signup" className="nav-link nav-link-primary">Sign Up</Link>
           </nav>
@@ -45,18 +55,18 @@ function Landing() {
       </header>
 
       {/* Hero Section */}
-      <section className="hero">
+      <section className="hero" aria-labelledby="hero-title">
         <div className="hero-content">
           <div className="hero-badge">
-            <Zap size={16} />
+            <Zap size={16} aria-hidden="true" />
             <span>Powered by AI</span>
           </div>
-          <h1 className="hero-title">
-            Build Stunning
-            <span className="gradient-text"> Esports Leaderboards</span>
+          <h1 id="hero-title" className="hero-title">
+            Create Professional
+            <span className="gradient-text"> Esports Tournament Points Tables & Leaderboards</span>
           </h1>
           <p className="hero-subtitle">
-            The fastest way to create, customize, and share professional points tables for your tournaments. No design skills required.
+            The fastest way to create, customize, and share professional esports tournament points tables, live leaderboards, and standings. Perfect for PUBG, Valorant, CS2, and all competitive gaming tournaments. No design skills required.
           </p>
           <div className="hero-buttons">
             <Link to="/signup" className="btn btn-primary">
@@ -91,51 +101,51 @@ function Landing() {
       </section>
 
       {/* Features Section */}
-      <section className="features">
-        <h2 className="scroll-hidden">Why Choose LazarFlow?</h2>
+      <section className="features" aria-labelledby="features-heading">
+        <h2 id="features-heading" className="scroll-hidden">Why Choose LazarFlow for Your Esports Tournaments?</h2>
         <div className="features-grid">
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '0ms' }}>
-            <div className="feature-icon">
+          <article className="feature-card scroll-hidden" style={{ transitionDelay: '0ms' }}>
+            <div className="feature-icon" aria-hidden="true">
               <Zap size={32} />
             </div>
-            <h3>LazarEon</h3>
-            <p>AI Agent for automatic points table making. Just upload a screenshot and let AI do the work.</p>
-          </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '100ms' }}>
-            <div className="feature-icon">
+            <h3>AI-Powered LazarEon</h3>
+            <p>Automatic tournament points table generation with AI. Upload a screenshot and instantly create professional esports leaderboards.</p>
+          </article>
+          <article className="feature-card scroll-hidden" style={{ transitionDelay: '100ms' }}>
+            <div className="feature-icon" aria-hidden="true">
               <Trophy size={32} />
             </div>
-            <h3>Tournament Ready</h3>
-            <p>Manage multiple tournaments simultaneously with ease.</p>
-          </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '200ms' }}>
-            <div className="feature-icon">
+            <h3>Multi-Tournament Management</h3>
+            <p>Manage multiple esports tournaments simultaneously. Track points, standings, and live leaderboards for all your gaming competitions.</p>
+          </article>
+          <article className="feature-card scroll-hidden" style={{ transitionDelay: '200ms' }}>
+            <div className="feature-icon" aria-hidden="true">
               <Settings size={32} />
             </div>
-            <h3>Fully Customizable</h3>
-            <p>Configure scoring systems to your specific tournament rules.</p>
-          </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '300ms' }}>
-            <div className="feature-icon">
+            <h3>Customizable Point Systems</h3>
+            <p>Configure tournament scoring systems, kill points, placement points, and WWCD for your specific esports competition rules.</p>
+          </article>
+          <article className="feature-card scroll-hidden" style={{ transitionDelay: '300ms' }}>
+            <div className="feature-icon" aria-hidden="true">
               <Smartphone size={32} />
             </div>
-            <h3>Mobile Friendly</h3>
-            <p>Perfect viewing experience on all devices, anywhere, anytime.</p>
-          </div>
-          <div className="feature-card scroll-hidden" style={{ transitionDelay: '400ms' }}>
-            <div className="feature-icon">
+            <h3>Mobile-Optimized Leaderboards</h3>
+            <p>Responsive tournament standings and points tables. Perfect viewing experience on mobile, tablet, and desktop devices.</p>
+          </article>
+          <article className="feature-card scroll-hidden" style={{ transitionDelay: '400ms' }}>
+            <div className="feature-icon" aria-hidden="true">
               <Shield size={32} />
             </div>
-            <h3>Secure & Reliable</h3>
-            <p>Enterprise-grade security to keep your tournament data safe.</p>
-          </div>
+            <h3>Secure Tournament Data</h3>
+            <p>Enterprise-grade security and cloud storage for your esports tournament data, points tables, and team statistics.</p>
+          </article>
         </div>
       </section>
 
       {/* How It Works Section */}
-      <section className="how-it-works">
+      <section className="how-it-works" aria-labelledby="how-it-works-heading">
         <div className="how-it-works-container">
-          <h2 className="scroll-hidden">How It Works</h2>
+          <h2 id="how-it-works-heading" className="scroll-hidden">How to Create Your Esports Points Table</h2>
           <div className="steps">
             <div className="step scroll-hidden" style={{ transitionDelay: '0ms' }}>
               <div className="step-number">1</div>
@@ -165,10 +175,10 @@ function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="cta scroll-hidden">
+      <section className="cta scroll-hidden" aria-labelledby="cta-heading">
         <div className="cta-content">
-          <h2>Ready to Get Started?</h2>
-          <p>Join thousands of esports organizers using LazarFlow</p>
+          <h2 id="cta-heading">Start Creating Tournament Leaderboards Today</h2>
+          <p>Join thousands of esports organizers creating professional points tables and live standings with LazarFlow</p>
           <Link to="/signup" className="btn btn-primary btn-large">
             <span>Create Your Account</span>
             <span className="btn-arrow">→</span>
@@ -181,7 +191,7 @@ function Landing() {
         <div className="footer-content">
           <div className="footer-section">
             <h4>LazarFlow</h4>
-            <p>Professional esports points table maker</p>
+            <p>Free esports tournament points table maker, live leaderboards, and standings for competitive gaming</p>
           </div>
           <div className="footer-section">
             <h4>Quick Links</h4>

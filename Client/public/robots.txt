@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /login
+Disallow: /signup
+
+# Sitemap
+Sitemap: https://lazarflow.com/sitemap.xml
