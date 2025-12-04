@@ -129,7 +129,8 @@
   gap: 1rem;
 }
 
-.logo h1 {
+.logo h1,
+.logo .logo-text {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-primary);

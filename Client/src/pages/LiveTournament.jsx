@@ -5,6 +5,8 @@ import { subscribeToTournamentTeams } from '../lib/realtime'
 import { subscribeToLiveUpdates } from '../lib/liveSync'
 import { Trophy, AlertCircle, Download } from 'lucide-react'
 import html2canvas from 'html2canvas'
+import SEO from '../components/SEO'
+import { PAGE_SEO, generateTournamentSchema } from '../utils/seoConfig'
 import './LiveTournament.css'
 
 const LiveTournament = () => {
@@ -292,13 +294,25 @@ const LiveTournament = () => {
 
     return (
         <div className="live-container">
-            <header className="live-header">
+            {/* Dynamic SEO for Tournament */}
+            {tournament && (
+                <SEO
+                    title={PAGE_SEO.liveTournament(tournament.name).title}
+                    description={PAGE_SEO.liveTournament(tournament.name).description}
+                    keywords={PAGE_SEO.liveTournament(tournament.name).keywords}
+                    url={`https://lazarflow.com/live/${liveid}`}
+                    structuredData={generateTournamentSchema(tournament, teams)}
+                />
+            )}
+
+            <header className="live-header" role="banner">
                 <div className="header-inner">
                     <div className="header-left">
-                        <Trophy className="trophy-icon" size={32} />
+                        <Trophy className="trophy-icon" size={32} aria-hidden="true" />
                         <h1>
                             {tournament?.name}
                             <span className="live-badge"> LIVE </span>
+                            <span className="live-badge" aria-label="Live tournament">LIVE</span>
                         </h1>
                     </div>
                     <button
@@ -313,9 +327,10 @@ const LiveTournament = () => {
                 </div>
             </header>
 
-            <main className="live-content">
-                <div className="standings-card">
-                    <table className="standings-table">
+            <main className="live-content" role="main">
+                <article className="standings-card" aria-labelledby="standings-heading">
+                    <h2 id="standings-heading" className="sr-only">Tournament Standings</h2>
+                    <table className="standings-table" role="table" aria-label="Live tournament leaderboard">
                         <thead>
                             <tr>
                                 <th className="rank-col">#</th>
@@ -384,7 +399,7 @@ const LiveTournament = () => {
                             ))}
                         </tbody>
                     </table>
-                </div>
+                </article>
             </main>
         </div>
     )

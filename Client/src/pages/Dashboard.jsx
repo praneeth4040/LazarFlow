@@ -8,6 +8,7 @@ import ProfileContent from '../components/ProfileContent'
 import CreateTournamentModal from '../components/modals/CreateTournamentModal'
 import './Dashboard.css'
 import { Menu } from 'lucide-react'
+import { useToast } from '../context/ToastContext'
 
 function Dashboard() {
   const navigate = useNavigate()
@@ -17,6 +18,7 @@ function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [newTournament, setNewTournament] = useState(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const { addToast } = useToast()
 
   useEffect(() => {
     checkUser()
@@ -90,7 +92,11 @@ function Dashboard() {
       }
     } catch (error) {
       console.error('Error creating tournament:', error)
-      alert('Error creating tournament: ' + error.message)
+      try {
+        addToast('error', 'Error creating tournament: ' + (error.message || 'Failed'))
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   }
 

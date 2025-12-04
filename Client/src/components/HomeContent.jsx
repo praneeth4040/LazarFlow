@@ -23,6 +23,8 @@ import EditTournamentModal from './modals/EditTournamentModal'
 import CreateTournamentModal from './modals/CreateTournamentModal'
 import LiveTournamentModal from './modals/LiveTournamentModal'
 import './TabContent.css'
+import { useToast } from '../context/ToastContext'
+import ConfirmationModal from './ConfirmationModal'
 
 function HomeContent({ newTournament, onTournamentProcessed }) {
   const [tournaments, setTournaments] = useState([])
@@ -37,6 +39,8 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const [editTournament, setEditTournament] = useState(null)
   const [isLiveModalOpen, setIsLiveModalOpen] = useState(false)
   const [liveTournament, setLiveTournament] = useState(null)
+  const { addToast } = useToast()
+  const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, tournamentId: null, tournamentName: null })
 
   // State for AI extraction (assuming these are needed for the new AI card)
   const [extracting, setExtracting] = useState(false)
@@ -222,7 +226,11 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        alert('You must be logged in to create a tournament')
+        try {
+          addToast('warning', 'You must be logged in to create a tournament')
+        } catch (e) {
+          console.error('Toast failed:', e)
+        }
         return
       }
 
@@ -253,7 +261,11 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       }
     } catch (error) {
       console.error('Error creating tournament:', error)
-      alert('Failed to create tournament: ' + error.message)
+      try {
+        addToast('error', 'Failed to create tournament: ' + error.message)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   }
 
@@ -283,12 +295,20 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
       if (error) {
         console.error('❌ Error saving teams:', error)
-        alert(`❌ Error: ${error.message} `)
+        try {
+          addToast('error', `❌ Error: ${error.message} `)
+        } catch (e) {
+          console.error('Toast failed:', e)
+        }
         return
       }
 
       console.log('✅ Teams saved successfully:', data)
-      alert(`✅ Added ${teams.length} teams to ${selectedTournament.name} !`)
+      try {
+        addToast('success', `✅ Added ${teams.length} teams to ${selectedTournament.name} !`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
 
       // Close modal and refresh
       setIsTeamsModalOpen(false)
@@ -303,7 +323,11 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       fetchTournaments()
     } catch (err) {
       console.error('❌ Exception saving teams:', err)
-      alert('❌ Failed to save teams')
+      try {
+        addToast('error', '❌ Failed to save teams')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   }
 
@@ -316,10 +340,13 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     }
   }
 
-  const handleDeleteTournament = async (tournamentId, tournamentName) => {
-    if (!window.confirm(`Are you sure you want to delete "${tournamentName}" ? `)) {
-      return
-    }
+  const handleDeleteTournament = (tournamentId, tournamentName) => {
+    setConfirmDelete({ isOpen: true, tournamentId, tournamentName })
+  }
+
+  const handleConfirmDelete = async () => {
+    const { tournamentId, tournamentName } = confirmDelete
+    setConfirmDelete({ isOpen: false, tournamentId: null, tournamentName: null })
 
     try {
       console.log('🗑️ Deleting tournament:', tournamentId)
@@ -331,18 +358,30 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
       if (error) {
         console.error('❌ Error deleting tournament:', error)
-        alert(`❌ Error: ${error.message} `)
+        try {
+          addToast('error', `❌ Error: ${error.message} `)
+        } catch (e) {
+          console.error('Toast failed:', e)
+        }
         return
       }
 
       console.log('✅ Tournament deleted successfully')
-      alert(`✅ "${tournamentName}" deleted!`)
+      try {
+        addToast('success', `✅ "${tournamentName}" deleted!`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
 
       // Refresh tournaments list
       fetchTournaments()
     } catch (err) {
       console.error('❌ Exception deleting tournament:', err)
-      alert('❌ Failed to delete tournament')
+      try {
+        addToast('error', '❌ Failed to delete tournament')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
     }
   }
 
@@ -509,6 +548,15 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         isOpen={isLiveModalOpen}
         onClose={handleCloseLiveModal}
         tournament={liveTournament}
+      />
+
+      {/* Confirmation Modal for Delete */}
+      <ConfirmationModal
+        isOpen={confirmDelete.isOpen}
+        title="Delete Tournament"
+        message={`Are you sure you want to delete "${confirmDelete.tournamentName}"? This cannot be undone.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmDelete({ isOpen: false, tournamentId: null, tournamentName: null })}
       />
     </div>
   )
