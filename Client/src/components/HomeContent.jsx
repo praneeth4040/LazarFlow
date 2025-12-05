@@ -28,6 +28,7 @@ import ConfirmationModal from './ConfirmationModal'
 
 function HomeContent({ newTournament, onTournamentProcessed }) {
   const [tournaments, setTournaments] = useState([])
+  const [pastTournaments, setPastTournaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isTeamsModalOpen, setIsTeamsModalOpen] = useState(false)
@@ -121,15 +122,20 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       }
 
       console.log('✅ Tournaments fetched:', data)
-      // Show only the 2 latest tournaments
+
       const allTournaments = data || []
-      const latestTournaments = allTournaments.slice(0, 2)
-      setTournaments(latestTournaments)
+
+      // Filter active and past tournaments
+      const active = allTournaments.filter(t => t.status !== 'completed')
+      const past = allTournaments.filter(t => t.status === 'completed')
+
+      setTournaments(active)
+      setPastTournaments(past)
       setError(null)
 
       // Fetch team counts for each tournament
       const counts = {}
-      for (const tournament of latestTournaments) {
+      for (const tournament of allTournaments) {
         const { count, error: countError } = await supabase
           .from('tournament_teams')
           .select('*', { count: 'exact' })
@@ -476,7 +482,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       // Try to update with final_standings, if column doesn't exist, just update status
       const { error } = await supabase
         .from('tournaments')
-        .update({ 
+        .update({
           status: 'completed',
           final_standings: finalStandings
         })
