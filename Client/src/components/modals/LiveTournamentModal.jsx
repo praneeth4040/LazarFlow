@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Copy, Check, Globe, Lock, ExternalLink } from 'lucide-react'
+import { X, Globe, Lock, ExternalLink } from 'lucide-react'
 import './LiveTournamentModal.css'
 
 const LiveTournamentModal = ({ isOpen, onClose, tournament }) => {
@@ -49,7 +49,7 @@ const LiveTournamentModal = ({ isOpen, onClose, tournament }) => {
                                 className={`copy-btn ${copied ? 'copied' : ''}`}
                                 onClick={handleCopyLink}
                             >
-                                {copied ? <Check size={28} /> : <Copy size={28} />}
+                                {copied ? 'Copied' : 'Copy'}
                             </button>
                         </div>
                     </div>

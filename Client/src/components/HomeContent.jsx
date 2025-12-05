@@ -116,12 +116,15 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       }
 
       console.log('✅ Tournaments fetched:', data)
-      setTournaments(data || [])
+      // Show only the 2 latest tournaments
+      const allTournaments = data || []
+      const latestTournaments = allTournaments.slice(0, 2)
+      setTournaments(latestTournaments)
       setError(null)
 
       // Fetch team counts for each tournament
       const counts = {}
-      for (const tournament of (data || [])) {
+      for (const tournament of latestTournaments) {
         const { count, error: countError } = await supabase
           .from('tournament_teams')
           .select('*', { count: 'exact' })
@@ -142,8 +145,8 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     }
   }
 
-  const activeTournaments = tournaments.filter(t => t.status === 'active')
-  const pastTournaments = tournaments.filter(t => t.status === 'completed')
+  // Show all tournaments (already limited to 2 latest)
+  const displayedTournaments = tournaments
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -430,14 +433,14 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
           </div> */}
 
         <div className="section">
-          <h3>Active Tournaments</h3>
+          <h3>Latest Tournaments</h3>
           {loading ? (
             <div className="loading-state">
               <p>Loading tournaments...</p>
             </div>
-          ) : activeTournaments.length > 0 ? (
+          ) : displayedTournaments.length > 0 ? (
             <div className="tournaments-list">
-              {activeTournaments.map((tournament) => (
+              {displayedTournaments.map((tournament) => (
                 <div key={tournament.id} className="tournament-row">
                   <div className="tournament-row-info">
                     <h4>{tournament.name}</h4>

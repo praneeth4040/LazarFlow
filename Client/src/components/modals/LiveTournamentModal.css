@@ -142,11 +142,10 @@
     background-color: var(--accent-blue);
     border: none;
     color: white;
-    width: 44px;
+    padding: 0.75rem 1.25rem;
+    min-width: 60px;
     height: 44px;
-    /* Fixed height */
     flex-shrink: 0;
-    /* Prevent squashing */
     margin: 0.15rem;
     border-radius: 12px;
     display: flex;
@@ -155,11 +154,9 @@
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.copy-btn svg {
-    color: white;
-    /* Ensure icon is visible */
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
 }
 
 .copy-btn:hover {
