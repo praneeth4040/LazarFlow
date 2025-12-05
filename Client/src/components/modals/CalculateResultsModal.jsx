@@ -24,7 +24,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   const [autoMatchedResults, setAutoMatchedResults] = useState([]) // Store successful auto-matches
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [extracting, setExtracting] = useState(false)
-  const [uploadedImagePaths, setUploadedImagePaths] = useState([]) // Store Supabase storage paths
+  const [pendingImageFiles, setPendingImageFiles] = useState([]) // Store image files until submission
   const { addToast } = useToast()
 
   useEffect(() => {
@@ -142,28 +142,9 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       const extracted = await extractResultsFromScreenshot(files)
       setExtractedData(extracted)
 
-      // Upload images to Supabase storage
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user && user.email) {
-          const imagePaths = await uploadGameResultImages(files, user.email, tournament.name)
-          setUploadedImagePaths(imagePaths)
-          console.log(`✅ Uploaded ${imagePaths.length} images to Supabase storage`)
-          try {
-            addToast('success', `Uploaded ${files.length} image(s) to storage`)
-          } catch (e) {
-            console.error('Toast failed:', e)
-          }
-        }
-      } catch (uploadError) {
-        console.error('⚠️ Warning: Failed to upload images to storage:', uploadError)
-        // Don't fail the entire operation if storage fails, just log it
-        try {
-          addToast('warning', 'Images processed but storage upload failed')
-        } catch (e) {
-          console.error('Toast failed:', e)
-        }
-      }
+      // Store image files for later upload (on submit)
+      setPendingImageFiles(files)
+      console.log(`📦 Stored ${files.length} image(s) for upload on submission`)
 
       // Check if teams need mapping (first time)
       if (needsMapping(teams)) {
@@ -202,28 +183,8 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
     try {
       setLoading(true)
 
-      // Update members array for each team
-      for (const [rank, teamId] of Object.entries(mappings)) {
-        const rankData = extractedRanks.find(r => r.rank === parseInt(rank))
-        if (!rankData) continue
-
-        // Convert AI response to member format
-        // AI returns: {team_name, rank, players: [{name, kills, wwcd, matches_played}], total_eliminations}
-        const memberObjects = rankData.players.map(player => ({
-          name: player.name || player, // Handle both object and string formats
-          kills: player.kills || 0,
-          wwcd: player.wwcd || 0,
-          matches_played: player.matches_played || 1
-        }))
-
-        await supabase
-          .from('tournament_teams')
-          .update({ members: memberObjects })
-          .eq('id', teamId)
-      }
-
-      // Refresh teams
-      await fetchTeams()
+      // DO NOT update database here - only prepare results for preview
+      // Database will be updated in handleSubmit when user clicks "Submit Results"
 
       // Calculate results
       const calculatedResults = []
@@ -325,31 +286,44 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
 
         // Check if result has player-level data (from AI extraction via handleSaveMapping)
         if (result.players && Array.isArray(result.players) && result.players.length > 0) {
-          // We have player data from AI extraction - update cumulative stats
-          updatedMembers = team.members.map((member) => {
-            // Find matching player in result
-            const resultPlayer = result.players.find(
-              (p) => normalizePlayerName(p) === normalizePlayerName(member)
-            );
+          // We have player data from AI extraction
 
-            if (resultPlayer && typeof resultPlayer === 'object') {
-              // Update cumulative stats
-              return {
-                name: member.name || member,
-                kills: (member.kills || 0) + (resultPlayer.kills || 0),
-                wwcd: (member.wwcd || 0) + (resultPlayer.wwcd || 0),
-                matches_played: (member.matches_played || 0) + 1,
-              };
-            } else {
-              // Player not in this result, just increment matches
-              return {
-                name: member.name || member,
-                kills: member.kills || 0,
-                wwcd: member.wwcd || 0,
-                matches_played: (member.matches_played || 0) + 1,
-              };
-            }
-          });
+          // If members array is empty or doesn't have proper structure, initialize it from AI data
+          if (!updatedMembers.length || !updatedMembers[0]?.name) {
+            // First time: Initialize members from AI extraction
+            updatedMembers = result.players.map((player) => ({
+              name: player.name || player,
+              kills: player.kills || 0,
+              wwcd: player.wwcd || 0,
+              matches_played: player.matches_played || 1,
+            }));
+          } else {
+            // Subsequent times: Update cumulative stats
+            updatedMembers = team.members.map((member) => {
+              // Find matching player in result
+              const resultPlayer = result.players.find(
+                (p) => normalizePlayerName(p) === normalizePlayerName(member)
+              );
+
+              if (resultPlayer && typeof resultPlayer === 'object') {
+                // Update cumulative stats
+                return {
+                  name: member.name || member,
+                  kills: (member.kills || 0) + (resultPlayer.kills || 0),
+                  wwcd: (member.wwcd || 0) + (resultPlayer.wwcd || 0),
+                  matches_played: (member.matches_played || 0) + 1,
+                };
+              } else {
+                // Player not in this result, just increment matches
+                return {
+                  name: member.name || member,
+                  kills: member.kills || 0,
+                  wwcd: member.wwcd || 0,
+                  matches_played: (member.matches_played || 0) + 1,
+                };
+              }
+            });
+          }
         } else {
           // No player data (manual entry) - just increment matches_played for all members
           updatedMembers = team.members.map((member) => ({
@@ -372,6 +346,34 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       }
 
       console.log('✅ Results submitted successfully');
+
+      // Upload images to Supabase storage AFTER successful database update
+      if (pendingImageFiles.length > 0) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && user.email) {
+            console.log(`📤 Uploading ${pendingImageFiles.length} image(s) to Supabase storage...`);
+            const imagePaths = await uploadGameResultImages(pendingImageFiles, user.email, tournament.name);
+            console.log(`✅ Uploaded ${imagePaths.length} images to Supabase storage`);
+            try {
+              addToast('success', `Uploaded ${pendingImageFiles.length} image(s) to storage`);
+            } catch (e) {
+              console.error('Toast failed:', e);
+            }
+            // Clear pending images after successful upload
+            setPendingImageFiles([]);
+          }
+        } catch (uploadError) {
+          console.error('⚠️ Warning: Failed to upload images to storage:', uploadError);
+          // Don't fail the entire operation if storage fails, just log it
+          try {
+            addToast('warning', 'Results saved but image upload failed');
+          } catch (e) {
+            console.error('Toast failed:', e);
+          }
+        }
+      }
+
       alert(`✅ Results for ${results.length} team(s) saved!`);
       // Notify any open live pages for this tournament to refresh immediately
       if (tournament?.id) {
@@ -680,7 +682,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                     <button
                       type="button"
                       className="btn-cancel"
-                      onClick={() => { setExtractedData(null); setResults([]); setAiScreenshot(null) }}
+                      onClick={() => { setExtractedData(null); setResults([]); setAiScreenshot(null); setPendingImageFiles([]) }}
                       disabled={loading}
                     >
                       Upload Different Screenshot

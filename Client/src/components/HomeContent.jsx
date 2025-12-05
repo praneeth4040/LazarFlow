@@ -13,7 +13,10 @@ import {
   Radio,
   Flag,
   Award,
-  BarChart3
+  BarChart3,
+  Flame,
+  Gamepad2,
+  Sparkles
 } from 'lucide-react'
 import AddTeamsModal from './modals/AddTeamsModal'
 import CalculateResultsModal from './modals/CalculateResultsModal'
@@ -169,11 +172,11 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
   const getGameIcon = (game) => {
     const icons = {
-      freeFire: '🔥',
-      bgmi: '🎮',
-      other: '◆',
+      freeFire: <Flame size={20} style={{ color: '#ff6b35' }} />,
+      bgmi: <Gamepad2 size={20} style={{ color: '#10b981' }} />,
+      other: <Sparkles size={20} style={{ color: '#8b5cf6' }} />,
     }
-    return icons[game] || '◆'
+    return icons[game] || <Sparkles size={20} style={{ color: '#8b5cf6' }} />
   }
 
   const handleAddTeamsClick = (tournament) => {

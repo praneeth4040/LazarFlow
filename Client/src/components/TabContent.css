@@ -26,8 +26,13 @@
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 @keyframes pulse {
@@ -991,7 +996,7 @@
 
 .tournament-details-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1rem;
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
@@ -1002,18 +1007,25 @@
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    min-width: 0;
+    /* Allow flex items to shrink below content size */
 }
 
 .detail-label {
     font-size: 0.85rem;
     color: var(--text-secondary);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .detail-value {
     font-size: 0.95rem;
     color: var(--text-primary);
     font-weight: 500;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .tournament-standings-section {
@@ -1077,7 +1089,29 @@
     }
 
     .tournament-details-grid {
+        grid-template-columns: 1fr 1fr;
+        /* 2 columns on mobile for better use of space */
+        gap: 1rem;
+    }
+
+    .detail-item {
+        min-width: 0;
+    }
+
+    .detail-label {
+        font-size: 0.8rem;
+    }
+
+    .detail-value {
+        font-size: 0.9rem;
+    }
+}
+
+/* Extra small screens - single column */
+@media (max-width: 380px) {
+    .tournament-details-grid {
         grid-template-columns: 1fr;
+        /* Single column on very small screens */
         gap: 0.75rem;
     }
 }
