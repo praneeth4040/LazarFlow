@@ -4,6 +4,7 @@ import { Target, Sparkles, Camera, X, Upload } from 'lucide-react'
 import { extractResultsFromScreenshot, needsMapping, autoMatchPlayers } from '../../lib/aiResultExtraction'
 import { sendLiveUpdate } from '../../lib/liveSync'
 import { useToast } from '../../context/ToastContext'
+import { uploadGameResultImages } from '../../lib/imageStorage'
 import RankMappingModal from './RankMappingModal'
 import './CalculateResultsModal.css'
 
@@ -23,6 +24,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   const [autoMatchedResults, setAutoMatchedResults] = useState([]) // Store successful auto-matches
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [extracting, setExtracting] = useState(false)
+  const [uploadedImagePaths, setUploadedImagePaths] = useState([]) // Store Supabase storage paths
   const { addToast } = useToast()
 
   useEffect(() => {
@@ -139,6 +141,29 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       // Extract data from screenshots
       const extracted = await extractResultsFromScreenshot(files)
       setExtractedData(extracted)
+
+      // Upload images to Supabase storage
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user && user.email) {
+          const imagePaths = await uploadGameResultImages(files, user.email, tournament.name)
+          setUploadedImagePaths(imagePaths)
+          console.log(`✅ Uploaded ${imagePaths.length} images to Supabase storage`)
+          try {
+            addToast('success', `Uploaded ${files.length} image(s) to storage`)
+          } catch (e) {
+            console.error('Toast failed:', e)
+          }
+        }
+      } catch (uploadError) {
+        console.error('⚠️ Warning: Failed to upload images to storage:', uploadError)
+        // Don't fail the entire operation if storage fails, just log it
+        try {
+          addToast('warning', 'Images processed but storage upload failed')
+        } catch (e) {
+          console.error('Toast failed:', e)
+        }
+      }
 
       // Check if teams need mapping (first time)
       if (needsMapping(teams)) {
@@ -346,6 +371,33 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       if (error) throw error;
     }
 
+      console.log('✅ Results submitted successfully')
+      alert(`✅ Results for ${results.length} team(s) saved!`)
+      // Notify any open live pages for this tournament to refresh immediately
+      if (tournament?.id) {
+        sendLiveUpdate(tournament.id)
+      }
+      try {
+        addToast('success', `✅ Results for ${results.length} team(s) saved!`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
+      setSubmitted(true)
+      setTimeout(() => {
+        onClose()
+        setResults([])
+        setSubmitted(false)
+      }, 1500)
+    } catch (err) {
+      console.error('❌ Error submitting results:', err)
+      try {
+        addToast('error', `Failed to submit results: ${err.message}`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
+    } finally {
+      setLoading(false)
+    }
     console.log('✅ Results submitted successfully');
     alert(`✅ Results for ${results.length} team(s) saved!`);
     // Notify any open live pages for this tournament to refresh immediately
