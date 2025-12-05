@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { subscribeToTournamentTeams } from '../lib/realtime'
 import { subscribeToLiveUpdates } from '../lib/liveSync'
-import { Trophy, AlertCircle, Download } from 'lucide-react'
+import { Trophy, AlertCircle, Download, Award } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import SEO from '../components/SEO'
 import { PAGE_SEO, generateTournamentSchema } from '../utils/seoConfig'
@@ -17,6 +17,8 @@ const LiveTournament = () => {
     const [error, setError] = useState(null)
     const [downloading, setDownloading] = useState(false)
     const [expandedTeam, setExpandedTeam] = useState(null) // Track which team is expanded
+    const [showMVPs, setShowMVPs] = useState(false) // Toggle between standings and MVPs
+    const [mvps, setMvps] = useState([]) // Store calculated MVPs
 
     useEffect(() => {
         if (!liveid) return
@@ -99,6 +101,51 @@ const LiveTournament = () => {
             }).sort((a, b) => b.total - a.total)
 
             setTeams(processedTeams)
+
+            // Calculate MVPs from teams
+            const allPlayers = []
+            processedTeams.forEach(team => {
+                if (team.members && Array.isArray(team.members)) {
+                    team.members.forEach(member => {
+                        const playerName = member.name || member
+                        if (playerName) {
+                            const existingPlayer = allPlayers.find(p => 
+                                p.name.toLowerCase().trim() === playerName.toLowerCase().trim()
+                            )
+
+                            if (existingPlayer) {
+                                existingPlayer.matches_played += (member.matches_played || 0)
+                                existingPlayer.kills += (member.kills || 0)
+                                existingPlayer.wwcd += (member.wwcd || 0)
+                                existingPlayer.teams.push(team.team_name)
+                            } else {
+                                allPlayers.push({
+                                    name: playerName,
+                                    matches_played: member.matches_played || 0,
+                                    kills: member.kills || 0,
+                                    wwcd: member.wwcd || 0,
+                                    teams: [team.team_name]
+                                })
+                            }
+                        }
+                    })
+                }
+            })
+
+            // Sort by kills, then WWCD, then matches
+            const sortedMVPs = allPlayers.sort((a, b) => {
+                if (b.kills !== a.kills) return b.kills - a.kills
+                if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd
+                return b.matches_played - a.matches_played
+            }).map((player, index) => ({
+                ...player,
+                rank: index + 1,
+                avgKills: player.matches_played > 0 
+                    ? (player.kills / player.matches_played).toFixed(2) 
+                    : '0.00'
+            }))
+
+            setMvps(sortedMVPs)
 
         } catch (err) {
             console.error('Error fetching live data:', err)
@@ -315,91 +362,175 @@ const LiveTournament = () => {
                             <span className="live-badge" aria-label="Live tournament">LIVE</span>
                         </h1>
                     </div>
-                    <button
-                        className="download-btn"
-                        onClick={handleDownloadImage}
-                        disabled={downloading}
-                        title="Download Image"
-                    >
-                        <Download size={20} />
-                        <span className="btn-text">{downloading ? 'Downloading...' : 'Download'}</span>
-                    </button>
+                    <div className="header-actions">
+                        <button
+                            className={`view-toggle-btn ${!showMVPs ? 'active' : ''}`}
+                            onClick={() => setShowMVPs(false)}
+                            title="Standings"
+                        >
+                            <Trophy size={18} />
+                            <span className="btn-text">Standings</span>
+                        </button>
+                        <button
+                            className={`view-toggle-btn ${showMVPs ? 'active' : ''}`}
+                            onClick={() => setShowMVPs(true)}
+                            title="MVPs"
+                        >
+                            <Award size={18} />
+                            <span className="btn-text">MVPs</span>
+                        </button>
+                        <button
+                            className="download-btn"
+                            onClick={handleDownloadImage}
+                            disabled={downloading}
+                            title="Download Image"
+                        >
+                            <Download size={20} />
+                            <span className="btn-text">{downloading ? 'Downloading...' : 'Download'}</span>
+                        </button>
+                    </div>
                 </div>
             </header>
 
             <main className="live-content" role="main">
-                <article className="standings-card" aria-labelledby="standings-heading">
-                    <h2 id="standings-heading" className="sr-only">Tournament Standings</h2>
-                    <table className="standings-table" role="table" aria-label="Live tournament leaderboard">
-                        <thead>
-                            <tr>
-                                <th className="rank-col">#</th>
-                                <th className="team-col">Team</th>
-                                <th className="matches-col">M</th>
-                                <th className="wins-col">WWCD</th>
-                                <th className="place-col">Place Pts</th>
-                                <th className="kills-col">Kills</th>
-                                <th className="points-col">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {teams.map((team, index) => (
-                                <React.Fragment key={team.id}>
-                                    <tr className={index < 3 ? `top-${index + 1}` : ''}>
-                                        <td className="rank-col" data-label="#">
-                                            <span className="rank-number">{index + 1}</span>
-                                        </td>
-                                        <td
-                                            className="team-col clickable"
-                                            data-label="Team"
-                                            onClick={() => setExpandedTeam(expandedTeam === team.id ? null : team.id)}
-                                            style={{ cursor: 'pointer' }}
-                                        >
-                                            {team.team_name}
-                                            <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
-                                                {expandedTeam === team.id ? '▼' : '▶'}
-                                            </span>
-                                        </td>
-                                        <td className="matches-col" data-label="M">{team.points.matches_played || 0}</td>
-                                        <td className="wins-col" data-label="WWCD">{team.points.wins || 0}</td>
-                                        <td className="place-col" data-label="Place">{team.points.placement_points || 0}</td>
-                                        <td className="kills-col" data-label="Kills">{team.points.kill_points || 0}</td>
-                                        <td className="points-col" data-label="Total">{team.total}</td>
-                                    </tr>
-                                    {expandedTeam === team.id && team.members && team.members.length > 0 && (
-                                        <tr className="members-row">
-                                            <td colSpan="7" className="members-cell">
-                                                <div className="members-container">
-                                                    <strong>Team Members Stats:</strong>
-                                                    <table className="player-stats-table">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Player Name</th>
-                                                                <th>M</th>
-                                                                <th>Kills</th>
-                                                                <th>WWCD</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {team.members.map((member, idx) => (
-                                                                <tr key={idx}>
-                                                                    <td className="player-name">{member.name || member}</td>
-                                                                    <td>{member.matches_played || 0}</td>
-                                                                    <td>{member.kills || 0}</td>
-                                                                    <td>{member.wwcd || 0}</td>
+                {!showMVPs ? (
+                    <article className="standings-card" aria-labelledby="standings-heading">
+                        <h2 id="standings-heading" className="sr-only">Tournament Standings</h2>
+                        <table className="standings-table" role="table" aria-label="Live tournament leaderboard">
+                            <thead>
+                                <tr>
+                                    <th className="rank-col">#</th>
+                                    <th className="team-col">Team</th>
+                                    <th className="matches-col">M</th>
+                                    <th className="wins-col">WWCD</th>
+                                    <th className="place-col">Place Pts</th>
+                                    <th className="kills-col">Kills</th>
+                                    <th className="points-col">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {teams.map((team, index) => (
+                                    <React.Fragment key={team.id}>
+                                        <tr className={index < 3 ? `top-${index + 1}` : ''}>
+                                            <td className="rank-col" data-label="#">
+                                                <span className="rank-number">{index + 1}</span>
+                                            </td>
+                                            <td
+                                                className="team-col clickable"
+                                                data-label="Team"
+                                                onClick={() => setExpandedTeam(expandedTeam === team.id ? null : team.id)}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                {team.team_name}
+                                                <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: '#64748b' }}>
+                                                    {expandedTeam === team.id ? '▼' : '▶'}
+                                                </span>
+                                            </td>
+                                            <td className="matches-col" data-label="M">{team.points.matches_played || 0}</td>
+                                            <td className="wins-col" data-label="WWCD">{team.points.wins || 0}</td>
+                                            <td className="place-col" data-label="Place">{team.points.placement_points || 0}</td>
+                                            <td className="kills-col" data-label="Kills">{team.points.kill_points || 0}</td>
+                                            <td className="points-col" data-label="Total">{team.total}</td>
+                                        </tr>
+                                        {expandedTeam === team.id && team.members && team.members.length > 0 && (
+                                            <tr className="members-row">
+                                                <td colSpan="7" className="members-cell">
+                                                    <div className="members-container">
+                                                        <strong>Team Members Stats:</strong>
+                                                        <table className="player-stats-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Player Name</th>
+                                                                    <th>M</th>
+                                                                    <th>Kills</th>
+                                                                    <th>WWCD</th>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
+                                                            </thead>
+                                                            <tbody>
+                                                                {team.members.map((member, idx) => (
+                                                                    <tr key={idx}>
+                                                                        <td className="player-name">{member.name || member}</td>
+                                                                        <td>{member.matches_played || 0}</td>
+                                                                        <td>{member.kills || 0}</td>
+                                                                        <td>{member.wwcd || 0}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    </article>
+                ) : (
+                    <article className="mvps-card" aria-labelledby="mvps-heading">
+                        <h2 id="mvps-heading" className="sr-only">Tournament MVPs</h2>
+                        {mvps.length === 0 ? (
+                            <div className="empty-mvps">
+                                <Award size={48} className="empty-icon" />
+                                <h3>No Player Data</h3>
+                                <p>No player statistics available yet.</p>
+                            </div>
+                        ) : (
+                            <table className="mvps-table" role="table" aria-label="Tournament MVPs">
+                                <thead>
+                                    <tr>
+                                        <th className="rank-col">#</th>
+                                        <th className="player-col">Player</th>
+                                        <th className="team-col">Team(s)</th>
+                                        <th className="matches-col">M</th>
+                                        <th className="kills-col">Kills</th>
+                                        <th className="avg-col">Avg</th>
+                                        <th className="wwcd-col">WWCD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {mvps.map((player, index) => (
+                                        <tr key={index} className={index < 3 ? `top-${index + 1}` : ''}>
+                                            <td className="rank-col" data-label="#">
+                                                <span className="rank-number">
+                                                    {index === 0 && <Trophy size={16} className="gold-icon" />}
+                                                    {index === 1 && <Award size={16} className="silver-icon" />}
+                                                    {index === 2 && <Award size={16} className="bronze-icon" />}
+                                                    {player.rank}
+                                                </span>
+                                            </td>
+                                            <td className="player-col" data-label="Player">
+                                                <strong>{player.name}</strong>
+                                            </td>
+                                            <td className="team-col" data-label="Team(s)">
+                                                <span className="team-badges">
+                                                    {player.teams.map((team, idx) => (
+                                                        <span key={idx} className="team-badge">
+                                                            {team}
+                                                        </span>
+                                                    ))}
+                                                </span>
+                                            </td>
+                                            <td className="matches-col" data-label="M">{player.matches_played}</td>
+                                            <td className="kills-col" data-label="Kills">
+                                                <strong>{player.kills}</strong>
+                                            </td>
+                                            <td className="avg-col" data-label="Avg">{player.avgKills}</td>
+                                            <td className="wwcd-col" data-label="WWCD">
+                                                {player.wwcd > 0 ? (
+                                                    <span className="wwcd-badge">
+                                                        <Trophy size={14} />
+                                                        {player.wwcd}
+                                                    </span>
+                                                ) : '-'}
                                             </td>
                                         </tr>
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </tbody>
-                    </table>
-                </article>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </article>
+                )}
             </main>
         </div>
     )
