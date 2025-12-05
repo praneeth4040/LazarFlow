@@ -248,21 +248,60 @@ export const calculateStandings = (teams) => {
       return []
     }
 
-    // Sort by total points descending
-    const sorted = [...teams].sort((a, b) => {
-      const pointsA = (a.total_points || a.totalPoints || 0)
-      const pointsB = (b.total_points || b.totalPoints || 0)
-      return pointsB - pointsA
+    // Process teams to calculate total points
+    const processedTeams = teams.map(team => {
+      // Handle total_points as object or number
+      let totalPoints = 0
+      let killPoints = 0
+      let placementPoints = 0
+      let wins = 0
+      let matchesPlayed = 0
+
+      if (typeof team.total_points === 'object' && team.total_points !== null) {
+        // total_points is a JSON object
+        killPoints = team.total_points.kill_points || 0
+        placementPoints = team.total_points.placement_points || 0
+        wins = team.total_points.wins || 0
+        matchesPlayed = team.total_points.matches_played || 0
+        totalPoints = killPoints + placementPoints
+      } else if (typeof team.total_points === 'number') {
+        // total_points is already a number
+        totalPoints = team.total_points
+        killPoints = team.kill_points || team.points?.kill_points || 0
+        placementPoints = team.placement_points || team.points?.placement_points || 0
+        wins = team.wins || team.points?.wins || 0
+        matchesPlayed = team.matches_played || team.points?.matches_played || 0
+      } else {
+        // Fallback: use individual fields
+        killPoints = team.kill_points || team.points?.kill_points || 0
+        placementPoints = team.placement_points || team.points?.placement_points || 0
+        wins = team.wins || team.points?.wins || 0
+        matchesPlayed = team.matches_played || team.points?.matches_played || 0
+        totalPoints = killPoints + placementPoints
+      }
+
+      return {
+        ...team,
+        totalPoints,
+        killPoints,
+        placementPoints,
+        wins,
+        matchesPlayed
+      }
     })
+
+    // Sort by total points descending
+    const sorted = processedTeams.sort((a, b) => b.totalPoints - a.totalPoints)
 
     // Add rankings
     return sorted.map((team, index) => ({
       rank: index + 1,
       name: team.team_name || team.name || 'Unknown Team',
-      wins: team.wins || 0,
-      placementPoints: team.placement_points || team.placementPoints || 0,
-      killPoints: team.kill_points || team.killPoints || 0,
-      totalPoints: team.total_points || team.totalPoints || 0
+      wins: team.wins,
+      placementPoints: team.placementPoints,
+      killPoints: team.killPoints,
+      totalPoints: team.totalPoints,
+      matchesPlayed: team.matchesPlayed
     }))
   } catch (error) {
     console.error('Error calculating standings:', error)

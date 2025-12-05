@@ -1,5 +1,5 @@
 import React from 'react'
-import { LayoutDashboard, Trophy, User, Plus, X, LogOut } from 'lucide-react'
+import { LayoutDashboard, Trophy, User, Plus, X, LogOut, History } from 'lucide-react'
 import './Sidebar.css'
 
 function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
@@ -62,6 +62,17 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
           >
             <User size={20} />
             <span className="nav-label">Profile</span>
+          </button>
+
+          <button
+            className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('history');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <History size={20} />
+            <span className="nav-label">History</span>
           </button>
         </nav>
 

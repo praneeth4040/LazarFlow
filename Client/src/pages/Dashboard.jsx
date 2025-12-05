@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar'
 import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
 import ProfileContent from '../components/ProfileContent'
+import HistoryContent from '../components/HistoryContent'
 import CreateTournamentModal from '../components/modals/CreateTournamentModal'
 import './Dashboard.css'
 import { Menu } from 'lucide-react'
@@ -116,6 +117,8 @@ function Dashboard() {
         return <LazarEonContent />
       case 'profile':
         return <ProfileContent user={user} onLogout={handleLogout} />
+      case 'history':
+        return <HistoryContent />
       default:
         return <HomeContent />
     }

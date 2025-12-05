@@ -359,7 +359,6 @@ const LiveTournament = () => {
                         <h1>
                             {tournament?.name}
                             <span className="live-badge"> LIVE </span>
-                            <span className="live-badge" aria-label="Live tournament">LIVE</span>
                         </h1>
                     </div>
                     <div className="header-actions">
