@@ -80,10 +80,47 @@
     gap: 1rem;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .header-left {
     display: flex;
     align-items: center;
     gap: 1rem;
+}
+
+.view-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color: #1e293b;
+    color: #cbd5e1;
+    border: 1px solid #334155;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+
+.view-toggle-btn:hover {
+    background-color: #334155;
+    border-color: #475569;
+}
+
+.view-toggle-btn.active {
+    background-color: #0ea5e9;
+    color: white;
+    border-color: #0ea5e9;
+}
+
+.view-toggle-btn.active:hover {
+    background-color: #0284c7;
+    border-color: #0284c7;
 }
 
 .download-btn {
@@ -108,6 +145,10 @@
 @media (max-width: 640px) {
     .btn-text {
         display: none;
+    }
+
+    .view-toggle-btn {
+        padding: 0.5rem;
     }
 
     .download-btn {
@@ -151,6 +192,15 @@
     .trophy-icon {
         width: 24px;
         height: 24px;
+        flex-shrink: 0;
+    }
+
+    .header-actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .view-toggle-btn {
         flex-shrink: 0;
     }
 
@@ -459,4 +509,273 @@
     border-bottom: 1px solid #334155 !important;
     padding: 1rem !important;
     font-size: inherit !important;
+}
+
+/* MVPs Card and Table Styles */
+.mvps-card {
+    background-color: #060d3b;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+}
+
+.empty-mvps {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.empty-mvps .empty-icon {
+    color: #64748b;
+    margin-bottom: 1rem;
+}
+
+.empty-mvps h3 {
+    color: #e2e8f0;
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+}
+
+.empty-mvps p {
+    color: #94a3b8;
+    font-size: 0.95rem;
+}
+
+.mvps-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.mvps-table thead {
+    background-color: #0b0b0b;
+}
+
+.mvps-table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #e6ebf1;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #334155;
+}
+
+.mvps-table th:not(.player-col):not(.team-col) {
+    text-align: center;
+}
+
+.mvps-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #b8bcc3;
+    color: #ffffff;
+}
+
+.mvps-table tbody tr:hover {
+    background-color: #dadde1;
+}
+
+.mvps-table tbody tr.top-1 {
+    background-color: rgba(251, 191, 36, 0.1);
+}
+
+.mvps-table tbody tr.top-2 {
+    background-color: rgba(148, 163, 184, 0.1);
+}
+
+.mvps-table tbody tr.top-3 {
+    background-color: rgba(180, 83, 9, 0.1);
+}
+
+.mvps-table .rank-col {
+    width: 60px;
+    text-align: center;
+}
+
+.mvps-table .rank-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.mvps-table .gold-icon {
+    color: #fbbf24;
+}
+
+.mvps-table .silver-icon {
+    color: #e2e8f0;
+}
+
+.mvps-table .bronze-icon {
+    color: #b45309;
+}
+
+.mvps-table .player-col {
+    font-weight: 600;
+    color: #ffffff;
+    min-width: 150px;
+}
+
+.mvps-table .team-col {
+    min-width: 120px;
+}
+
+.mvps-table .team-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.mvps-table .team-badge {
+    background-color: #334155;
+    color: #cbd5e1;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.mvps-table .matches-col,
+.mvps-table .kills-col,
+.mvps-table .avg-col,
+.mvps-table .wwcd-col {
+    text-align: center;
+    width: 100px;
+}
+
+.mvps-table .kills-col strong {
+    color: #38bdf8;
+    font-size: 1.1rem;
+}
+
+.mvps-table .avg-col {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.mvps-table .wwcd-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background-color: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* Mobile Responsive for MVPs */
+@media (max-width: 768px) {
+    .header-actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .view-toggle-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .mvps-table {
+        font-size: 0.875rem;
+    }
+
+    .mvps-table th,
+    .mvps-table td {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .mvps-table .team-badges {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .mvps-table .player-col {
+        min-width: 120px;
+    }
+
+    .mvps-card {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .mvps-table thead {
+        display: none;
+    }
+
+    .mvps-table,
+    .mvps-table tbody,
+    .mvps-table tr,
+    .mvps-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .mvps-table tr {
+        margin-bottom: 1rem;
+        background-color: #e3e5e8;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1rem;
+        position: relative;
+    }
+
+    .mvps-table td {
+        text-align: right;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #334155;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .mvps-table td:last-child {
+        border-bottom: none;
+    }
+
+    .mvps-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #dde1e6;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+    }
+
+    .mvps-table td.rank-col {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        width: auto;
+        border: none;
+        padding: 0;
+    }
+
+    .mvps-table td.rank-col::before {
+        display: none;
+    }
+
+    .mvps-table td.player-col {
+        text-align: left;
+        padding-top: 2.5rem;
+        padding-bottom: 1rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        border-bottom: 2px solid #334155;
+        margin-bottom: 0.5rem;
+        display: block;
+        text-align: center;
+    }
+
+    .mvps-table td.player-col::before {
+        display: none;
+    }
 }

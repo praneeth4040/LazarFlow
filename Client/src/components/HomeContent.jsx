@@ -2,26 +2,26 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { subscribeToUserTournaments } from '../lib/realtime'
 import { subscribeToLiveUpdates } from '../lib/liveSync'
-import { extractTeamsFromImage } from '../lib/aiExtraction'
 import {
-  MoreVertical,
   Plus,
   Trash2,
   Edit,
-  Table,
   Calculator,
-  Users,
   Trophy,
   AlertCircle,
-  Check,
   X,
-  Radio
+  Radio,
+  Flag,
+  Award,
+  BarChart3
 } from 'lucide-react'
 import AddTeamsModal from './modals/AddTeamsModal'
 import CalculateResultsModal from './modals/CalculateResultsModal'
 import EditTournamentModal from './modals/EditTournamentModal'
 import CreateTournamentModal from './modals/CreateTournamentModal'
 import LiveTournamentModal from './modals/LiveTournamentModal'
+import MVPsModal from './modals/MVPsModal'
+import LeaderboardModal from './modals/LeaderboardModal'
 import './TabContent.css'
 import { useToast } from '../context/ToastContext'
 import ConfirmationModal from './ConfirmationModal'
@@ -39,8 +39,13 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const [editTournament, setEditTournament] = useState(null)
   const [isLiveModalOpen, setIsLiveModalOpen] = useState(false)
   const [liveTournament, setLiveTournament] = useState(null)
+  const [isMVPsModalOpen, setIsMVPsModalOpen] = useState(false)
+  const [mvpsTournament, setMvpsTournament] = useState(null)
+  const [isLeaderboardModalOpen, setIsLeaderboardModalOpen] = useState(false)
+  const [leaderboardTournament, setLeaderboardTournament] = useState(null)
   const { addToast } = useToast()
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, tournamentId: null, tournamentName: null })
+  const [confirmEnd, setConfirmEnd] = useState({ isOpen: false, tournamentId: null, tournamentName: null })
 
   // State for AI extraction (assuming these are needed for the new AI card)
   const [extracting, setExtracting] = useState(false)
@@ -201,6 +206,28 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     setEditTournament(null)
     // Refresh tournaments list
     fetchTournaments()
+  }
+
+  const handleMVPsClick = (tournament) => {
+    console.log('Opening MVPs modal for:', tournament.name)
+    setMvpsTournament(tournament)
+    setIsMVPsModalOpen(true)
+  }
+
+  const handleCloseMVPsModal = () => {
+    setIsMVPsModalOpen(false)
+    setMvpsTournament(null)
+  }
+
+  const handleLeaderboardClick = (tournament) => {
+    console.log('Opening leaderboard modal for:', tournament.name)
+    setLeaderboardTournament(tournament)
+    setIsLeaderboardModalOpen(true)
+  }
+
+  const handleCloseLeaderboardModal = () => {
+    setIsLeaderboardModalOpen(false)
+    setLeaderboardTournament(null)
   }
 
 
@@ -399,6 +426,117 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     setLiveTournament(null)
   }
 
+  const handleEndTournament = (tournamentId, tournamentName) => {
+    setConfirmEnd({ isOpen: true, tournamentId, tournamentName })
+  }
+
+  const handleConfirmEndTournament = async () => {
+    const { tournamentId, tournamentName } = confirmEnd
+    setConfirmEnd({ isOpen: false, tournamentId: null, tournamentName: null })
+
+    try {
+      console.log('🏁 Ending tournament:', tournamentId)
+
+      // Fetch current teams and calculate final standings
+      const { data: teamsData, error: teamsError } = await supabase
+        .from('tournament_teams')
+        .select('*')
+        .eq('tournament_id', tournamentId)
+
+      if (teamsError) throw teamsError
+
+      // Calculate final standings
+      const finalStandings = (teamsData || []).map(team => {
+        const points = typeof team.total_points === 'object'
+          ? team.total_points
+          : { kill_points: 0, placement_points: 0, matches_played: 0, wins: 0 }
+
+        const total = (points.kill_points || 0) + (points.placement_points || 0)
+
+        return {
+          team_id: team.id,
+          team_name: team.team_name,
+          rank: 0, // Will be set after sorting
+          matches_played: points.matches_played || 0,
+          wins: points.wins || 0,
+          placement_points: points.placement_points || 0,
+          kill_points: points.kill_points || 0,
+          total_points: total
+        }
+      })
+        .sort((a, b) => b.total_points - a.total_points)
+        .map((team, index) => ({
+          ...team,
+          rank: index + 1
+        }))
+
+      console.log('📊 Final standings calculated:', finalStandings)
+
+      // Update tournament with final standings and status
+      // Try to update with final_standings, if column doesn't exist, just update status
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ 
+          status: 'completed',
+          final_standings: finalStandings
+        })
+        .eq('id', tournamentId)
+
+      if (error) {
+        // If final_standings column doesn't exist, try updating just the status
+        if (error.message && error.message.includes('final_standings')) {
+          console.warn('⚠️ final_standings column not found, updating status only')
+          const { error: statusError } = await supabase
+            .from('tournaments')
+            .update({ status: 'completed' })
+            .eq('id', tournamentId)
+
+          if (statusError) {
+            console.error('❌ Error ending tournament:', statusError)
+            try {
+              addToast('error', `❌ Error: ${statusError.message}. Please add final_standings column to database.`)
+            } catch (e) {
+              console.error('Toast failed:', e)
+            }
+            return
+          }
+
+          // Show warning about missing column
+          try {
+            addToast('warning', '⚠️ Tournament ended but final standings could not be saved. Please add final_standings column to database.')
+          } catch (e) {
+            console.error('Toast failed:', e)
+          }
+        } else {
+          console.error('❌ Error ending tournament:', error)
+          try {
+            addToast('error', `❌ Error: ${error.message} `)
+          } catch (e) {
+            console.error('Toast failed:', e)
+          }
+          return
+        }
+      }
+
+      console.log('✅ Tournament ended successfully with final standings stored')
+      try {
+        addToast('success', `✅ "${tournamentName}" moved to past tournaments!`)
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
+
+      // Refresh tournaments list
+      fetchTournaments()
+    } catch (err) {
+      console.error('❌ Exception ending tournament:', err)
+      try {
+        addToast('error', '❌ Failed to end tournament')
+      } catch (e) {
+        console.error('Toast failed:', e)
+      }
+    }
+  }
+
   // Placeholder for AI extraction function, as it's referenced in the new snippet
   const handleAiExtraction = () => {
     console.log("AI Extraction triggered (function not fully implemented in HomeContent)");
@@ -482,6 +620,16 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
                       <Edit size={18} />
                     </button>
                     <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleEndTournament(tournament.id, tournament.name)
+                      }}
+                      title="End Tournament"
+                    >
+                      <Flag size={18} />
+                    </button>
+                    <button
                       className="icon-btn delete-btn"
                       onClick={(e) => {
                         e.stopPropagation()
@@ -510,6 +658,70 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
           )}
         </div>
 
+        {/* Past Tournaments Section */}
+        <div className="section">
+          <h3>Past Tournaments</h3>
+          {loading ? (
+            <div className="loading-state">
+              <p>Loading tournaments...</p>
+            </div>
+          ) : pastTournaments.length > 0 ? (
+            <div className="tournaments-list">
+              {pastTournaments.map((tournament) => (
+                <div key={tournament.id} className="tournament-row">
+                  <div className="tournament-row-info">
+                    <h4>{tournament.name}</h4>
+                    <div className="tournament-meta-info">
+                      <span className="team-count-badge">{teamCounts[tournament.id] || 0} Teams</span>
+                      <span className="created-date">{formatDate(tournament.created_at)}</span>
+                    </div>
+                  </div>
+
+                  <div className="card-actions">
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleLeaderboardClick(tournament)
+                      }}
+                      title="Leaderboard"
+                    >
+                      <BarChart3 size={18} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleMVPsClick(tournament)
+                      }}
+                      title="MVPs"
+                    >
+                      <Award size={18} />
+                    </button>
+                    <button
+                      className="icon-btn delete-btn"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteTournament(tournament.id, tournament.name)
+                      }}
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">
+                <Trophy size={48} />
+              </div>
+              <h3>No Past Tournaments</h3>
+              <p>Completed tournaments will appear here</p>
+            </div>
+          )}
+        </div>
 
       </div>
 
@@ -539,7 +751,6 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
 
 
-
       {/* Create Tournament Modal */}
       <CreateTournamentModal
         isOpen={showAddModal}
@@ -553,6 +764,20 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         tournament={liveTournament}
       />
 
+      {/* MVPs Modal */}
+      <MVPsModal
+        isOpen={isMVPsModalOpen}
+        onClose={handleCloseMVPsModal}
+        tournament={mvpsTournament}
+      />
+
+      {/* Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={isLeaderboardModalOpen}
+        onClose={handleCloseLeaderboardModal}
+        tournament={leaderboardTournament}
+      />
+
       {/* Confirmation Modal for Delete */}
       <ConfirmationModal
         isOpen={confirmDelete.isOpen}
@@ -560,6 +785,15 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         message={`Are you sure you want to delete "${confirmDelete.tournamentName}"? This cannot be undone.`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDelete({ isOpen: false, tournamentId: null, tournamentName: null })}
+      />
+
+      {/* Confirmation Modal for End Tournament */}
+      <ConfirmationModal
+        isOpen={confirmEnd.isOpen}
+        title="End Tournament"
+        message={`Are you sure you want to end "${confirmEnd.tournamentName}"? It will be moved to past tournaments.`}
+        onConfirm={handleConfirmEndTournament}
+        onCancel={() => setConfirmEnd({ isOpen: false, tournamentId: null, tournamentName: null })}
       />
     </div>
   )
