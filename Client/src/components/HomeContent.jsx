@@ -16,7 +16,8 @@ import {
   BarChart3,
   Flame,
   Gamepad2,
-  Sparkles
+  Sparkles,
+  Settings
 } from 'lucide-react'
 import AddTeamsModal from './modals/AddTeamsModal'
 import CalculateResultsModal from './modals/CalculateResultsModal'
@@ -50,6 +51,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
   const { addToast } = useToast()
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, tournamentId: null, tournamentName: null })
   const [confirmEnd, setConfirmEnd] = useState({ isOpen: false, tournamentId: null, tournamentName: null })
+  const [openSettingsMenu, setOpenSettingsMenu] = useState(null) // Track which tournament's settings menu is open
 
   // State for AI extraction (assuming these are needed for the new AI card)
   const [extracting, setExtracting] = useState(false)
@@ -101,6 +103,23 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
       setIsTeamsModalOpen(true)
     }
   }, [newTournament])
+
+  // Close settings menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openSettingsMenu && !event.target.closest('.settings-menu-container')) {
+        setOpenSettingsMenu(null)
+      }
+    }
+
+    if (openSettingsMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [openSettingsMenu])
 
   const fetchTournaments = async () => {
     try {
@@ -202,6 +221,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     console.log('Opening edit modal for:', tournament.name)
     setEditTournament(tournament)
     setIsEditModalOpen(true)
+    setOpenSettingsMenu(null) // Close settings menu when opening edit modal
   }
 
   const handleCloseEditModal = () => {
@@ -381,6 +401,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
   const handleDeleteTournament = (tournamentId, tournamentName) => {
     setConfirmDelete({ isOpen: true, tournamentId, tournamentName })
+    setOpenSettingsMenu(null) // Close settings menu when opening delete confirmation
   }
 
   const handleConfirmDelete = async () => {
@@ -580,7 +601,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
           </div> */}
 
         <div className="section">
-          <h3>Latest Tournaments</h3>
+          <h3>Active Tournaments</h3>
           {loading ? (
             <div className="loading-state">
               <p>Loading tournaments...</p>
@@ -622,32 +643,50 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
                       className="icon-btn"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleEditClick(tournament)
-                      }}
-                      title="Edit Tournament"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      className="icon-btn"
-                      onClick={(e) => {
-                        e.stopPropagation()
                         handleEndTournament(tournament.id, tournament.name)
                       }}
                       title="End Tournament"
                     >
                       <Flag size={18} />
                     </button>
-                    <button
-                      className="icon-btn delete-btn"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteTournament(tournament.id, tournament.name)
-                      }}
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="settings-menu-container">
+                      <button
+                        className="icon-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOpenSettingsMenu(openSettingsMenu === tournament.id ? null : tournament.id)
+                        }}
+                        title="Settings"
+                      >
+                        <Settings size={18} />
+                      </button>
+                      {openSettingsMenu === tournament.id && (
+                        <div className="settings-dropdown">
+                          <button
+                            className="settings-dropdown-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditClick(tournament)
+                              setOpenSettingsMenu(null)
+                            }}
+                            title="Edit Tournament"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            className="settings-dropdown-item delete-item"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteTournament(tournament.id, tournament.name)
+                              setOpenSettingsMenu(null)
+                            }}
+                            title="Delete Tournament"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
