@@ -167,7 +167,6 @@
     word-break: break-word;
     line-height: 1.3;
     color: #0a1327;
-    -webkit-text-stroke: 1px #ffffff;
 }
 
 @media (max-width: 768px) {
@@ -509,6 +508,47 @@
     border-bottom: 1px solid #334155 !important;
     padding: 1rem !important;
     font-size: inherit !important;
+}
+
+/* Empty State */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    color: #cbd5e1;
+}
+
+.empty-state .empty-icon {
+    color: #64748b;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    margin: 0.5rem 0;
+    color: #e2e8f0;
+    font-size: 1.25rem;
+}
+
+.empty-state p {
+    color: #94a3b8;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* Gold, Silver, Bronze Icons */
+.gold-icon {
+    color: #fbbf24;
+}
+
+.silver-icon {
+    color: #94a3b8;
+}
+
+.bronze-icon {
+    color: #b45309;
 }
 
 /* MVPs Card and Table Styles */

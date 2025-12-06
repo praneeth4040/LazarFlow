@@ -135,11 +135,12 @@ function Dashboard() {
       />
       <main className="dashboard-main">
         <div className="mobile-header">
-          <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
-            <Menu size={24} />
-          </button>
-          <h2>LazarFlow</h2>
-        </div>
+  <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
+    <Menu size={24} />
+  </button>
+  <img src="/logo.jpg" alt="LazarFlow Logo" className="logo-img" style={{ width: '32px', height: '32px', objectFit: 'contain', borderRadius: '8px', marginLeft: '0.5rem' }} />
+  <h2 style={{ marginLeft: '0.5rem' }}>LazarFlow</h2>
+</div>
         {renderContent()}
       </main>
       <CreateTournamentModal

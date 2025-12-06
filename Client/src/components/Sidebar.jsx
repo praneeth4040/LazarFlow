@@ -14,7 +14,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo-container">
-            <div className="logo-icon">L</div>
+            <img src="/logo.jpg" alt="LazarFlow Logo" className="logo-img" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px' }} />
             <h1>LazarFlow</h1>
           </div>
           <button className="close-sidebar-btn" onClick={onClose}>
@@ -78,8 +78,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">P</div>
-            <div className="user-details">
+                        <div className="user-details">
               <span className="user-name">Praneeth</span>
               <span className="user-role">Admin</span>
             </div>

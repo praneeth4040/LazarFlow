@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { subscribeToTournamentTeams } from '../lib/realtime'
 import { subscribeToLiveUpdates } from '../lib/liveSync'
-import { Trophy, AlertCircle, Download, Award } from 'lucide-react'
+import { Trophy, AlertCircle, Download, Award, Target } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import SEO from '../components/SEO'
 import { PAGE_SEO, generateTournamentSchema } from '../utils/seoConfig'
@@ -11,14 +11,15 @@ import './LiveTournament.css'
 
 const LiveTournament = () => {
     const { liveid } = useParams()
+    const [searchParams] = useSearchParams()
+    const view = searchParams.get('view') || 'standings' // 'standings' or 'mvps'
     const [tournament, setTournament] = useState(null)
     const [teams, setTeams] = useState([])
+    const [mvps, setMvps] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [downloading, setDownloading] = useState(false)
     const [expandedTeam, setExpandedTeam] = useState(null) // Track which team is expanded
-    const [showMVPs, setShowMVPs] = useState(false) // Toggle between standings and MVPs
-    const [mvps, setMvps] = useState([]) // Store calculated MVPs
 
     useEffect(() => {
         if (!liveid) return
@@ -39,9 +40,12 @@ const LiveTournament = () => {
 
             // Subscribe to local browser live updates (instant cross-tab updates)
             unsubscribeChannel = subscribeToLiveUpdates((message) => {
+                console.log('📣 Live page received live update message:', message, 'for tournament:', liveid)
                 if (message?.type === 'results-updated' && message.tournamentId === liveid) {
-                    console.log('📣 Local live update received, refetching live data...')
+                    console.log('📣 Local live update received for this tournament, refetching live data...')
                     fetchLiveData()
+                } else {
+                    console.log('⏭️ Live update ignored (different tournament or wrong type)')
                 }
             })
 
@@ -65,7 +69,7 @@ const LiveTournament = () => {
                 clearInterval(intervalId)
             }
         }
-    }, [liveid])
+    }, [liveid, view])
 
     const fetchLiveData = async () => {
         try {
@@ -102,50 +106,53 @@ const LiveTournament = () => {
 
             setTeams(processedTeams)
 
-            // Calculate MVPs from teams
-            const allPlayers = []
-            processedTeams.forEach(team => {
-                if (team.members && Array.isArray(team.members)) {
-                    team.members.forEach(member => {
-                        const playerName = member.name || member
-                        if (playerName) {
-                            const existingPlayer = allPlayers.find(p => 
-                                p.name.toLowerCase().trim() === playerName.toLowerCase().trim()
-                            )
+            // Calculate MVPs if needed
+            if (view === 'mvps') {
+                const allPlayers = []
+                
+                teamsData.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(member => {
+                            const playerName = member.name || member
+                            if (playerName) {
+                                const existingPlayer = allPlayers.find(p => 
+                                    p.name.toLowerCase().trim() === playerName.toLowerCase().trim()
+                                )
 
-                            if (existingPlayer) {
-                                existingPlayer.matches_played += (member.matches_played || 0)
-                                existingPlayer.kills += (member.kills || 0)
-                                existingPlayer.wwcd += (member.wwcd || 0)
-                                existingPlayer.teams.push(team.team_name)
-                            } else {
-                                allPlayers.push({
-                                    name: playerName,
-                                    matches_played: member.matches_played || 0,
-                                    kills: member.kills || 0,
-                                    wwcd: member.wwcd || 0,
-                                    teams: [team.team_name]
-                                })
+                                if (existingPlayer) {
+                                    existingPlayer.matches_played += (member.matches_played || 0)
+                                    existingPlayer.kills += (member.kills || 0)
+                                    existingPlayer.wwcd += (member.wwcd || 0)
+                                    existingPlayer.teams.push(team.team_name)
+                                } else {
+                                    allPlayers.push({
+                                        name: playerName,
+                                        matches_played: member.matches_played || 0,
+                                        kills: member.kills || 0,
+                                        wwcd: member.wwcd || 0,
+                                        teams: [team.team_name]
+                                    })
+                                }
                             }
-                        }
-                    })
-                }
-            })
+                        })
+                    }
+                })
 
-            // Sort by kills, then WWCD, then matches
-            const sortedMVPs = allPlayers.sort((a, b) => {
-                if (b.kills !== a.kills) return b.kills - a.kills
-                if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd
-                return b.matches_played - a.matches_played
-            }).map((player, index) => ({
-                ...player,
-                rank: index + 1,
-                avgKills: player.matches_played > 0 
-                    ? (player.kills / player.matches_played).toFixed(2) 
-                    : '0.00'
-            }))
+                const sortedMVPs = allPlayers.sort((a, b) => {
+                    if (b.kills !== a.kills) return b.kills - a.kills
+                    if (b.wwcd !== a.wwcd) return b.wwcd - a.wwcd
+                    return b.matches_played - a.matches_played
+                })
 
-            setMvps(sortedMVPs)
+                const mvpsWithAvg = sortedMVPs.map(player => ({
+                    ...player,
+                    avgKills: player.matches_played > 0 
+                        ? (player.kills / player.matches_played).toFixed(2) 
+                        : '0.00'
+                }))
+
+                setMvps(mvpsWithAvg)
+            }
 
         } catch (err) {
             console.error('Error fetching live data:', err)
@@ -358,41 +365,104 @@ const LiveTournament = () => {
                         <Trophy className="trophy-icon" size={32} aria-hidden="true" />
                         <h1>
                             {tournament?.name}
-                            <span className="live-badge"> LIVE </span>
+                            {tournament?.status !== 'completed' && (
+                                <span className="live-badge"> LIVE </span>
+                            )}
                         </h1>
                     </div>
-                    <div className="header-actions">
-                        <button
-                            className={`view-toggle-btn ${!showMVPs ? 'active' : ''}`}
-                            onClick={() => setShowMVPs(false)}
-                            title="Standings"
-                        >
-                            <Trophy size={18} />
-                            <span className="btn-text">Standings</span>
-                        </button>
-                        <button
-                            className={`view-toggle-btn ${showMVPs ? 'active' : ''}`}
-                            onClick={() => setShowMVPs(true)}
-                            title="MVPs"
-                        >
-                            <Award size={18} />
-                            <span className="btn-text">MVPs</span>
-                        </button>
-                        <button
-                            className="download-btn"
-                            onClick={handleDownloadImage}
-                            disabled={downloading}
-                            title="Download Image"
-                        >
-                            <Download size={20} />
-                            <span className="btn-text">{downloading ? 'Downloading...' : 'Download'}</span>
-                        </button>
-                    </div>
+                    <button
+                        className="download-btn"
+                        onClick={handleDownloadImage}
+                        disabled={downloading}
+                        title="Download Image"
+                    >
+                        <Download size={20} />
+                        <span className="btn-text">{downloading ? 'Downloading...' : 'Download'}</span>
+                    </button>
                 </div>
             </header>
 
             <main className="live-content" role="main">
-                {!showMVPs ? (
+                {view === 'mvps' ? (
+                    <article className="standings-card" aria-labelledby="mvps-heading">
+                        <h2 id="mvps-heading" className="sr-only">Tournament MVPs</h2>
+                        {mvps.length === 0 ? (
+                            <div className="empty-state">
+                                <Award size={48} className="empty-icon" />
+                                <h3>No Player Data</h3>
+                                <p>No player statistics available for this tournament.</p>
+                            </div>
+                        ) : (
+                            <table className="standings-table" role="table" aria-label="Tournament MVPs">
+                                <thead>
+                                    <tr>
+                                        <th className="rank-col">#</th>
+                                        <th className="team-col">Player</th>
+                                        <th className="matches-col">Team(s)</th>
+                                        <th className="wins-col">M</th>
+                                        <th className="place-col">Kills</th>
+                                        <th className="kills-col">Avg</th>
+                                        <th className="points-col">WWCD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {mvps.map((player, index) => (
+                                        <tr key={index} className={index < 3 ? `top-${index + 1}` : ''}>
+                                            <td className="rank-col" data-label="#">
+                                                <span className="rank-number">
+                                                    {index === 0 && <Trophy size={16} className="gold-icon" style={{ marginRight: '0.25rem' }} />}
+                                                    {index === 1 && <Award size={16} className="silver-icon" style={{ marginRight: '0.25rem' }} />}
+                                                    {index === 2 && <Award size={16} className="bronze-icon" style={{ marginRight: '0.25rem' }} />}
+                                                    {index + 1}
+                                                </span>
+                                            </td>
+                                            <td className="team-col" data-label="Player">
+                                                <strong>{player.name}</strong>
+                                            </td>
+                                            <td className="matches-col" data-label="Team(s)">
+                                                <span style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                                                    {player.teams.map((team, idx) => (
+                                                        <span key={idx} style={{
+                                                            background: '#e5e7eb',
+                                                            padding: '0.25rem 0.5rem',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.75rem'
+                                                        }}>
+                                                            {team}
+                                                        </span>
+                                                    ))}
+                                                </span>
+                                            </td>
+                                            <td className="wins-col" data-label="M">{player.matches_played}</td>
+                                            <td className="place-col" data-label="Kills">
+                                                <strong>{player.kills}</strong>
+                                            </td>
+                                            <td className="kills-col" data-label="Avg">{player.avgKills}</td>
+                                            <td className="points-col" data-label="WWCD">
+                                                {player.wwcd > 0 ? (
+                                                    <span style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.25rem',
+                                                        background: '#10b981',
+                                                        color: 'white',
+                                                        padding: '0.25rem 0.5rem',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 600
+                                                    }}>
+                                                        <Target size={14} />
+                                                        {player.wwcd}
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </article>
+                ) : (
                     <article className="standings-card" aria-labelledby="standings-heading">
                         <h2 id="standings-heading" className="sr-only">Tournament Standings</h2>
                         <table className="standings-table" role="table" aria-label="Live tournament leaderboard">
@@ -464,70 +534,6 @@ const LiveTournament = () => {
                                 ))}
                             </tbody>
                         </table>
-                    </article>
-                ) : (
-                    <article className="mvps-card" aria-labelledby="mvps-heading">
-                        <h2 id="mvps-heading" className="sr-only">Tournament MVPs</h2>
-                        {mvps.length === 0 ? (
-                            <div className="empty-mvps">
-                                <Award size={48} className="empty-icon" />
-                                <h3>No Player Data</h3>
-                                <p>No player statistics available yet.</p>
-                            </div>
-                        ) : (
-                            <table className="mvps-table" role="table" aria-label="Tournament MVPs">
-                                <thead>
-                                    <tr>
-                                        <th className="rank-col">#</th>
-                                        <th className="player-col">Player</th>
-                                        <th className="team-col">Team(s)</th>
-                                        <th className="matches-col">M</th>
-                                        <th className="kills-col">Kills</th>
-                                        <th className="avg-col">Avg</th>
-                                        <th className="wwcd-col">WWCD</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {mvps.map((player, index) => (
-                                        <tr key={index} className={index < 3 ? `top-${index + 1}` : ''}>
-                                            <td className="rank-col" data-label="#">
-                                                <span className="rank-number">
-                                                    {index === 0 && <Trophy size={16} className="gold-icon" />}
-                                                    {index === 1 && <Award size={16} className="silver-icon" />}
-                                                    {index === 2 && <Award size={16} className="bronze-icon" />}
-                                                    {player.rank}
-                                                </span>
-                                            </td>
-                                            <td className="player-col" data-label="Player">
-                                                <strong>{player.name}</strong>
-                                            </td>
-                                            <td className="team-col" data-label="Team(s)">
-                                                <span className="team-badges">
-                                                    {player.teams.map((team, idx) => (
-                                                        <span key={idx} className="team-badge">
-                                                            {team}
-                                                        </span>
-                                                    ))}
-                                                </span>
-                                            </td>
-                                            <td className="matches-col" data-label="M">{player.matches_played}</td>
-                                            <td className="kills-col" data-label="Kills">
-                                                <strong>{player.kills}</strong>
-                                            </td>
-                                            <td className="avg-col" data-label="Avg">{player.avgKills}</td>
-                                            <td className="wwcd-col" data-label="WWCD">
-                                                {player.wwcd > 0 ? (
-                                                    <span className="wwcd-badge">
-                                                        <Trophy size={14} />
-                                                        {player.wwcd}
-                                                    </span>
-                                                ) : '-'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
                     </article>
                 )}
             </main>

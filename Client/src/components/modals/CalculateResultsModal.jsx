@@ -375,7 +375,15 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       alert(`✅ Results for ${results.length} team(s) saved!`);
       // Notify any open live pages for this tournament to refresh immediately
       if (tournament?.id) {
-        sendLiveUpdate(tournament.id);
+        console.log('📡 Sending live update for tournament:', tournament.id);
+        try {
+          sendLiveUpdate(tournament.id);
+          console.log('✅ Live update sent successfully');
+        } catch (err) {
+          console.error('❌ Failed to send live update:', err);
+        }
+      } else {
+        console.warn('⚠️ Cannot send live update: tournament.id is missing');
       }
       try {
         addToast('success', `✅ Results for ${results.length} team(s) saved!`);
