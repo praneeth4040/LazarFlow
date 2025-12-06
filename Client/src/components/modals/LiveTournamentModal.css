@@ -143,9 +143,11 @@
     border: none;
     color: white;
     padding: 0.75rem 1.25rem;
-    min-width: 60px;
+    min-width: 80px;
     height: 44px;
+    /* Fixed height */
     flex-shrink: 0;
+    /* Prevent squashing */
     margin: 0.15rem;
     border-radius: 12px;
     display: flex;
@@ -154,9 +156,8 @@
     cursor: pointer;
     transition: all 0.2s;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    font-family: 'Outfit', sans-serif;
-    font-size: 0.9rem;
     font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .copy-btn:hover {
@@ -387,8 +388,9 @@
     }
 
     .copy-btn {
-        width: 48px;
+        min-width: 90px;
         height: 48px;
+        padding: 0.875rem 1.5rem;
         flex-shrink: 0;
     }
 
@@ -488,8 +490,9 @@
     }
 
     .copy-btn {
-        width: 48px;
+        min-width: 90px;
         height: 48px;
+        padding: 0.875rem 1.5rem;
         margin: 0;
         flex-shrink: 0;
     }

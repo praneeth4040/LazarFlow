@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { subscribeToTournamentTeams } from '../lib/realtime'
 import { subscribeToLiveUpdates } from '../lib/liveSync'
-import { Trophy, AlertCircle, Download, Award } from 'lucide-react'
+import { Trophy, AlertCircle, Download, Award, Target } from 'lucide-react'
 import html2canvas from 'html2canvas'
 import SEO from '../components/SEO'
 import { PAGE_SEO, generateTournamentSchema } from '../utils/seoConfig'
@@ -11,14 +11,15 @@ import './LiveTournament.css'
 
 const LiveTournament = () => {
     const { liveid } = useParams()
+    const [searchParams] = useSearchParams()
+    const view = searchParams.get('view') || 'standings' // 'standings' or 'mvps'
     const [tournament, setTournament] = useState(null)
     const [teams, setTeams] = useState([])
+    const [mvps, setMvps] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [downloading, setDownloading] = useState(false)
     const [expandedTeam, setExpandedTeam] = useState(null) // Track which team is expanded
-    const [showMVPs, setShowMVPs] = useState(false) // Toggle between standings and MVPs
-    const [mvps, setMvps] = useState([]) // Store calculated MVPs
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1)
@@ -43,9 +44,12 @@ const LiveTournament = () => {
 
             // Subscribe to local browser live updates (instant cross-tab updates)
             unsubscribeChannel = subscribeToLiveUpdates((message) => {
+                console.log('📣 Live page received live update message:', message, 'for tournament:', liveid)
                 if (message?.type === 'results-updated' && message.tournamentId === liveid) {
-                    console.log('📣 Local live update received, refetching live data...')
+                    console.log('📣 Local live update received for this tournament, refetching live data...')
                     fetchLiveData()
+                } else {
+                    console.log('⏭️ Live update ignored (different tournament or wrong type)')
                 }
             })
 
@@ -69,7 +73,7 @@ const LiveTournament = () => {
                 clearInterval(intervalId)
             }
         }
-    }, [liveid])
+    }, [liveid, view])
 
     const fetchLiveData = async () => {
         try {
@@ -460,7 +464,86 @@ const LiveTournament = () => {
             </header>
 
             <main className="live-content" role="main">
-                {!showMVPs ? (
+                {view === 'mvps' ? (
+                    <article className="standings-card" aria-labelledby="mvps-heading">
+                        <h2 id="mvps-heading" className="sr-only">Tournament MVPs</h2>
+                        {mvps.length === 0 ? (
+                            <div className="empty-state">
+                                <Award size={48} className="empty-icon" />
+                                <h3>No Player Data</h3>
+                                <p>No player statistics available for this tournament.</p>
+                            </div>
+                        ) : (
+                            <table className="standings-table" role="table" aria-label="Tournament MVPs">
+                                <thead>
+                                    <tr>
+                                        <th className="rank-col">#</th>
+                                        <th className="team-col">Player</th>
+                                        <th className="matches-col">Team(s)</th>
+                                        <th className="wins-col">M</th>
+                                        <th className="place-col">Kills</th>
+                                        <th className="kills-col">Avg</th>
+                                        <th className="points-col">WWCD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {mvps.map((player, index) => (
+                                        <tr key={index} className={index < 3 ? `top-${index + 1}` : ''}>
+                                            <td className="rank-col" data-label="#">
+                                                <span className="rank-number">
+                                                    {index === 0 && <Trophy size={16} className="gold-icon" style={{ marginRight: '0.25rem' }} />}
+                                                    {index === 1 && <Award size={16} className="silver-icon" style={{ marginRight: '0.25rem' }} />}
+                                                    {index === 2 && <Award size={16} className="bronze-icon" style={{ marginRight: '0.25rem' }} />}
+                                                    {index + 1}
+                                                </span>
+                                            </td>
+                                            <td className="team-col" data-label="Player">
+                                                <strong>{player.name}</strong>
+                                            </td>
+                                            <td className="matches-col" data-label="Team(s)">
+                                                <span style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                                                    {player.teams.map((team, idx) => (
+                                                        <span key={idx} style={{
+                                                            background: '#e5e7eb',
+                                                            padding: '0.25rem 0.5rem',
+                                                            borderRadius: '4px',
+                                                            fontSize: '0.75rem'
+                                                        }}>
+                                                            {team}
+                                                        </span>
+                                                    ))}
+                                                </span>
+                                            </td>
+                                            <td className="wins-col" data-label="M">{player.matches_played}</td>
+                                            <td className="place-col" data-label="Kills">
+                                                <strong>{player.kills}</strong>
+                                            </td>
+                                            <td className="kills-col" data-label="Avg">{player.avgKills}</td>
+                                            <td className="points-col" data-label="WWCD">
+                                                {player.wwcd > 0 ? (
+                                                    <span style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.25rem',
+                                                        background: '#10b981',
+                                                        color: 'white',
+                                                        padding: '0.25rem 0.5rem',
+                                                        borderRadius: '4px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 600
+                                                    }}>
+                                                        <Target size={14} />
+                                                        {player.wwcd}
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </article>
+                ) : (
                     <article className="standings-card" aria-labelledby="standings-heading">
                         <h2 id="standings-heading" className="sr-only">Tournament Standings</h2>
                         <table className="standings-table" role="table" aria-label="Live tournament leaderboard">

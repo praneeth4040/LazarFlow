@@ -58,8 +58,48 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
 }
+
+@media (max-width: 600px) {
+  .mvps-modal .mvps-table-container {
+    background: var(--bg-secondary, #0c4986);
+    border-radius: 8px;
+    border: 1px solid var(--bg-secondary, #e5e7eb);
+    overflow-x: auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  }
+  .mvps-modal .mvps-table {
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--bg-secondary, #e5e7eb);
+    font-size: 0.85rem;
+    min-width: 600px;
+  }
+  .mvps-modal .mvps-table th,
+  .mvps-modal .mvps-table td {
+    background: none;
+    color: var(--text-primary, #1f2937);
+    border-bottom: 1px solid var(--bg-secondary, #e5e7eb);
+    padding: 0.75rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  .mvps-modal .mvps-table th {
+    background: var(--bg-secondary, #f3f4f6);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--bg-secondary, #e5e7eb);
+  }
+  .mvps-modal .mvps-table tr.top-1 td {
+    background-color: rgba(251, 191, 36, 0.1);
+  }
+  .mvps-modal .mvps-table tr.top-2 td {
+    background-color: rgba(148, 163, 184, 0.1);
+  }
+  .mvps-modal .mvps-table tr.top-3 td {
+    background-color: rgba(180, 83, 9, 0.1);
+  }
+}
+
 
 .mvps-modal .empty-icon {
     color: #64748b;
@@ -85,7 +125,10 @@
 .mvps-modal .mvps-table {
     width: 100%;
     border-collapse: collapse;
-    background-color: #1e293b;
+    font-size: 0.9rem;
+    background: var(--bg-primary, #fff);
+    border: 1px solid var(--bg-secondary, #e5e7eb);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 
 .mvps-modal .mvps-table thead {
@@ -110,6 +153,11 @@
     padding: 1rem;
     border-bottom: 1px solid #334155;
     color: #e2e8f0;
+}
+
+.mvps-modal .mvps-table td.player-col {
+    text-align: left;
+    background: none;
 }
 
 .mvps-modal .mvps-table tbody tr:hover {
@@ -165,18 +213,25 @@
 }
 
 .mvps-modal .team-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    display: inline;
+    flex-wrap: unset;
+    gap: 0;
+    background: none;
+    padding: 0;
+    border: none;
+    font-size: inherit;
+    color: inherit;
 }
 
 .mvps-modal .team-badge {
-    background-color: #334155;
-    color: #cbd5e1;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    display: inline;
+    background: none;
+    color: inherit;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    font-size: inherit;
+    font-weight: inherit;
 }
 
 .mvps-modal .matches-col,

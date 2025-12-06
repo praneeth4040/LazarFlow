@@ -45,8 +45,7 @@ function Landing() {
       <header className="landing-header">
         <div className="header-container">
           <div className="logo">
-            <div className="logo-text">LazarFlow</div>
-          </div>
+                      </div>
           <nav className="header-nav" aria-label="Main navigation">
             <Link to="/login" className="nav-link">Login</Link>
             <Link to="/signup" className="nav-link nav-link-primary">Sign Up</Link>

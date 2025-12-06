@@ -75,6 +75,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
 
       // Listen for local "results updated" events (from CalculateResultsModal)
       unsubscribeChannel = subscribeToLiveUpdates((message) => {
+        console.log('📣 Dashboard received live update message:', message)
         if (message?.type === 'results-updated') {
           // Results changed for some tournament – refresh dashboard data
           console.log('📣 Dashboard received results-updated event, refreshing tournaments...')

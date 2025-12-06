@@ -28,6 +28,8 @@
 /* Mobile Header */
 .mobile-header {
   display: none;
+  align-items: center;
+  gap: 0.5rem;
   position: fixed;
   top: 0;
   left: 0;

@@ -21,13 +21,9 @@ import {
 import './TabContent.css'
 
 function HistoryContent() {
-  const [tournaments, setTournaments] = useState([])
+  const [pastTournaments, setPastTournaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [expandedTournament, setExpandedTournament] = useState(null)
-  const [tournamentTeams, setTournamentTeams] = useState({})
-  const [teamCounts, setTeamCounts] = useState({})
-  const [loadingTeams, setLoadingTeams] = useState({})
   const [selectedTournament, setSelectedTournament] = useState(null)
   const [isTeamDetailsOpen, setIsTeamDetailsOpen] = useState(false)
   const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false)
@@ -61,10 +57,10 @@ function HistoryContent() {
     }
   }, [])
 
-  const fetchTournaments = async () => {
+  const fetchPastTournaments = async () => {
     try {
       setLoading(true)
-      console.log('📥 Fetching all tournaments for history...')
+      console.log(' Fetching past tournaments from Supabase...')
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -76,10 +72,11 @@ function HistoryContent() {
         .from('tournaments')
         .select('*')
         .eq('user_id', user.id)
+        .eq('status', 'completed')
         .order('created_at', { ascending: false })
 
       if (fetchError) {
-        console.error('❌ Fetch error:', fetchError)
+        console.error(' Fetch error:', fetchError)
         throw fetchError
       }
 
@@ -93,25 +90,10 @@ function HistoryContent() {
 
       setTournaments(historyTournaments)
       setError(null)
-
-      // Fetch team counts for each tournament
-      const counts = {}
-      for (const tournament of historyTournaments) {
-        const { count, error: countError } = await supabase
-          .from('tournament_teams')
-          .select('*', { count: 'exact' })
-          .eq('tournament_id', tournament.id)
-
-        if (!countError) {
-          counts[tournament.id] = count || 0
-        }
-      }
-      setTeamCounts(counts)
-      console.log('✅ Team counts fetched:', counts)
     } catch (err) {
-      console.error('❌ Error fetching tournaments:', err.message)
-      setError('Failed to load tournament history')
-      setTournaments([])
+      console.error(' Error fetching past tournaments:', err.message)
+      setError('Failed to load past tournaments')
+      setPastTournaments([])
     } finally {
       setLoading(false)
     }
@@ -213,8 +195,6 @@ function HistoryContent() {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
     })
   }
 
@@ -254,8 +234,8 @@ function HistoryContent() {
   return (
     <div className="tab-content">
       <div className="content-header">
-        <h2>Tournament History</h2>
-        <p>View all your past tournaments and their details</p>
+        <h2>History</h2>
+        <p>View your completed tournaments</p>
       </div>
 
       <div className="content-body">
@@ -263,20 +243,17 @@ function HistoryContent() {
           <div className="error-message">
             <AlertCircle size={20} />
             <p>{error}</p>
-            <button onClick={fetchTournaments} className="retry-btn">
+            <button onClick={fetchPastTournaments} className="retry-btn">
               Retry
             </button>
           </div>
         )}
 
-        {loading ? (
-          <div className="loading-state">
-            <p>Loading tournament history...</p>
-          </div>
-        ) : tournaments.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">
-              <Trophy size={48} />
+        <div className="section">
+          <h3>Past Tournaments</h3>
+          {loading ? (
+            <div className="loading-state">
+              <p>Loading past tournaments...</p>
             </div>
             <h3>No Tournament History</h3>
             <p>Your completed tournaments will appear here once you end a tournament</p>
@@ -418,11 +395,19 @@ function HistoryContent() {
                       </div>
                     )}
                   </div>
-                )
-              })}
+                </div>
+              ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="empty-state">
+              <div className="empty-icon">
+                <Trophy size={48} />
+              </div>
+              <h3>No Past Tournaments</h3>
+              <p>Completed tournaments will appear here</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Team Details Modal */}
