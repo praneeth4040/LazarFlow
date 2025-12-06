@@ -188,31 +188,24 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
           {/* Points System Display */}
           <div className="form-group">
             <label>Points System ({formData.game === 'freeFire' ? 'Free Fire' : formData.game === 'bgmi' ? 'BGMI' : 'Other'})</label>
-            <div className="points-system-table">
-              <div className="table-header">
-                <div className="table-cell placement-col">Placement</div>
-                <div className="table-cell points-col">Points</div>
-              </div>
-              <div className="table-body">
-                {pointsSystem.map((row, idx) => (
-                  <div key={idx} className="table-row">
-                    <div className="table-cell placement-col">#{row.placement}</div>
-                    <div className="table-cell points-col">
-                      <div className="points-slider-container">
-                        <input
-                          type="range"
-                          min="0"
-                          max="20"
-                          value={row.points}
-                          onChange={(e) => handlePointsChange(idx, e.target.value)}
-                          className="points-slider"
-                        />
-                        <span className="points-value">{row.points}</span>
-                      </div>
-                    </div>
+            <div className="points-system-container">
+              {pointsSystem.map((row, idx) => (
+                <div key={idx} className="placement-points-row">
+                  <span className="placement-label">#{row.placement}</span>
+                  <div className="placement-slider-container">
+                    <input
+                      type="range"
+                      min="0"
+                      max="20"
+                      value={row.points}
+                      onChange={(e) => handlePointsChange(idx, e.target.value)}
+                      className="points-slider"
+                    />
+                    <span className="placement-points-value">{row.points}</span>
                   </div>
-                ))}
-              </div>
+                  <span className="points-text">point{row.points !== 1 ? 's' : ''}</span>
+                </div>
+              ))}
             </div>
             <div className="kill-points-info">
               <span><Sparkles size={16} /></span>

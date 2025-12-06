@@ -4,14 +4,19 @@ import { subscribeToUserTournaments } from '../lib/realtime'
 import PointsTable from './PointsTable'
 import TeamDetailsModal from './modals/TeamDetailsModal'
 import TournamentStandingsModal from './modals/TournamentStandingsModal'
-import { 
-  Trophy, 
-  Calendar, 
-  Users, 
-  ChevronDown, 
+import GameScreensModal from './modals/GameScreensModal'
+import {
+  Trophy,
+  Calendar,
+  Users,
+  ChevronDown,
   ChevronUp,
   AlertCircle,
-  Table
+  Table,
+  Flame,
+  Gamepad2,
+  Sparkles,
+  Image as ImageIcon
 } from 'lucide-react'
 import './TabContent.css'
 
@@ -27,6 +32,9 @@ function HistoryContent() {
   const [isTeamDetailsOpen, setIsTeamDetailsOpen] = useState(false)
   const [isStandingsModalOpen, setIsStandingsModalOpen] = useState(false)
   const [standingsTournament, setStandingsTournament] = useState(null)
+  const [isGameScreensModalOpen, setIsGameScreensModalOpen] = useState(false)
+  const [gameScreensTournament, setGameScreensTournament] = useState(null)
+  const [userEmail, setUserEmail] = useState(null)
 
   useEffect(() => {
     let unsubscribeTournaments = null
@@ -36,6 +44,8 @@ function HistoryContent() {
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      setUserEmail(user.email) // Store user email for image fetching
 
       unsubscribeTournaments = subscribeToUserTournaments(user.id, () => {
         fetchTournaments()
@@ -74,11 +84,13 @@ function HistoryContent() {
       }
 
       console.log('✅ All tournaments fetched:', data)
-      
-      // Get all tournaments except the 2 latest
+
+      // Get all completed tournaments (not just skip first 2)
       const allTournaments = data || []
-      const historyTournaments = allTournaments.slice(2) // Skip first 2 (latest)
-      
+      const historyTournaments = allTournaments.filter(t => t.status === 'completed')
+
+      console.log(`📊 Found ${historyTournaments.length} completed tournaments for history`)
+
       setTournaments(historyTournaments)
       setError(null)
 
@@ -112,7 +124,7 @@ function HistoryContent() {
 
     try {
       setLoadingTeams(prev => ({ ...prev, [tournamentId]: true }))
-      
+
       const { data, error } = await supabase
         .from('tournament_teams')
         .select('*')
@@ -125,11 +137,11 @@ function HistoryContent() {
         const points = typeof team.total_points === 'object' && team.total_points !== null
           ? team.total_points
           : { kill_points: 0, placement_points: 0, matches_played: 0, wins: 0 }
-        
+
         const killPoints = points.kill_points || 0
         const placementPoints = points.placement_points || 0
         const total = killPoints + placementPoints
-        
+
         return {
           ...team,
           points,
@@ -186,6 +198,16 @@ function HistoryContent() {
     setIsStandingsModalOpen(true)
   }
 
+  const handleViewGameScreens = (tournament) => {
+    console.log('🖼️ Opening game screens modal for tournament:', tournament?.name)
+    if (!tournament || !tournament.id) {
+      console.error('❌ Invalid tournament data:', tournament)
+      return
+    }
+    setGameScreensTournament(tournament)
+    setIsGameScreensModalOpen(true)
+  }
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -198,11 +220,11 @@ function HistoryContent() {
 
   const getGameIcon = (game) => {
     const icons = {
-      freeFire: '🔥',
-      bgmi: '🎮',
-      other: '◆',
+      freeFire: <Flame size={20} style={{ color: '#ff6b35' }} />,
+      bgmi: <Gamepad2 size={20} style={{ color: '#10b981' }} />,
+      other: <Sparkles size={20} style={{ color: '#8b5cf6' }} />,
     }
-    return icons[game] || '◆'
+    return icons[game] || <Sparkles size={20} style={{ color: '#8b5cf6' }} />
   }
 
   const getStatusBadge = (status) => {
@@ -213,10 +235,10 @@ function HistoryContent() {
     }
     const badge = badges[status] || badges.active
     return (
-      <span 
-        className="status-badge" 
-        style={{ 
-          background: `${badge.color}20`, 
+      <span
+        className="status-badge"
+        style={{
+          background: `${badge.color}20`,
           color: badge.color,
           padding: '0.25rem 0.75rem',
           borderRadius: '12px',
@@ -257,7 +279,7 @@ function HistoryContent() {
               <Trophy size={48} />
             </div>
             <h3>No Tournament History</h3>
-            <p>Your tournament history will appear here once you have more than 2 tournaments</p>
+            <p>Your completed tournaments will appear here once you end a tournament</p>
           </div>
         ) : (
           <div className="section">
@@ -269,14 +291,14 @@ function HistoryContent() {
 
                 return (
                   <div key={tournament.id} className="tournament-history-card">
-                    <div 
+                    <div
                       className="tournament-history-header"
                       onClick={() => handleToggleExpand(tournament.id)}
                       style={{ cursor: 'pointer' }}
                     >
                       <div className="tournament-history-info">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <span style={{ fontSize: '1.5rem' }}>{getGameIcon(tournament.game)}</span>
+                          <span style={{ display: 'flex', alignItems: 'center' }}>{getGameIcon(tournament.game)}</span>
                           <h4>{tournament.name}</h4>
                         </div>
                         <div className="tournament-meta-info">
@@ -325,32 +347,60 @@ function HistoryContent() {
                           <div className="tournament-standings-section">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                               <h5 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '600', color: 'var(--text-primary)' }}>Tournament Standings</h5>
-                              <button 
-                                className="btn-primary"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleViewStandings(tournament)
-                                }}
-                                style={{ 
-                                  padding: '0.5rem 1rem',
-                                  fontSize: '0.85rem',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.5rem',
-                                  background: '#1a73e8',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '8px',
-                                  cursor: 'pointer',
-                                  fontWeight: '500',
-                                  transition: 'all 0.2s ease'
-                                }}
-                                onMouseEnter={(e) => e.target.style.background = '#1557b0'}
-                                onMouseLeave={(e) => e.target.style.background = '#1a73e8'}
-                              >
-                                <Table size={16} />
-                                Full View
-                              </button>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  className="btn-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleViewGameScreens(tournament)
+                                  }}
+                                  style={{
+                                    padding: '0.5rem 1rem',
+                                    fontSize: '0.85rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    background: '#10b981',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => e.target.style.background = '#059669'}
+                                  onMouseLeave={(e) => e.target.style.background = '#10b981'}
+                                >
+                                  <ImageIcon size={16} />
+                                  View Game Screens
+                                </button>
+                                <button
+                                  className="btn-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleViewStandings(tournament)
+                                  }}
+                                  style={{
+                                    padding: '0.5rem 1rem',
+                                    fontSize: '0.85rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    background: '#1a73e8',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => e.target.style.background = '#1557b0'}
+                                  onMouseLeave={(e) => e.target.style.background = '#1a73e8'}
+                                >
+                                  <Table size={16} />
+                                  Full View
+                                </button>
+                              </div>
                             </div>
                             <PointsTable teams={teams} tournament={tournament} />
                           </div>
@@ -397,6 +447,19 @@ function HistoryContent() {
             setStandingsTournament(null)
           }}
           tournament={standingsTournament}
+        />
+      )}
+
+      {/* Game Screens Modal */}
+      {gameScreensTournament && userEmail && (
+        <GameScreensModal
+          isOpen={isGameScreensModalOpen}
+          onClose={() => {
+            setIsGameScreensModalOpen(false)
+            setGameScreensTournament(null)
+          }}
+          tournament={gameScreensTournament}
+          userEmail={userEmail}
         />
       )}
     </div>
