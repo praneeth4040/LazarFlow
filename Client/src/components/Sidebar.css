@@ -44,24 +44,29 @@
   gap: 0.75rem;
 }
 
-.logo-icon {
-  width: 32px;
-  height: 32px;
-  background: var(--accent-blue);
-  color: white;
+.logo-image {
+  height: 36px;
+  width: auto;
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 1.2rem;
+  object-fit: contain;
 }
 
 .sidebar-header h1 {
   font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
   letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  line-height: 1;
+}
+
+.brand-blue {
+  color: var(--accent-blue);
+}
+
+.brand-black {
+  color: var(--text-primary);
 }
 
 .close-sidebar-btn {

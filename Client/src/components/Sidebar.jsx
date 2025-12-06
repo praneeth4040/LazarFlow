@@ -17,8 +17,8 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="logo-container">
-            <div className="logo-icon">L</div>
-            <h1>LazarFlow</h1>
+            <img src="/logo.jpeg" alt="LazarFlow" className="logo-image" />
+            <h1><span className="brand-blue">Lazar</span><span className="brand-black">Flow</span></h1>
           </div>
           <button className="close-sidebar-btn" onClick={onClose}>
             <X size={24} />
