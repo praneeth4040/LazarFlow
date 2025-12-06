@@ -25,4 +25,38 @@
 .toast-error { border-left: 4px solid #ea4335 }
 
 .toast-message { flex: 1; padding-right: 8px }
-.toast-close { background: transparent; border: none; cursor: pointer; font-size: 14px }
+.toast-close { 
+  background: transparent !important; 
+  border: none !important; 
+  cursor: pointer; 
+  padding: 4px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(0, 0, 0, 0.6);
+  transition: all 0.2s ease;
+  border-radius: 0 !important;
+  margin-left: 8px;
+  box-shadow: none !important;
+  min-width: auto;
+  width: auto;
+  height: auto;
+}
+
+.toast-close:hover {
+  color: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.05) !important;
+  box-shadow: none !important;
+  border-radius: 4px !important;
+}
+
+.toast-close:active {
+  transform: scale(0.95);
+  box-shadow: none !important;
+}
+
+.toast-close:focus,
+.toast-close:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
