@@ -41,10 +41,20 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.auth-logo {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  border-radius: 12px;
+  object-fit: cover;
 }
 
 .auth-card h1 {
