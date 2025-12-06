@@ -1,8 +1,11 @@
 import React from 'react'
-import { LayoutDashboard, Trophy, User, Plus, X, LogOut, History } from 'lucide-react'
+import { LayoutDashboard, Trophy, User, Plus, X, History } from 'lucide-react'
 import './Sidebar.css'
 
-function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose }) {
+function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user }) {
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+  const displayInitial = displayName.charAt(0).toUpperCase()
+
   return (
     <>
       {/* Overlay for mobile */}

@@ -56,12 +56,13 @@ function Login() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <img src="/logo.jpeg" alt="LazarFlow" className="auth-logo" />
         <h1>LazarFlow</h1>
         <h2>Login</h2>
-        
+
         {error && <div className="error-message">{error}</div>}
-        
-        <button 
+
+        <button
           type="button"
           onClick={handleGoogleLogin}
           disabled={loading}
@@ -76,7 +77,7 @@ function Login() {
           <div className="divider-text">or</div>
           <div className="divider-line"></div>
         </div>
-        
+
         <form onSubmit={handleLogin}>
           <div className="form-group">
             <label htmlFor="email">Email</label>
@@ -102,8 +103,8 @@ function Login() {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="auth-button"
           >

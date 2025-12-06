@@ -132,6 +132,7 @@ function Dashboard() {
         onCreateClick={handleCreateClick}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        user={user}
       />
       <main className="dashboard-main">
         <div className="mobile-header">

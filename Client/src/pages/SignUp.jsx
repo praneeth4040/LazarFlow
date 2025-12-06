@@ -67,13 +67,14 @@ function SignUp() {
   return (
     <div className="auth-container">
       <div className="auth-card">
+        <img src="/logo.jpeg" alt="LazarFlow" className="auth-logo" />
         <h1>LazarFlow</h1>
         <h2>Sign Up</h2>
-        
+
         {error && <div className="error-message">{error}</div>}
         {message && <div className="success-message">{message}</div>}
-        
-        <button 
+
+        <button
           type="button"
           onClick={handleGoogleSignUp}
           disabled={loading}
@@ -88,7 +89,7 @@ function SignUp() {
           <div className="divider-text">or</div>
           <div className="divider-line"></div>
         </div>
-        
+
         <form onSubmit={handleSignUp}>
           <div className="form-group">
             <label htmlFor="email">Email</label>
@@ -126,8 +127,8 @@ function SignUp() {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="auth-button"
           >
