@@ -125,7 +125,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
         // Double-check: make sure we're not clicking on any settings button
         const clickedSettingsButton = event.target.closest('.settings-menu-container')
         if (!clickedSettingsButton || clickedSettingsButton.getAttribute('data-tournament-id') !== currentOpenMenu) {
-          setOpenSettingsMenu(null)
+        setOpenSettingsMenu(null)
         }
       }
     }
@@ -135,7 +135,7 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     if (openSettingsMenu) {
       // Use a small delay to avoid closing immediately when opening
       timeoutId = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('mousedown', handleClickOutside)
       }, 10)
     }
 

@@ -61,18 +61,6 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           </button>
 
           <button
-            id="tour-profile-nav"
-            className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('profile');
-              if (window.innerWidth < 768) onClose();
-            }}
-          >
-            <User size={20} />
-            <span className="nav-label">Profile</span>
-          </button>
-
-          <button
             id="tour-history-nav"
             className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => {
@@ -82,6 +70,18 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           >
             <History size={20} />
             <span className="nav-label">History</span>
+          </button>
+
+          <button
+            id="tour-profile-nav"
+            className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('profile');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <User size={20} />
+            <span className="nav-label">Profile</span>
           </button>
         </nav>
 

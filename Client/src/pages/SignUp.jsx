@@ -70,7 +70,14 @@ function SignUp() {
         <img src="/logo.jpeg" alt="LazarFlow" className="auth-logo" />
         <h1>LazarFlow</h1>
         <h2>Sign Up</h2>
-
+        <div style={{marginTop: '2rem', textAlign: 'center', color: '#1a1a1a'}}>
+          <p>
+            Presently, we are only handling <b>invite only</b> sign ups.<br/>
+            If you want access, contact us on our Instagram profile:<br/>
+            <a href="https://www.instagram.com/lazar_flow/" target="_blank" rel="noopener noreferrer" style={{color: '#0066cc'}}>https://www.instagram.com/lazar_flow/</a>
+          </p>
+        </div>
+        {/*
         {error && <div className="error-message">{error}</div>}
         {message && <div className="success-message">{message}</div>}
 
@@ -139,6 +146,7 @@ function SignUp() {
         <div className="auth-footer">
           <p>Already have an account? <a href="/login">Login here</a></p>
         </div>
+        */}
       </div>
     </div>
   )
