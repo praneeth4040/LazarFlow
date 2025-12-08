@@ -146,7 +146,7 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
             <label htmlFor="name">Tournament Name *</label>
             <input
               type="text"
-              id="name"
+              id="tour-tournament-name"
               name="name"
               value={formData.name}
               onChange={handleInputChange}
