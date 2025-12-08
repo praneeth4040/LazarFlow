@@ -11,6 +11,7 @@ import './Dashboard.css'
 import { Menu } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
 
+
 function Dashboard() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('home')

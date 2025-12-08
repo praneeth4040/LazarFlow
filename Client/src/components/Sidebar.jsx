@@ -6,6 +6,8 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
   const displayInitial = displayName.charAt(0).toUpperCase()
 
+  const tags = ["Esports Enthusiast", "Gaming Addict", "Esports Death Player", "Gaming God", "Esports Legend", "Gaming Master", "Esports Pro", "Gaming Pro", "Esports Ace", "Gaming Ace"];
+  const randomTag = tags[Math.floor(Math.random() * tags.length)];
   return (
     <>
       {/* Overlay for mobile */}
@@ -25,7 +27,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           </button>
         </div>
 
-        <button className="create-button" onClick={() => {
+        <button id="tour-create-btn" className="create-button" onClick={() => {
           onCreateClick();
           if (window.innerWidth < 768) onClose();
         }}>
@@ -35,6 +37,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
 
         <nav className="sidebar-nav">
           <button
+            id="tour-home-nav"
             className={`nav-item ${activeTab === 'home' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('home');
@@ -46,6 +49,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           </button>
 
           <button
+            id="tour-lazareon-nav"
             className={`nav-item ${activeTab === 'lazareon' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('lazareon');
@@ -57,6 +61,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           </button>
 
           <button
+            id="tour-profile-nav"
             className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('profile');
@@ -68,6 +73,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           </button>
 
           <button
+            id="tour-history-nav"
             className={`nav-item ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => {
               setActiveTab('history');
@@ -84,7 +90,7 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
             <div className="user-avatar">{displayInitial}</div>
             <div className="user-details">
               <span className="user-name">{displayName}</span>
-              <span className="user-role">User</span>
+              <span className="user-role">{randomTag}</span>
             </div>
           </div>
         </div>
