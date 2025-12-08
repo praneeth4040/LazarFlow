@@ -295,10 +295,10 @@ const LiveTournament = () => {
                     // Inject CSS overrides to ensure proper display
                     const style = clonedDoc.createElement('style')
                     style.innerHTML = `
-                        * { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif !important; }
+                        * { font-family: var(--live-font-family) !important; }
                         
                         h1 { 
-                            color: #ffffff !important; 
+                            color: var(--live-text-primary) !important; 
                             font-size: 1.5rem !important;
                             font-weight: 700 !important;
                             margin: 0 !important;
@@ -330,8 +330,8 @@ const LiveTournament = () => {
                             width: auto !important; 
                             text-align: center !important; 
                             padding: 1rem !important; 
-                            border-bottom: 1px solid #334155 !important;
-                            color: #cbd5e1 !important;
+                            border-bottom: 1px solid var(--live-table-border) !important;
+                            color: var(--live-text-secondary) !important;
                         }
                         td::before { display: none !important; }
                         
@@ -339,7 +339,7 @@ const LiveTournament = () => {
                         .team-col, .player-col { 
                             text-align: left !important; 
                             padding-left: 1rem !important;
-                            color: white !important;
+                            color: var(--live-text-primary) !important;
                             font-weight: 600 !important;
                         }
                         .rank-col { 
@@ -347,25 +347,25 @@ const LiveTournament = () => {
                             font-weight: 500 !important;
                         }
                         .points-col, .kills-col strong {
-                            color: #38bdf8 !important;
+                            color: var(--live-points-color) !important;
                             font-weight: 700 !important;
                             font-size: 1.1rem !important;
                         }
                         
                         /* Top 3 highlighting */
-                        .top-1 td { background-color: rgba(251, 191, 36, 0.1) !important; }
-                        .top-2 td { background-color: rgba(148, 163, 184, 0.1) !important; }
-                        .top-3 td { background-color: rgba(180, 83, 9, 0.1) !important; }
+                        .top-1 td { background-color: var(--live-rank-1-bg) !important; }
+                        .top-2 td { background-color: var(--live-rank-2-bg) !important; }
+                        .top-3 td { background-color: var(--live-rank-3-bg) !important; }
                         
-                        .top-1 .rank-number { color: #fbbf24 !important; }
-                        .top-2 .rank-number { color: #e2e8f0 !important; }
-                        .top-3 .rank-number { color: #b45309 !important; }
+                        .top-1 .rank-number { color: var(--live-rank-1-text) !important; }
+                        .top-2 .rank-number { color: var(--live-rank-2-text) !important; }
+                        .top-3 .rank-number { color: var(--live-rank-3-text) !important; }
                         
                         /* MVP Specifics */
                         .team-badges { display: flex !important; gap: 0.5rem !important; }
                         .team-badge { 
-                            background-color: #334155 !important; 
-                            color: #cbd5e1 !important;
+                            background-color: var(--live-table-border) !important; 
+                            color: var(--live-text-secondary) !important;
                             padding: 0.25rem 0.5rem !important;
                             border-radius: 4px !important;
                             font-size: 0.75rem !important;
@@ -391,21 +391,18 @@ const LiveTournament = () => {
     }
     // Scaling logic removed - reverted to responsive layout
 
-    // Get theme from URL param (fallback/override) or tournament data
     const urlParams = new URLSearchParams(window.location.search)
-    const urlTheme = urlParams.get('theme')
     const hideMvp = urlParams.get('hideMvp') === 'true'
-    const activeTheme = urlTheme || tournament?.theme || 'default'
 
     if (loading) return (
-        <div className={`live-container loading theme-${activeTheme}`}>
+        <div className="live-container loading">
             <div className="loading-spinner"></div>
             <p>Loading tournament data...</p>
         </div>
     )
 
     if (error) return (
-        <div className={`live-container error theme-${activeTheme}`}>
+        <div className="live-container error">
             <AlertCircle size={48} />
             <h2>Error Loading Tournament</h2>
             <p>{error}</p>
@@ -413,7 +410,7 @@ const LiveTournament = () => {
     )
 
     return (
-        <div className={`live-container theme-${activeTheme}`}>
+        <div className="live-container">
             {tournament && (
                 <SEO
                     title={`${tournament.name} - Live Standings`}
@@ -423,6 +420,7 @@ const LiveTournament = () => {
                     structuredData={generateTournamentSchema(tournament, teams)}
                 />
             )}
+
 
             <header className="live-header">
                 <div className="header-inner">
