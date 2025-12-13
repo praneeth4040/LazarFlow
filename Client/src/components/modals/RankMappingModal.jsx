@@ -1,17 +1,120 @@
-import React, { useState } from 'react'
-import { X, Check } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { X, Check, Edit2 } from 'lucide-react'
+import { nameSimilarity } from '../../lib/aiResultExtraction'
 import './RankMappingModal.css'
 import { useToast } from '../../context/ToastContext'
 
 const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) => {
     const [mappings, setMappings] = useState({})
+    const [editableKills, setEditableKills] = useState({})
+    const [editingRank, setEditingRank] = useState(null)
     const [saving, setSaving] = useState(false)
     const { addToast } = useToast()
+
+    // Initialize editable kills when data changes
+    useEffect(() => {
+        if (isOpen && extractedData) {
+            const initialKills = {}
+            extractedData.forEach(rankData => {
+                initialKills[rankData.rank] = rankData.total_eliminations !== undefined 
+                    ? rankData.total_eliminations 
+                    : (rankData.eliminations || 0)
+            })
+            setEditableKills(initialKills)
+        }
+    }, [isOpen, extractedData])
+
+    // Auto-match teams when modal opens
+    useEffect(() => {
+        if (isOpen && extractedData && teams) {
+            const candidateMatches = {} // Map<TeamID, { rank: number, score: number }>
+            let matchedCount = 0
+
+            extractedData.forEach(rankData => {
+                let bestTeam = null
+                let bestScore = 0
+
+                teams.forEach(team => {
+                    // STRICT RULE: Only match based on players
+                    if (!team.members || team.members.length === 0) return
+
+                    let matchedPlayersCount = 0
+                    let totalSim = 0
+
+                    rankData.players.forEach(extractedPlayerRaw => {
+                        const extractedPlayerName = typeof extractedPlayerRaw === 'object' ? extractedPlayerRaw.name : extractedPlayerRaw
+                        
+                        let bestPlayerSim = 0
+                        team.members.forEach(member => {
+                            const sim = nameSimilarity(extractedPlayerName, member)
+                            if (sim > bestPlayerSim) bestPlayerSim = sim
+                        })
+
+                        if (bestPlayerSim >= 0.8) {
+                            matchedPlayersCount++
+                            totalSim += bestPlayerSim
+                        }
+                    })
+
+                    // RULE: Must match at least 2 players
+                    if (matchedPlayersCount >= 2) {
+                        const avgSim = totalSim / matchedPlayersCount
+                        // Score calculation:
+                        // Primary weight: Number of matched players (x10)
+                        // Secondary weight: Average similarity (0-1)
+                        const score = (matchedPlayersCount * 10) + avgSim
+                        
+                        if (score > bestScore) {
+                            bestScore = score
+                            bestTeam = team
+                        }
+                    }
+                })
+
+                if (bestTeam) {
+                    // Conflict Resolution:
+                    // If multiple extracted ranks match the same DB team (unlikely but possible),
+                    // assign the team to the rank with the higher match score.
+                    const existingClaim = candidateMatches[bestTeam.id]
+                    
+                    if (!existingClaim || bestScore > existingClaim.score) {
+                        // If there was an existing claim, we are overwriting it (stealing the team)
+                        // The previous rank will remain unmapped, which is correct behavior for a conflict
+                        candidateMatches[bestTeam.id] = { 
+                            rank: rankData.rank, 
+                            score: bestScore 
+                        }
+                    }
+                }
+            })
+
+            // Convert candidate matches to mapping state
+            const newMappings = {}
+            Object.entries(candidateMatches).forEach(([teamId, data]) => {
+                newMappings[data.rank] = teamId
+                matchedCount++
+            })
+
+            if (Object.keys(newMappings).length > 0) {
+                setMappings(prev => ({ ...prev, ...newMappings }))
+                console.log(`🤖 Auto-matched ${matchedCount} teams based on strict player analysis (>=2 players, >=80% sim)`)
+            }
+        }
+    }, [isOpen, extractedData, teams])
+
 
     const handleSelectTeam = (rank, teamId) => {
         setMappings(prev => ({
             ...prev,
             [rank]: teamId
+        }))
+    }
+
+    const handleKillsChange = (rank, value) => {
+        const kills = parseInt(value, 10)
+        setEditableKills(prev => ({
+            ...prev,
+            [rank]: isNaN(kills) ? 0 : kills
         }))
     }
 
@@ -31,7 +134,15 @@ const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) =>
         }
 
         setSaving(true)
-        await onSave(mappings, extractedData)
+        
+        // Create an updated version of extractedData with the edited kills
+        const updatedExtractedData = extractedData.map(rankData => ({
+            ...rankData,
+            total_eliminations: editableKills[rankData.rank] || 0,
+            eliminations: editableKills[rankData.rank] || 0
+        }))
+
+        await onSave(mappings, updatedExtractedData)
         setSaving(false)
     }
 
@@ -80,8 +191,26 @@ const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) =>
                                                     </span>
                                                 ))}
                                             </div>
-                                            <div className="rank-stats">
-                                                {rankData.total_eliminations !== undefined ? rankData.total_eliminations : rankData.eliminations} eliminations
+                                            <div className="rank-stats editable">
+                                                {editingRank === rankData.rank ? (
+                                                    <input
+                                                        type="number"
+                                                        value={editableKills[rankData.rank] || 0}
+                                                        onChange={(e) => handleKillsChange(rankData.rank, e.target.value)}
+                                                        onBlur={() => setEditingRank(null)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && setEditingRank(null)}
+                                                        className="kills-input"
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <span>{editableKills[rankData.rank]} eliminations</span>
+                                                )}
+                                                <button
+                                                    className="edit-kills-btn"
+                                                    onClick={() => setEditingRank(rankData.rank)}
+                                                >
+                                                    <Edit2 size={14} />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>

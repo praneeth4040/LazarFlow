@@ -1,5 +1,5 @@
 // Lightweight client-side error logger. Initializes Sentry if DSN is provided,
-// otherwise falls back to posting to a backend endpoint (if available) and console.
+// otherwise falls back to optional backend reporting and console.
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN || ''
 let SentryClient = null
@@ -28,28 +28,20 @@ export function captureException(error, context = {}) {
       return
     }
 
-    // Fallback: try to POST to a backend logging route if present
-    try {
-      const base = import.meta.env.VITE_API_BASE_URL || ''
-      if (base) {
-        fetch(`${base}/api/client-errors`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: String(error), stack: error?.stack, context }),
-        }).catch(() => {
-          // ignore
-        })
-      }
-    } catch (e) {
-      // ignore
+    // Optional backend reporting: only if explicit endpoint is provided
+    const endpoint = import.meta.env.VITE_CLIENT_ERROR_ENDPOINT || ''
+    if (endpoint) {
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: String(error), stack: error?.stack, context }),
+      }).catch(() => {})
     }
 
     // Always log to console as well
-    // eslint-disable-next-line no-console
     console.error('Captured client error:', error, context)
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('captureException failed', e)
+  } catch (err) {
+    console.error('captureException failed', err)
   }
 }
 

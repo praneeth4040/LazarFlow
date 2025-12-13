@@ -8,16 +8,36 @@ import apiClient from './apiClient'
 export const extractTeamsFromText = async (text) => {
   console.log('🔍 Calling team extraction API...')
 
-  const response = await apiClient.post('/api/extract-teams', { text })
+  try {
+    const response = await apiClient.post('/extract-teams', { text })
+    
+    // Log the raw response for debugging
+    console.log('🔍 Raw API Response:', response.data)
 
-  if (response.data.teams && Array.isArray(response.data.teams)) {
-    console.log(`✅ API returned ${response.data.teams.length} teams`)
-    // Map strings to objects with name property
-    return response.data.teams.map(team => ({ name: team }))
-  } else {
-    throw new Error('Invalid response format')
+    const teams = response.data.teams || response.data
+
+    if (teams && Array.isArray(teams)) {
+      console.log(`✅ API returned ${teams.length} teams`)
+      
+      // Map to consistent format { name: "Team Name" }
+      return teams.map(team => {
+        if (typeof team === 'string') {
+            return { name: team }
+        } else if (typeof team === 'object' && team !== null) {
+            // Handle { team_name: "Name" } or { name: "Name" }
+            return { name: team.team_name || team.name || JSON.stringify(team) }
+        }
+        return { name: String(team) }
+      })
+    } else {
+      console.error('❌ Invalid response format:', response.data)
+      throw new Error('Invalid response format: "teams" array not found')
+    }
+  } catch (error) {
+    console.error('❌ Error extracting teams:', error)
+    throw error
   }
 }
 
-// Export alias for backward compatibility
+// Export alias for backward compatibility (in case UI still calls this)
 export const extractTeamsFromImage = extractTeamsFromText
