@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { Target, Sparkles, Camera, X, Upload } from 'lucide-react'
-import { extractResultsFromScreenshot, needsMapping, autoMatchPlayers } from '../../lib/aiResultExtraction'
+import { extractResultsFromScreenshot, fuzzyMatchName } from '../../lib/aiResultExtraction'
 import { sendLiveUpdate } from '../../lib/liveSync'
 import { useToast } from '../../context/ToastContext'
 import { uploadGameResultImages } from '../../lib/imageStorage'
@@ -21,7 +21,6 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   // AI extraction state
   const [aiScreenshot, setAiScreenshot] = useState(null)
   const [extractedData, setExtractedData] = useState(null)
-  const [autoMatchedResults, setAutoMatchedResults] = useState([]) // Store successful auto-matches
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [pendingImageFiles, setPendingImageFiles] = useState([]) // Store image files until submission
@@ -146,27 +145,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       setPendingImageFiles(files)
       console.log(`📦 Stored ${files.length} image(s) for upload on submission`)
 
-      // Check if teams need mapping (first time)
-      if (needsMapping(teams)) {
-        // Show mapping modal
-        setShowMappingModal(true)
-      } else {
-        // Auto-match players to teams
-        const { results: matchedResults, unmappedRanks } = autoMatchPlayers(extracted, teams, tournament)
-
-        if (unmappedRanks.length > 0) {
-          console.warn(`⚠️ ${unmappedRanks.length} ranks could not be auto-matched`)
-
-          // Store successful matches to merge later
-          setAutoMatchedResults(matchedResults)
-
-          // Show mapping modal for unmapped ranks
-          setExtractedData(unmappedRanks)
-          setShowMappingModal(true)
-        } else {
-          setResults(matchedResults)
-        }
-      }
+      setShowMappingModal(true)
     } catch (error) {
       console.error('❌ AI extraction failed:', error)
       try {
@@ -216,15 +195,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
         })
       }
 
-      // Merge auto-matched results with manually mapped results
-      // Sort by position (rank)
-      const allResults = [...autoMatchedResults, ...calculatedResults].sort((a, b) => a.position - b.position)
-
-      // Deduplicate by team_id (keep the first occurrence, which is usually the higher rank due to sort)
-      const uniqueResults = allResults.filter((result, index, self) =>
-        index === self.findIndex((r) => r.team_id === result.team_id)
-      )
-
+      const uniqueResults = [...calculatedResults].sort((a, b) => a.position - b.position)
       setResults(uniqueResults)
       setShowMappingModal(false)
 
@@ -256,12 +227,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       setLoading(true);
       console.log('📤 Submitting results:', results);
 
-      // Helper function to normalize names for matching
-      const normalizePlayerName = (input) => {
-        const name = typeof input === 'object' && input !== null ? input.name || '' : input;
-        if (typeof name !== 'string') return '';
-        return name.toLowerCase().replace(/[^a-z0-9]/g, '');
-      };
+      
 
       // Update each team with their points and player stats
       for (const result of results) {
@@ -282,55 +248,48 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
         };
 
         // Update individual player stats if we have player data from AI extraction
-        let updatedMembers = team.members || [];
+        let updatedMembers = (team.members || []).map(m => ({
+          name: typeof m === 'object' && m !== null ? (m.name || '') : m,
+          kills: typeof m === 'object' && m !== null ? (m.kills || 0) : 0,
+          wwcd: typeof m === 'object' && m !== null ? (m.wwcd || 0) : 0,
+          matches_played: typeof m === 'object' && m !== null ? (m.matches_played || 0) : 0,
+        }))
 
         // Check if result has player-level data (from AI extraction via handleSaveMapping)
         if (result.players && Array.isArray(result.players) && result.players.length > 0) {
           // We have player data from AI extraction
 
           // If members array is empty or doesn't have proper structure, initialize it from AI data
-          if (!updatedMembers.length || !updatedMembers[0]?.name) {
-            // First time: Initialize members from AI extraction
-            updatedMembers = result.players.map((player) => ({
-              name: player.name || player,
-              kills: player.kills || 0,
-              wwcd: player.wwcd || 0,
-              matches_played: player.matches_played || 1,
-            }));
-          } else {
-            // Subsequent times: Update cumulative stats
-            updatedMembers = team.members.map((member) => {
-              // Find matching player in result
-              const resultPlayer = result.players.find(
-                (p) => normalizePlayerName(p) === normalizePlayerName(member)
-              );
-
-              if (resultPlayer && typeof resultPlayer === 'object') {
-                // Update cumulative stats
-                return {
-                  name: member.name || member,
-                  kills: (member.kills || 0) + (resultPlayer.kills || 0),
-                  wwcd: (member.wwcd || 0) + (resultPlayer.wwcd || 0),
-                  matches_played: (member.matches_played || 0) + 1,
-                };
-              } else {
-                // Player not in this result, just increment matches
-                return {
-                  name: member.name || member,
-                  kills: member.kills || 0,
-                  wwcd: member.wwcd || 0,
-                  matches_played: (member.matches_played || 0) + 1,
-                };
+          const seen = new Set()
+          for (const player of result.players) {
+            const pname = typeof player === 'object' && player !== null ? (player.name || '') : player
+            const match = fuzzyMatchName(pname, updatedMembers, 0.8)
+            if (match && match.member) {
+              const idx = updatedMembers.findIndex(m => m.name === match.member.name)
+              if (idx !== -1 && !seen.has(idx)) {
+                updatedMembers[idx] = {
+                  ...updatedMembers[idx],
+                  kills: (updatedMembers[idx].kills || 0) + (player.kills || 0),
+                  wwcd: (updatedMembers[idx].wwcd || 0) + (player.wwcd || 0),
+                  matches_played: (updatedMembers[idx].matches_played || 0) + 1,
+                }
+                seen.add(idx)
               }
-            });
+            } else {
+              updatedMembers.push({
+                name: pname,
+                kills: player.kills || 0,
+                wwcd: player.wwcd || 0,
+                matches_played: 1,
+              })
+            }
           }
         } else {
-          // No player data (manual entry) - just increment matches_played for all members
-          updatedMembers = team.members.map((member) => ({
+          updatedMembers = (team.members || []).map((member) => ({
             name: member.name || member,
             kills: member.kills || 0,
             wwcd: member.wwcd || 0,
-            matches_played: (member.matches_played || 0) + 1,
+            matches_played: member.matches_played || 0,
           }));
         }
 

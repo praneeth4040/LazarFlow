@@ -1,57 +1,64 @@
 import axios from 'axios'
 
 /**
- * Centralized API Configuration
- * All backend API calls should use this configured axios instance
+ * LazarFlow API Client
+ * Configured for production backend at https://www.api.lazarflow.app
  */
 
-// Base URL for all API requests
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+// Production API URL (includes www to avoid 307 redirects)
+const PROD_API_URL = 'https://www.api.lazarflow.app'
 
-// Create axios instance with default config
+// Use environment variable if set, otherwise default to production
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || PROD_API_URL
+
+// Create axios instance
 const apiClient = axios.create({
     baseURL: BASE_URL,
-    timeout: 0, // No timeout - AI processing can take time
+    timeout: 300000, // 5 minutes timeout for long AI operations
     headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
     }
 })
 
-// Request interceptor for logging
+// Request Logger
 apiClient.interceptors.request.use(
     (config) => {
-        console.log(`📡 API Request: ${config.method.toUpperCase()} ${config.baseURL}${config.url}`)
+        // Ensure trailing slash is handled if needed, or clean up
+        console.log(`� Sending Request: ${config.method.toUpperCase()} ${config.baseURL}${config.url}`)
         return config
     },
     (error) => {
-        console.error('❌ Request Error:', error)
+        console.error('❌ Request Failed to send:', error)
         return Promise.reject(error)
     }
 )
 
-// Response interceptor for logging and error handling
+// Response Handler
 apiClient.interceptors.response.use(
     (response) => {
-        console.log(`✅ API Response: ${response.config.method.toUpperCase()} ${response.config.url} - ${response.status}`)
+        console.log(`✅ Request Successful: ${response.config.url} (${response.status})`)
         return response
     },
     (error) => {
         if (error.response) {
-            // Server responded with error status
-            console.error(`❌ API Error: ${error.response.status} - ${error.response.data?.error || error.message}`)
+            // The request was made and the server responded with a status code
+            // that falls out of the range of 2xx
+            console.error('❌ Server Error:', {
+                status: error.response.status,
+                data: error.response.data,
+                url: error.config.url
+            })
         } else if (error.request) {
-            // Request made but no response
-            console.error('❌ Network Error: No response from server')
+            // The request was made but no response was received
+            console.error('❌ Network Error (No Response):', error.message)
+            console.error('This might be a CORS issue or the server is unreachable.')
         } else {
-            // Something else happened
-            console.error('❌ Error:', error.message)
+            // Something happened in setting up the request that triggered an Error
+            console.error('❌ Client Error:', error.message)
         }
         return Promise.reject(error)
     }
 )
 
-/**
- * Export configured axios instance
- * Usage: apiClient.post('/api/endpoint', data)
- */
 export default apiClient
