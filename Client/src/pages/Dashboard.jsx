@@ -1,67 +1,49 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
 import Sidebar from '../components/Sidebar'
 import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
 import ProfileContent from '../components/ProfileContent'
 import HistoryContent from '../components/HistoryContent'
+import LayoutContent from '../components/LayoutContent'
 import CreateTournamentModal from '../components/modals/CreateTournamentModal'
+import WhatsNewModal from '../components/modals/WhatsNewModal'
 import './Dashboard.css'
 import { Menu } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../hooks/useAuth'
+import { createTournament } from '../lib/dataService'
 
 
 function Dashboard() {
-  const navigate = useNavigate()
+  const { user, loading, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('home')
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [newTournament, setNewTournament] = useState(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  // Whats New Modal State
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false)
+
   const { addToast } = useToast()
 
+  const WHATS_NEW_VERSION = 'whats_new_v2_lexiview';
+
   useEffect(() => {
-    checkUser()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        setUser(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        navigate('/login')
-      }
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
+    // Check if user has seen this version of updates
+    const hasSeenUpdate = localStorage.getItem(WHATS_NEW_VERSION);
+    if (!hasSeenUpdate && user) {
+      // Small delay for better UX
+      const timer = setTimeout(() => {
+        setIsWhatsNewOpen(true);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
-  }, [navigate])
+  }, [user]);
 
-  async function checkUser() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        navigate('/login')
-      } else {
-        setUser(user)
-      }
-    } catch (error) {
-      console.error('Error checking user:', error)
-      navigate('/login')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      navigate('/login')
-    } catch (error) {
-      console.error('Error logging out:', error)
-    }
-  }
+  const handleCloseWhatsNew = () => {
+    setIsWhatsNewOpen(false);
+    localStorage.setItem(WHATS_NEW_VERSION, 'true');
+  };
 
   const handleCreateClick = () => {
     setIsCreateModalOpen(true)
@@ -71,24 +53,10 @@ function Dashboard() {
     if (!user) return
 
     try {
-      const { data, error } = await supabase
-        .from('tournaments')
-        .insert([
-          {
-            name: tournamentData.name,
-            user_id: user.id,
-            status: 'active', // Set to active immediately for now
-            game: tournamentData.game,
-            points_system: tournamentData.pointsSystem,
-            kill_points: tournamentData.killPoints
-          }
-        ])
-        .select()
+      const createdTournament = await createTournament(tournamentData, user.id)
 
-      if (error) throw error
-
-      if (data && data[0]) {
-        setNewTournament(data[0])
+      if (createdTournament) {
+        setNewTournament(createdTournament)
         setActiveTab('home')
         setIsCreateModalOpen(false)
       }
@@ -113,13 +81,19 @@ function Dashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <HomeContent newTournament={newTournament} onTournamentProcessed={() => setNewTournament(null)} />
+        return <HomeContent
+          newTournament={newTournament}
+          onTournamentProcessed={() => setNewTournament(null)}
+          onCreateClick={handleCreateClick}
+        />
       case 'lazareon':
         return <LazarEonContent />
       case 'profile':
-        return <ProfileContent user={user} onLogout={handleLogout} />
+        return <ProfileContent user={user} onLogout={logout} />
       case 'history':
         return <HistoryContent />
+      case 'layout':
+        return <LayoutContent />
       default:
         return <HomeContent />
     }
@@ -131,6 +105,7 @@ function Dashboard() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onCreateClick={handleCreateClick}
+        onWhatsNewClick={() => setIsWhatsNewOpen(true)}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         user={user}
@@ -148,6 +123,10 @@ function Dashboard() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateTournament}
+      />
+      <WhatsNewModal
+        isOpen={isWhatsNewOpen}
+        onClose={handleCloseWhatsNew}
       />
     </div>
   )

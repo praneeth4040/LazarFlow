@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import SignUp from './pages/SignUp'
 import Dashboard from './pages/Dashboard'
 import LiveTournament from './pages/LiveTournament'
+import EditLayout from './pages/EditLayout'
 import './App.css'
 import ErrorBoundary from './components/ErrorBoundary'
 import { ToastProvider } from './context/ToastContext'
@@ -20,6 +21,7 @@ function App() {
             <Route path="/signup" element={<SignUp />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/live/:liveid" element={<LiveTournament />} />
+            <Route path="/edit-layout/:layoutId" element={<EditLayout />} />
           </Routes>
         </Router>
       </ErrorBoundary>

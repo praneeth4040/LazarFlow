@@ -1,0 +1,838 @@
+:root {
+  /* Default Theme Variables - White/Black */
+  --live-bg-color: #ffffff;
+  --live-header-bg: transparent;
+  --live-font-family: 'Outfit', sans-serif;
+  --live-cell-gap: 4px;
+  --live-cell-radius: 0px;
+  --live-cell-clip: none;
+
+  /* Derived Colors */
+  --live-table-row-odd: rgba(0, 0, 0, 0.03);
+  /* More subtle row color */
+  --live-table-row-even: transparent;
+  --live-border-color: #e2e8f0;
+  /* Lighter border color */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.live-layout {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  /* Changed from 100vw to avoid scrollbar width issues */
+  background-color: var(--live-bg-color);
+  font-family: var(--live-font-family);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Prevent page-level scroll */
+}
+
+/* Background Layer */
+.live-bg-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--live-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Header Section */
+.live-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 2rem;
+  background-color: var(--live-header-bg);
+  background-image: var(--live-header-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: var(--live-header-text-color);
+  border-bottom: 2px solid var(--live-border-color);
+  flex-shrink: 0;
+  height: 80px;
+}
+
+.header-left,
+.header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.header-left {
+  justify-content: flex-start;
+}
+
+.header-right {
+  justify-content: flex-end;
+}
+
+.sponsor-box {
+  width: 100px;
+  height: 60px;
+  border: 1px dashed var(--live-border-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 0.7rem;
+  opacity: 0.7;
+  color: var(--live-header-text-color);
+}
+
+.header-center {
+  flex: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-text-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tournament-logo-container {
+  display: none;
+}
+
+.main-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  line-height: 1;
+  color: inherit;
+}
+
+.sub-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin: 0;
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: inherit;
+}
+
+/* Main Content */
+.live-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.table-container {
+  width: 100%;
+  max-width: 1000px;
+  background: var(--live-table-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+}
+
+/* Scrollable Tbody Implementation */
+.points-table {
+  width: 100%;
+  border-collapse: collapse;
+  display: table;
+  height: auto;
+}
+
+.points-table thead {
+  flex-shrink: 0;
+}
+
+.points-table tbody {
+  flex: initial;
+  overflow: visible;
+  display: table-row-group;
+}
+
+/* Scrollbar Styling for Webkit */
+.points-table tbody::-webkit-scrollbar {
+  width: 6px;
+}
+
+.points-table tbody::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.points-table tbody::-webkit-scrollbar-thumb {
+  background-color: var(--live-border-color);
+  border-radius: 3px;
+}
+
+.points-table tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.points-table thead th {
+  background-color: transparent;
+  color: var(--live-pt-header-text-color);
+  padding: 0.4rem;
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  border-bottom: 2px solid var(--live-border-color);
+  height: 40px;
+  border-right: none;
+  position: relative;
+  z-index: 1;
+}
+
+.points-table thead th::before {
+  content: "";
+  position: absolute;
+  inset: var(--live-cell-gap);
+  background-color: var(--live-pt-header-bg);
+  border-radius: var(--live-cell-radius);
+  clip-path: var(--live-cell-clip);
+  transform: skewX(var(--live-table-cell-skew));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.points-table thead th:last-child {
+  border-right: none;
+}
+
+.points-table thead th.th-team {
+  text-align: left;
+  padding-left: 1.5rem;
+}
+
+.team-row {
+  border-bottom: 1px solid var(--live-border-color);
+  /* height: 40px; Default fixed height per row to fit 16 rows? */
+  /* Actually, if we want auto-scroll, we just set min-height */
+  min-height: 42px;
+  /* Slight increase for readability */
+}
+
+.team-row.expanded {
+  background-color: var(--live-table-row-odd);
+  border-bottom: none;
+}
+
+.team-row:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.team-row td {
+  padding: 0.2rem 0.4rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  vertical-align: middle;
+  border-right: none;
+  position: relative;
+  z-index: 1;
+  color: var(--live-body-text-color);
+}
+
+.team-row td:last-child {
+  border-right: none;
+}
+
+
+/* Column Widths */
+.th-rank,
+.td-rank {
+  width: 60px;
+}
+
+.th-wwcd,
+.td-wwcd {
+  width: 80px;
+}
+
+.th-place,
+.td-place {
+  width: 100px;
+}
+
+.th-kills,
+.td-kills {
+  width: 100px;
+}
+
+.th-total,
+.td-total {
+  width: 100px;
+}
+
+.th-team,
+.td-team {
+  width: auto;
+  /* Takes remaining space */
+}
+
+.points-table tbody .td-rank {
+  --cell-bg: var(--live-col-rank-bg);
+  color: var(--live-col-rank-text);
+}
+
+.points-table tbody .td-team {
+  --cell-bg: var(--live-col-team-bg);
+  color: var(--live-col-team-text);
+}
+
+.points-table tbody .td-wwcd {
+  --cell-bg: var(--live-col-wwcd-bg);
+  color: var(--live-col-wwcd-text);
+}
+
+.points-table tbody .td-place {
+  --cell-bg: var(--live-col-place-bg);
+  color: var(--live-col-place-text);
+}
+
+.points-table tbody .td-kills {
+  --cell-bg: var(--live-col-kills-bg);
+  color: var(--live-col-kills-text);
+}
+
+.points-table tbody .td-total {
+  --cell-bg: var(--live-col-total-bg);
+  color: var(--live-col-total-text);
+}
+
+.points-table tbody td::before {
+  content: "";
+  position: absolute;
+  inset: var(--live-cell-gap);
+  background-color: var(--cell-bg);
+  border-radius: var(--live-cell-radius);
+  clip-path: var(--live-cell-clip);
+  transform: skewX(var(--live-table-cell-skew));
+  pointer-events: none;
+  z-index: -1;
+}
+
+
+
+.td-rank .rank-badge {
+  width: 24px;
+  height: 24px;
+  background-color: transparent;
+  color: inherit;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.td-team .team-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  padding-left: 0.5rem;
+  text-align: center;
+}
+
+.team-logo-small {
+  width: 24px;
+  height: 24px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.team-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  line-height: 1.1;
+  width: 100%;
+}
+
+.team-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
+
+.team-members {
+  font-size: 0.65rem;
+  font-weight: 400;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  max-width: 300px;
+  /* Limit width */
+}
+
+.wwcd-count {
+  font-size: 0.9rem;
+}
+
+.td-total {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+/* Pagination */
+.pagination-controls {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pagination-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--live-border-color);
+  background: transparent;
+  color: inherit;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Expanded Stats Row */
+.stats-row {
+  background-color: var(--live-table-header-bg);
+  border-bottom: 1px solid var(--live-border-color);
+}
+
+.stats-cell {
+  padding: 0 !important;
+}
+
+.player-stats-container {
+  padding: 1rem 2rem;
+  border-left: 4px solid var(--live-body-text-color);
+  margin: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.player-table {
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+.player-table th {
+  text-align: left;
+  opacity: 0.6;
+  padding-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.player-table td {
+  text-align: left;
+  padding: 0.3rem 0;
+  border: none;
+  font-weight: 500;
+}
+
+.player-table td strong {
+  font-weight: 800;
+}
+
+
+/* Footer Section */
+.live-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2rem;
+  background-color: var(--live-footer-bg-color);
+  background-image: var(--live-footer-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: var(--live-footer-text-color);
+  border-top: 1px solid var(--live-border-color);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.footer-left,
+.footer-right {
+  display: flex;
+  gap: 1rem;
+  opacity: 0.7;
+  color: inherit;
+}
+
+.footer-center {
+  opacity: 0.5;
+  font-weight: 300;
+  color: inherit;
+}
+
+.footer-socials {
+  display: flex;
+  gap: 0.5rem;
+  opacity: 1;
+  color: inherit;
+}
+
+.footer-social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--live-border-color);
+  border-radius: 6px;
+  color: var(--live-footer-text-color);
+  background: transparent;
+  text-decoration: none;
+}
+
+.footer-social-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Live Controls (View Toggle) */
+.live-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0px;
+  /* Reduced margin */
+  position: relative;
+  z-index: 2;
+  padding: 0.5rem 0;
+}
+
+.view-toggle {
+  display: flex;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  border-radius: 8px;
+  gap: 4px;
+  border: 1px solid var(--live-border-color);
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  width: 140px;
+  /* Fixed width for stability */
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--live-body-text-color);
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.toggle-btn.active {
+  background: var(--live-body-text-color);
+  color: var(--live-bg-color);
+  opacity: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* MVP Table Specifics */
+.mvp-table .th-player,
+.mvp-table .td-player {
+  width: auto;
+  text-align: left;
+  padding-left: 1rem;
+}
+
+.mvp-table .th-team,
+.mvp-table .td-team {
+  width: 25%;
+  text-align: left;
+}
+
+.mvp-table .th-matches,
+.mvp-table .td-matches {
+  width: 100px;
+  text-align: center;
+}
+
+.mvp-table .th-kills,
+.mvp-table .td-kills {
+  width: 100px;
+  text-align: center;
+}
+
+/* Changed to center to align with header */
+
+.text-right {
+  text-align: right !important;
+}
+
+.player-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.team-name.sm {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.kill-count {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.rank-badge.top-rank {
+  background: #fbbf24;
+  /* Fallback gold */
+  color: #000;
+  background: var(--live-body-text-color);
+  /* Use theme color for top ranks usually looks good or specialized gold var */
+  color: var(--live-bg-color);
+}
+
+/* Animation */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+
+  /* Layout Adjustments */
+  .live-layout {
+    height: 100vh;
+    overflow-y: auto;
+    /* Allow scroll on mobile */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .live-content {
+    align-items: flex-start;
+    /* Parse from top */
+    padding: 0.5rem;
+    height: auto;
+    min-height: 500px;
+  }
+
+  /* Header - Stack elements */
+  .live-header {
+    flex-direction: column;
+    height: auto;
+    padding: 1rem 0.5rem;
+    gap: 0.5rem;
+    background-size: cover;
+  }
+
+  .header-left,
+  .header-right {
+    display: none;
+    /* Hide side sponsors on small mobile for cleaner look */
+  }
+
+  .header-center {
+    width: 100%;
+    order: -1;
+  }
+
+  .main-title {
+    font-size: 1.25rem;
+  }
+
+  .sub-title {
+    font-size: 0.65rem;
+  }
+
+  /* Controls */
+  .live-controls {
+    margin-top: 0;
+    padding-top: 5px;
+    margin-bottom: 5px;
+  }
+
+  .toggle-btn {
+    width: 110px;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  /* Table - Horizontal Scroll */
+  .table-container {
+    box-shadow: none;
+    background: transparent;
+    overflow-x: auto;
+    /* Enable horizontal scroll */
+    margin: 0;
+    width: 100%;
+    display: block;
+    /* Break flex to allow scroll */
+  }
+
+  .points-table {
+    min-width: 600px;
+    /* Force minimum width to trigger scroll if needed */
+  }
+
+  .team-row {
+    min-height: 36px;
+  }
+
+  .team-row td {
+    padding: 0.3rem 0.2rem;
+    font-size: 0.75rem;
+  }
+
+  /* Reduce column widths for mobile where possible */
+  .th-rank,
+  .td-rank {
+    width: 35px;
+  }
+
+  .th-wwcd,
+  .td-wwcd {
+    width: 45px;
+  }
+
+  .th-place,
+  .td-place {
+    width: 50px;
+  }
+
+  .th-kills,
+  .td-kills {
+    width: 50px;
+  }
+
+  .th-total,
+  .td-total {
+    width: 55px;
+  }
+
+  .team-name {
+    font-size: 0.8rem;
+  }
+
+  .td-total {
+    font-size: 0.85rem;
+  }
+
+  /* Footer */
+  .live-footer {
+    flex-direction: row;
+    /* Keep row but maybe wrap */
+    flex-wrap: wrap;
+    height: auto;
+    padding: 0.5rem;
+    gap: 0.5rem;
+    justify-content: center;
+    font-size: 0.6rem;
+  }
+
+  .footer-left,
+  .footer-right {
+    display: none;
+    /* Hide extra footer info on mobile */
+  }
+
+  .footer-center {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  /* Even smaller screens */
+  .main-title {
+    font-size: 1.1rem;
+  }
+
+  /* Adjust rank badge */
+  .td-rank .rank-badge {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+}

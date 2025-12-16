@@ -2,7 +2,7 @@
     "@context": "https://schema.org",
     "@type": "WebApplication",
     "name": "LazarFlow",
-    "url": "https://lazarflow.com",
+    "url": "https://lazarflow.app",
     "applicationCategory": "SportsApplication",
     "operatingSystem": "Any",
     "offers": {
@@ -10,7 +10,7 @@
         "price": "0",
         "priceCurrency": "USD"
     },
-    "description": "Free AI-powered esports tournament points table maker. Create professional leaderboards and standings for gaming tournaments including PUBG, Valorant, CS2 and more.",
+    "description": "Free AI-powered esports tournament points table maker. Create professional leaderboards and standings for gaming tournaments including FREE FIRE, PUBG, Valorant, CS2 and more.",
     "featureList": [
         "AI-powered points table generation",
         "Live tournament leaderboards",
