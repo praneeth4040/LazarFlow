@@ -1,0 +1,78 @@
+/* Main Layout */
+.edit-layout-container {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    background-color: #1a1a1a;
+    color: white;
+}
+
+/* Sidebar */
+.edit-sidebar {
+    width: 320px;
+    background: #171717;
+    border-right: 1px solid #404040;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    z-index: 10;
+    transition: transform 0.3s ease;
+}
+
+.edit-sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid #404040;
+}
+
+.edit-sidebar-content {
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Preview Area */
+.edit-preview-area {
+    flex: 1;
+    background: #262626;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.edit-preview-frame {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    border: none;
+    overflow: auto;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+    .edit-layout-container {
+        flex-direction: column;
+        overflow-y: auto;
+        /* Allow full page scroll if needed */
+    }
+
+    /* Sidebar becomes a bottom sheet or stacked top block */
+    .edit-sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 40vh;
+        /* Limit height on mobile */
+        border-right: none;
+        border-bottom: 1px solid #404040;
+        order: 2;
+        /* Move to bottom or below preview */
+    }
+
+    .edit-preview-area {
+        height: 60vh;
+        /* Give preview prominent space */
+        order: 1;
+    }
+}
+
+/* Toggle/Tabs for Mobile (Optional future enhancement, for now stacking) */

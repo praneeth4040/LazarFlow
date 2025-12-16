@@ -1,7 +1,7 @@
 import { LayoutDashboard, Trophy, User, Plus, X, History, AppWindow } from 'lucide-react'
 import './Sidebar.css'
 
-function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user }) {
+function Sidebar({ activeTab, setActiveTab, onCreateClick, onWhatsNewClick, isOpen, onClose, user }) {
   const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
   const displayInitial = displayName.charAt(0).toUpperCase()
 
@@ -94,10 +94,33 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
             <User size={20} />
             <span className="nav-label">Profile</span>
           </button>
-          
+
         </nav>
 
         <div className="sidebar-footer">
+          <button
+            className="whats-new-btn"
+            onClick={() => {
+              if (onWhatsNewClick) onWhatsNewClick();
+              if (window.innerWidth < 768) onClose();
+            }}
+            style={{
+              background: 'transparent',
+              border: '1px dashed #e2e8f0',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              width: '100%',
+              textAlign: 'center',
+              color: '#64748b',
+              fontSize: '13px',
+              marginBottom: '16px',
+              cursor: 'pointer',
+              marginBottom: '16px'
+            }}
+          >
+            Hashtag WhatsNew ✨
+          </button>
+
           <div className="user-info">
             <div className="user-avatar">{displayInitial}</div>
             <div className="user-details">

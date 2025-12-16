@@ -108,36 +108,36 @@ function Landing() {
             <div className="feature-icon" aria-hidden="true">
               <Zap size={32} />
             </div>
-            <h3>AI-Powered LazarEon</h3>
-            <p>Automatic tournament points table generation with AI. Upload a screenshot and instantly create professional esports leaderboards.</p>
+            <h3>LexiView OCR Engine</h3>
+            <p>Our new powerful AI engine extracts scoreboard data from screenshots with 99.9% accuracy. Say goodbye to manual entry.</p>
           </article>
           <article className="feature-card scroll-hidden" style={{ transitionDelay: '100ms' }}>
+            <div className="feature-icon" aria-hidden="true">
+              <Settings size={32} />
+            </div>
+            <h3>Custom Points Tables</h3>
+            <p>Design your own points table layouts. Customize colors, fonts, and styles to match your brand identity perfectly.</p>
+          </article>
+          <article className="feature-card scroll-hidden" style={{ transitionDelay: '200ms' }}>
             <div className="feature-icon" aria-hidden="true">
               <Trophy size={32} />
             </div>
             <h3>Multi-Tournament Management</h3>
-            <p>Manage multiple esports tournaments simultaneously. Track points, standings, and live leaderboards for all your gaming competitions.</p>
-          </article>
-          <article className="feature-card scroll-hidden" style={{ transitionDelay: '200ms' }}>
-            <div className="feature-icon" aria-hidden="true">
-              <Settings size={32} />
-            </div>
-            <h3>Customizable Point Systems</h3>
-            <p>Configure tournament scoring systems, kill points, placement points, and WWCD for your specific esports competition rules.</p>
+            <p>Manage multiple esports tournaments simultaneously. Track points, standings, and live leaderboards for all competition levels.</p>
           </article>
           <article className="feature-card scroll-hidden" style={{ transitionDelay: '300ms' }}>
             <div className="feature-icon" aria-hidden="true">
               <Smartphone size={32} />
             </div>
-            <h3>Mobile-Optimized Leaderboards</h3>
+            <h3>Mobile-Optimized</h3>
             <p>Responsive tournament standings and points tables. Perfect viewing experience on mobile, tablet, and desktop devices.</p>
           </article>
           <article className="feature-card scroll-hidden" style={{ transitionDelay: '400ms' }}>
             <div className="feature-icon" aria-hidden="true">
               <Shield size={32} />
             </div>
-            <h3>Secure Tournament Data</h3>
-            <p>Enterprise-grade security and cloud storage for your esports tournament data, points tables, and team statistics.</p>
+            <h3>Secure Cloud Data</h3>
+            <p>Enterprise-grade security and cloud storage for your esports tournament data, results, and team statistics.</p>
           </article>
         </div>
       </section>

@@ -4,13 +4,14 @@ import { getLatestUserTheme, appendThemeToProfile, uploadBackgroundImage, upload
 import NewLiveTournament from './NewLiveTournament';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import './EditLayout.css';
 
 // Reusable Accordion Section Component
 const AccordionSection = ({ title, sectionKey, activeSection, setActiveSection, children }) => {
   const isOpen = activeSection === sectionKey;
   return (
     <div style={{ borderBottom: '1px solid #404040' }}>
-      <button 
+      <button
         onClick={() => setActiveSection(isOpen ? null : sectionKey)}
         style={{
           width: '100%',
@@ -46,31 +47,31 @@ const ColorPicker = ({ label, value, onChange }) => (
       {label}
     </label>
     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-      <input 
-        type="color" 
+      <input
+        type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{ 
-          width: '40px', 
-          height: '40px', 
-          border: '1px solid #404040', 
+        style={{
+          width: '40px',
+          height: '40px',
+          border: '1px solid #404040',
           borderRadius: '4px',
           cursor: 'pointer',
           padding: 0,
           backgroundColor: 'transparent'
         }}
       />
-      <input 
-        type="text" 
+      <input
+        type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{ 
-          flex: 1, 
-          background: '#262626', 
-          border: '1px solid #404040', 
-          color: 'white', 
-          padding: '8px', 
-          borderRadius: '4px' 
+        style={{
+          flex: 1,
+          background: '#262626',
+          border: '1px solid #404040',
+          color: 'white',
+          padding: '8px',
+          borderRadius: '4px'
         }}
       />
     </div>
@@ -162,32 +163,37 @@ const EditLayout = () => {
       tableStyles: {
         header: {
           backgroundColor: 'transparent',
-          textColor: '#1a202c'
+          textColor: '#000000'
         },
         rank: {
           backgroundColor: '',
-          textColor: ''
+          textColor: '#000000'
         },
         team: {
           backgroundColor: '',
-          textColor: ''
+          textColor: '#000000'
         },
         wwcd: {
           backgroundColor: '',
-          textColor: ''
+          textColor: '#000000'
         },
         place: {
           backgroundColor: '',
-          textColor: ''
+          textColor: '#000000'
         },
         kills: {
           backgroundColor: '',
-          textColor: ''
+          textColor: '#000000'
         },
         total: {
           backgroundColor: '',
-          textColor: ''
-        }
+          textColor: '#000000'
+        },
+        mvpRank: { backgroundColor: '', textColor: '#000000' },
+        mvpPlayer: { backgroundColor: '', textColor: '#000000' },
+        mvpTeam: { backgroundColor: '', textColor: '#000000' },
+        mvpMatches: { backgroundColor: '', textColor: '#000000' },
+        mvpKills: { backgroundColor: '', textColor: '#000000' }
       }
     },
     tournament: {
@@ -329,21 +335,10 @@ const EditLayout = () => {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden' }}>
+    <div className="edit-layout-container">
       {/* Sidebar - Editor Controls */}
-      <div style={{ 
-        width: '320px', 
-        background: '#171717', 
-        borderRight: '1px solid #404040', 
-        color: 'white', 
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <div style={{ padding: '20px', borderBottom: '1px solid #404040' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Layout Editor</h2>
-          <div style={{ fontSize: '0.875rem', color: '#a3a3a3', marginTop: '0.5rem' }}>
-            {layoutId && <span style={{ marginRight: '10px' }}>Layout: {layoutId}</span>}
-          </div>
+      <div className="edit-sidebar">
+        <div className="edit-sidebar-header">
           <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <label style={{ fontSize: '0.875rem', color: '#d4d4d4' }}>Theme Name</label>
             <input
@@ -386,16 +381,16 @@ const EditLayout = () => {
             </button>
           </div>
         </div>
-        
-        <div style={{ overflowY: 'auto', flex: 1 }}>
-          <AccordionSection 
-            title="Background" 
-            sectionKey="background" 
-            activeSection={activeSection} 
+
+        <div className="edit-sidebar-content">
+          <AccordionSection
+            title="Background"
+            sectionKey="background"
+            activeSection={activeSection}
             setActiveSection={setActiveSection}
           >
-            <ColorPicker 
-              label="Background Color" 
+            <ColorPicker
+              label="Background Color"
               value={config.theme.backgroundColor}
               onChange={value => handleThemeChange('backgroundColor', value)}
             />
@@ -424,7 +419,7 @@ const EditLayout = () => {
                 ))}
               </select>
             </div>
-            
+
             <div style={{ marginTop: '1rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#cbd5e1' }}>
                 Background Image
@@ -442,11 +437,11 @@ const EditLayout = () => {
                   accept="image/*"
                   disabled={uploading}
                   onChange={(e) => handleImageUpload(e.target.files[0])}
-                  style={{ 
-                    background: '#262626', 
-                    border: '1px solid #404040', 
-                    color: 'white', 
-                    padding: '8px', 
+                  style={{
+                    background: '#262626',
+                    border: '1px solid #404040',
+                    color: 'white',
+                    padding: '8px',
                     borderRadius: '4px',
                     width: '100%'
                   }}
@@ -456,19 +451,19 @@ const EditLayout = () => {
             </div>
           </AccordionSection>
 
-          <AccordionSection 
-            title="Footer" 
-            sectionKey="footer" 
-            activeSection={activeSection} 
+          <AccordionSection
+            title="Footer"
+            sectionKey="footer"
+            activeSection={activeSection}
             setActiveSection={setActiveSection}
           >
-            <ColorPicker 
-              label="Footer Background Color" 
+            <ColorPicker
+              label="Footer Background Color"
               value={config.theme.footerBackgroundColor}
               onChange={value => handleThemeChange('footerBackgroundColor', value)}
             />
-            <ColorPicker 
-              label="Footer Text Color" 
+            <ColorPicker
+              label="Footer Text Color"
               value={config.theme.footerTextColor}
               onChange={value => handleThemeChange('footerTextColor', value)}
             />
@@ -476,34 +471,34 @@ const EditLayout = () => {
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#d4d4d4' }}>
                 Footer Background Image
               </label>
-                {config.theme.footerBackgroundImage ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <img src={config.theme.footerBackgroundImage} alt="Footer Background" style={{ width: '80px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
-                    <button onClick={() => handleThemeChange('footerBackgroundImage', '')} style={{ background: '#ef4444', border: 'none', color: 'white', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}>
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={uploading}
-                    onChange={async (e) => {
-                      const file = e.target.files[0];
-                      if (!file) return;
-                      const publicUrl = await uploadAsset(file);
-                      handleThemeChange('footerBackgroundImage', publicUrl);
-                    }}
-                    style={{ 
-                      background: '#262626', 
-                      border: '1px solid #404040', 
-                      color: 'white', 
-                      padding: '8px', 
-                      borderRadius: '4px',
-                      width: '100%'
-                    }}
-                  />
-                )}
+              {config.theme.footerBackgroundImage ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <img src={config.theme.footerBackgroundImage} alt="Footer Background" style={{ width: '80px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
+                  <button onClick={() => handleThemeChange('footerBackgroundImage', '')} style={{ background: '#ef4444', border: 'none', color: 'white', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}>
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={uploading}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const publicUrl = await uploadAsset(file);
+                    handleThemeChange('footerBackgroundImage', publicUrl);
+                  }}
+                  style={{
+                    background: '#262626',
+                    border: '1px solid #404040',
+                    color: 'white',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    width: '100%'
+                  }}
+                />
+              )}
             </div>
 
             <div style={{ marginBottom: '1rem' }}>
@@ -554,7 +549,7 @@ const EditLayout = () => {
                 </div>
               )}
             </div>
-            
+
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#cbd5e1' }}>
                 Left
@@ -591,23 +586,23 @@ const EditLayout = () => {
           </AccordionSection>
 
           {/* Header section can remain for other controls like text color, etc. */}
-          <AccordionSection 
-            title="Header" 
-            sectionKey="header" 
-            activeSection={activeSection} 
+          <AccordionSection
+            title="Header"
+            sectionKey="header"
+            activeSection={activeSection}
             setActiveSection={setActiveSection}
           >
-            <ColorPicker 
-              label="Header Background Color" 
+            <ColorPicker
+              label="Header Background Color"
               value={config.theme.headerBackgroundColor}
               onChange={value => handleThemeChange('headerBackgroundColor', value)}
             />
-            <ColorPicker 
-              label="Header Text Color" 
+            <ColorPicker
+              label="Header Text Color"
               value={config.theme.headerTextColor}
               onChange={value => handleThemeChange('headerTextColor', value)}
             />
-            
+
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', color: '#d4d4d4' }}>
                 Header Background Image
@@ -625,11 +620,11 @@ const EditLayout = () => {
                   accept="image/*"
                   disabled={uploading}
                   onChange={(e) => handleAssetUpload('headerBackgroundImage', e.target.files[0])}
-                  style={{ 
-                    background: '#262626', 
-                    border: '1px solid #404040', 
-                    color: 'white', 
-                    padding: '8px', 
+                  style={{
+                    background: '#262626',
+                    border: '1px solid #404040',
+                    color: 'white',
+                    padding: '8px',
                     borderRadius: '4px',
                     width: '100%'
                   }}
@@ -726,10 +721,111 @@ const EditLayout = () => {
             </div>
           </AccordionSection>
 
-          <AccordionSection 
-            title="Points Table" 
-            sectionKey="pointsTable" 
-            activeSection={activeSection} 
+          <AccordionSection
+            title="MVP Styling"
+            sectionKey="mvp"
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+          >
+            <div style={{ padding: '8px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '4px', marginBottom: '16px', fontSize: '0.8rem', color: '#a5b4fc', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+              Configure colors for the new MVP List view.
+            </div>
+
+            <AccordionSection
+              title="Rank Column"
+              sectionKey="mvpRank"
+              activeSection={activeTableSection}
+              setActiveSection={setActiveTableSection}
+            >
+              <ColorPicker
+                label="Background Color"
+                value={config.theme.tableStyles.mvpRank?.backgroundColor || ''}
+                onChange={value => handleTableStyleChange('mvpRank', 'backgroundColor', value)}
+              />
+              <ColorPicker
+                label="Text Color"
+                value={config.theme.tableStyles.mvpRank?.textColor || ''}
+                onChange={value => handleTableStyleChange('mvpRank', 'textColor', value)}
+              />
+            </AccordionSection>
+
+            <AccordionSection
+              title="Player Column"
+              sectionKey="mvpPlayer"
+              activeSection={activeTableSection}
+              setActiveSection={setActiveTableSection}
+            >
+              <ColorPicker
+                label="Background Color"
+                value={config.theme.tableStyles.mvpPlayer?.backgroundColor || ''}
+                onChange={value => handleTableStyleChange('mvpPlayer', 'backgroundColor', value)}
+              />
+              <ColorPicker
+                label="Text Color"
+                value={config.theme.tableStyles.mvpPlayer?.textColor || ''}
+                onChange={value => handleTableStyleChange('mvpPlayer', 'textColor', value)}
+              />
+            </AccordionSection>
+
+            <AccordionSection
+              title="Team Column"
+              sectionKey="mvpTeam"
+              activeSection={activeTableSection}
+              setActiveSection={setActiveTableSection}
+            >
+              <ColorPicker
+                label="Background Color"
+                value={config.theme.tableStyles.mvpTeam?.backgroundColor || ''}
+                onChange={value => handleTableStyleChange('mvpTeam', 'backgroundColor', value)}
+              />
+              <ColorPicker
+                label="Text Color"
+                value={config.theme.tableStyles.mvpTeam?.textColor || ''}
+                onChange={value => handleTableStyleChange('mvpTeam', 'textColor', value)}
+              />
+            </AccordionSection>
+
+            <AccordionSection
+              title="Matches Column"
+              sectionKey="mvpMatches"
+              activeSection={activeTableSection}
+              setActiveSection={setActiveTableSection}
+            >
+              <ColorPicker
+                label="Background Color"
+                value={config.theme.tableStyles.mvpMatches?.backgroundColor || ''}
+                onChange={value => handleTableStyleChange('mvpMatches', 'backgroundColor', value)}
+              />
+              <ColorPicker
+                label="Text Color"
+                value={config.theme.tableStyles.mvpMatches?.textColor || ''}
+                onChange={value => handleTableStyleChange('mvpMatches', 'textColor', value)}
+              />
+            </AccordionSection>
+
+            <AccordionSection
+              title="Kills Column"
+              sectionKey="mvpKills"
+              activeSection={activeTableSection}
+              setActiveSection={setActiveTableSection}
+            >
+              <ColorPicker
+                label="Background Color"
+                value={config.theme.tableStyles.mvpKills?.backgroundColor || ''}
+                onChange={value => handleTableStyleChange('mvpKills', 'backgroundColor', value)}
+              />
+              <ColorPicker
+                label="Text Color"
+                value={config.theme.tableStyles.mvpKills?.textColor || ''}
+                onChange={value => handleTableStyleChange('mvpKills', 'textColor', value)}
+              />
+            </AccordionSection>
+          </AccordionSection>
+
+          <AccordionSection
+            title="Points Table"
+            sectionKey="pointsTable"
+            activeSection={activeSection}
             setActiveSection={setActiveSection}
           >
             <AccordionSection
@@ -738,13 +834,13 @@ const EditLayout = () => {
               activeSection={activeTableSection}
               setActiveSection={setActiveTableSection}
             >
-              <ColorPicker 
-                label="Background Color" 
+              <ColorPicker
+                label="Background Color"
                 value={config.theme.tableStyles.header.backgroundColor}
                 onChange={value => handleTableStyleChange('header', 'backgroundColor', value)}
               />
-              <ColorPicker 
-                label="Text Color" 
+              <ColorPicker
+                label="Text Color"
                 value={config.theme.tableStyles.header.textColor}
                 onChange={value => handleTableStyleChange('header', 'textColor', value)}
               />
@@ -756,13 +852,13 @@ const EditLayout = () => {
               activeSection={activeTableSection}
               setActiveSection={setActiveTableSection}
             >
-              <ColorPicker 
-                label="Background Color" 
+              <ColorPicker
+                label="Background Color"
                 value={config.theme.tableStyles.rank.backgroundColor}
                 onChange={value => handleTableStyleChange('rank', 'backgroundColor', value)}
               />
-              <ColorPicker 
-                label="Text Color" 
+              <ColorPicker
+                label="Text Color"
                 value={config.theme.tableStyles.rank.textColor}
                 onChange={value => handleTableStyleChange('rank', 'textColor', value)}
               />
@@ -774,13 +870,13 @@ const EditLayout = () => {
               activeSection={activeTableSection}
               setActiveSection={setActiveTableSection}
             >
-              <ColorPicker 
-                label="Background Color" 
+              <ColorPicker
+                label="Background Color"
                 value={config.theme.tableStyles.team.backgroundColor}
                 onChange={value => handleTableStyleChange('team', 'backgroundColor', value)}
               />
-              <ColorPicker 
-                label="Text Color" 
+              <ColorPicker
+                label="Text Color"
                 value={config.theme.tableStyles.team.textColor}
                 onChange={value => handleTableStyleChange('team', 'textColor', value)}
               />
@@ -792,13 +888,13 @@ const EditLayout = () => {
               activeSection={activeTableSection}
               setActiveSection={setActiveTableSection}
             >
-              <ColorPicker 
-                label="Background Color" 
+              <ColorPicker
+                label="Background Color"
                 value={config.theme.tableStyles.wwcd.backgroundColor}
                 onChange={value => handleTableStyleChange('wwcd', 'backgroundColor', value)}
               />
-              <ColorPicker 
-                label="Text Color" 
+              <ColorPicker
+                label="Text Color"
                 value={config.theme.tableStyles.wwcd.textColor}
                 onChange={value => handleTableStyleChange('wwcd', 'textColor', value)}
               />
@@ -810,13 +906,13 @@ const EditLayout = () => {
               activeSection={activeTableSection}
               setActiveSection={setActiveTableSection}
             >
-              <ColorPicker 
-                label="Background Color" 
+              <ColorPicker
+                label="Background Color"
                 value={config.theme.tableStyles.place.backgroundColor}
                 onChange={value => handleTableStyleChange('place', 'backgroundColor', value)}
               />
-              <ColorPicker 
-                label="Text Color" 
+              <ColorPicker
+                label="Text Color"
                 value={config.theme.tableStyles.place.textColor}
                 onChange={value => handleTableStyleChange('place', 'textColor', value)}
               />
@@ -828,13 +924,13 @@ const EditLayout = () => {
               activeSection={activeTableSection}
               setActiveSection={setActiveTableSection}
             >
-              <ColorPicker 
-                label="Background Color" 
+              <ColorPicker
+                label="Background Color"
                 value={config.theme.tableStyles.kills.backgroundColor}
                 onChange={value => handleTableStyleChange('kills', 'backgroundColor', value)}
               />
-              <ColorPicker 
-                label="Text Color" 
+              <ColorPicker
+                label="Text Color"
                 value={config.theme.tableStyles.kills.textColor}
                 onChange={value => handleTableStyleChange('kills', 'textColor', value)}
               />
@@ -846,20 +942,20 @@ const EditLayout = () => {
               activeSection={activeTableSection}
               setActiveSection={setActiveTableSection}
             >
-              <ColorPicker 
-                label="Background Color" 
+              <ColorPicker
+                label="Background Color"
                 value={config.theme.tableStyles.total.backgroundColor}
                 onChange={value => handleTableStyleChange('total', 'backgroundColor', value)}
               />
-              <ColorPicker 
-                label="Text Color" 
+              <ColorPicker
+                label="Text Color"
                 value={config.theme.tableStyles.total.textColor}
                 onChange={value => handleTableStyleChange('total', 'textColor', value)}
               />
             </AccordionSection>
 
-            <ColorPicker 
-              label="Table Border Color" 
+            <ColorPicker
+              label="Table Border Color"
               value={config.theme.borderColor}
               onChange={value => handleThemeChange('borderColor', value)}
             />
@@ -923,15 +1019,15 @@ const EditLayout = () => {
               />
             )}
           </AccordionSection>
-          
-          
+
+
         </div>
       </div>
 
       {/* Main Content - Live Preview */}
-      <div style={{ flex: 1, background: '#f1f5f9', overflow: 'auto', padding: '2rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
-            <NewLiveTournament previewConfig={config} />
+      <div className="edit-preview-area">
+        <div className="edit-preview-frame">
+          <NewLiveTournament previewConfig={config} />
         </div>
       </div>
     </div>

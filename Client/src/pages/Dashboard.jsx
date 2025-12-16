@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
@@ -6,6 +6,7 @@ import ProfileContent from '../components/ProfileContent'
 import HistoryContent from '../components/HistoryContent'
 import LayoutContent from '../components/LayoutContent'
 import CreateTournamentModal from '../components/modals/CreateTournamentModal'
+import WhatsNewModal from '../components/modals/WhatsNewModal'
 import './Dashboard.css'
 import { Menu } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
@@ -19,7 +20,30 @@ function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [newTournament, setNewTournament] = useState(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  // Whats New Modal State
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false)
+
   const { addToast } = useToast()
+
+  const WHATS_NEW_VERSION = 'whats_new_v2_lexiview';
+
+  useEffect(() => {
+    // Check if user has seen this version of updates
+    const hasSeenUpdate = localStorage.getItem(WHATS_NEW_VERSION);
+    if (!hasSeenUpdate && user) {
+      // Small delay for better UX
+      const timer = setTimeout(() => {
+        setIsWhatsNewOpen(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
+  const handleCloseWhatsNew = () => {
+    setIsWhatsNewOpen(false);
+    localStorage.setItem(WHATS_NEW_VERSION, 'true');
+  };
 
   const handleCreateClick = () => {
     setIsCreateModalOpen(true)
@@ -57,7 +81,11 @@ function Dashboard() {
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <HomeContent newTournament={newTournament} onTournamentProcessed={() => setNewTournament(null)} />
+        return <HomeContent
+          newTournament={newTournament}
+          onTournamentProcessed={() => setNewTournament(null)}
+          onCreateClick={handleCreateClick}
+        />
       case 'lazareon':
         return <LazarEonContent />
       case 'profile':
@@ -77,6 +105,7 @@ function Dashboard() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onCreateClick={handleCreateClick}
+        onWhatsNewClick={() => setIsWhatsNewOpen(true)}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         user={user}
@@ -94,6 +123,10 @@ function Dashboard() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateTournament}
+      />
+      <WhatsNewModal
+        isOpen={isWhatsNewOpen}
+        onClose={handleCloseWhatsNew}
       />
     </div>
   )

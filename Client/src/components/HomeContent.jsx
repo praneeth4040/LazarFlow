@@ -17,7 +17,8 @@ import {
   Flame,
   Gamepad2,
   Sparkles,
-  Settings
+  Settings,
+  ArrowRight
 } from 'lucide-react'
 import AddTeamsModal from './modals/AddTeamsModal'
 import CalculateResultsModal from './modals/CalculateResultsModal'
@@ -30,7 +31,7 @@ import './TabContent.css'
 import { useToast } from '../context/ToastContext'
 import ConfirmationModal from './ConfirmationModal'
 
-function HomeContent({ newTournament, onTournamentProcessed }) {
+function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
   const [tournaments, setTournaments] = useState([])
   const [pastTournaments, setPastTournaments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -577,7 +578,6 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
     <div className="tab-content">
       <div className="content-header">
         <h2>Home</h2>
-        <p>Manage your tournaments and view past events</p>
       </div>
 
       <div className="content-body">
@@ -591,14 +591,68 @@ function HomeContent({ newTournament, onTournamentProcessed }) {
           </div>
         )}
 
-        {/* This AI card snippet was provided in the instruction, placed here as per diff */}
-        {/* Note: `setShowAddModal` is not defined in HomeContent, assuming it's a placeholder or intended for a different component */}
-        {/* <div className="modal-header">
-            <h3>Add Teams</h3>
-            <button className="close-btn" onClick={() => setShowAddModal(false)}>
-              <X size={20} />
+        {/* LexiView Banner */}
+        <div className="lexiview-banner" style={{
+          background: 'linear-gradient(135deg, #0f172a 0%, #3730a3 100%)', // Vibrant dark blue/purple gradient
+          borderRadius: '16px',
+          padding: '24px',
+          marginBottom: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: 'white',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <div style={{ position: 'relative', zIndex: 2, maxWidth: '60%' }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(99, 102, 241, 0.2)',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              marginBottom: '12px'
+            }}>
+              <Sparkles size={14} color="#818cf8" />
+              <span style={{ fontSize: '12px', color: '#818cf8', fontWeight: 600 }}>NEW FEATURE</span>
+            </div>
+            <h3 style={{ fontSize: '24px', fontWeight: 700, margin: '0 0 8px 0' }}>Introducing LexiView</h3>
+            <p style={{ color: '#94a3b8', margin: 0, lineHeight: '1.5' }}>
+              Our new AI-powered engine extracts scoreboard data with 99.9% accuracy. Say goodbye to manual entry.
+            </p>
+          </div>
+          <div style={{ position: 'relative', zIndex: 2 }}>
+            <button
+              onClick={onCreateClick}
+              style={{
+                background: 'white',
+                color: '#0f172a',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+              Try it now <ArrowRight size={16} />
             </button>
-          </div> */}
+          </div>
+
+          {/* Decorative background elements */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '300px',
+            height: '100%',
+            background: 'radial-gradient(circle at center, rgba(99, 102, 241, 0.15) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
+        </div>
+
 
         <div className="section">
           <h3>Active Tournaments</h3>
