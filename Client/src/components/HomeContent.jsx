@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { subscribeToUserTournaments } from '../lib/realtime'
 import { subscribeToLiveUpdates } from '../lib/liveSync'
@@ -53,6 +53,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
   const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, tournamentId: null, tournamentName: null })
   const [confirmEnd, setConfirmEnd] = useState({ isOpen: false, tournamentId: null, tournamentName: null })
   const [openSettingsMenu, setOpenSettingsMenu] = useState(null) // Track which tournament's settings menu is open
+  const openSettingsMenuRef = useRef(null) // Ref to track current open menu for click-outside handler
 
   // State for AI extraction (assuming these are needed for the new AI card)
   const [extracting, setExtracting] = useState(false)
@@ -76,6 +77,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
 
       // Listen for local "results updated" events (from CalculateResultsModal)
       unsubscribeChannel = subscribeToLiveUpdates((message) => {
+        console.log('📣 Dashboard received live update message:', message)
         if (message?.type === 'results-updated') {
           // Results changed for some tournament – refresh dashboard data
           console.log('📣 Dashboard received results-updated event, refreshing tournaments...')
@@ -105,19 +107,53 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
     }
   }, [newTournament])
 
+  // Update ref whenever openSettingsMenu changes
+  useEffect(() => {
+    openSettingsMenuRef.current = openSettingsMenu
+  }, [openSettingsMenu])
+
   // Close settings menu when clicking outside
   useEffect(() => {
+    // Create handler function that uses ref to get current value
     const handleClickOutside = (event) => {
-      if (openSettingsMenu && !event.target.closest('.settings-menu-container')) {
+      // Use ref to get the most current value
+      const currentOpenMenu = openSettingsMenuRef.current
+      if (!currentOpenMenu) return
+      
+      // Find the specific settings menu container that's open
+      const openMenuContainer = document.querySelector(`[data-tournament-id="${currentOpenMenu}"]`)
+      
+      // Close if clicking outside the open menu container
+      // Also check if click is on the settings button itself (should not close)
+      if (openMenuContainer && !openMenuContainer.contains(event.target)) {
+        // Double-check: make sure we're not clicking on any settings button
+        const clickedSettingsButton = event.target.closest('.settings-menu-container')
+        if (!clickedSettingsButton || clickedSettingsButton.getAttribute('data-tournament-id') !== currentOpenMenu) {
         setOpenSettingsMenu(null)
+        }
       }
     }
 
+    let timeoutId = null
+
     if (openSettingsMenu) {
+      // Use a small delay to avoid closing immediately when opening
+      timeoutId = setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside)
+      }, 10)
     }
 
+    // Always return cleanup function to prevent memory leaks
+    // This ensures cleanup runs even when openSettingsMenu becomes falsy
+    // The cleanup function captures handleClickOutside from its closure,
+    // ensuring we remove the exact function that was added
     return () => {
+      // Clear timeout if it exists (prevents adding listener if menu closes quickly)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      // Remove listener using the handler from closure
+      // Safe to call even if timeout was cleared before listener was added (no-op)
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [openSettingsMenu])
@@ -192,11 +228,11 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
 
   const getGameIcon = (game) => {
     const icons = {
-      freeFire: <Flame size={20} style={{ color: '#ff6b35' }} />,
-      bgmi: <Gamepad2 size={20} style={{ color: '#10b981' }} />,
-      other: <Sparkles size={20} style={{ color: '#8b5cf6' }} />,
+      freeFire: '🔥',
+      bgmi: '🎮',
+      other: '◆',
     }
-    return icons[game] || <Sparkles size={20} style={{ color: '#8b5cf6' }} />
+    return icons[game] || '◆'
   }
 
   const handleAddTeamsClick = (tournament) => {
@@ -703,12 +739,20 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
                     >
                       <Flag size={18} />
                     </button>
-                    <div className="settings-menu-container">
+                    <div 
+                      className="settings-menu-container"
+                      data-tournament-id={tournament.id}
+                    >
                       <button
                         className="icon-btn"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setOpenSettingsMenu(openSettingsMenu === tournament.id ? null : tournament.id)
+                          // Close any other open menu first, then toggle this one
+                          if (openSettingsMenu !== tournament.id) {
+                            setOpenSettingsMenu(tournament.id)
+                          } else {
+                            setOpenSettingsMenu(null)
+                          }
                         }}
                         title="Settings"
                       >

@@ -86,13 +86,14 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, onWhatsNewClick, isOp
           <button
             id="tour-profile-nav"
             className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+
             onClick={() => {
-              setActiveTab('profile');
+              setActiveTab('history');
               if (window.innerWidth < 768) onClose();
             }}
           >
-            <User size={20} />
-            <span className="nav-label">Profile</span>
+            <History size={20} />
+            <span className="nav-label">History</span>
           </button>
 
         </nav>

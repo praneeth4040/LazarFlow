@@ -20,7 +20,12 @@ import {
 } from 'lucide-react'
 import './TabContent.css'
 
+import { Award } from 'lucide-react'
+import MVPsModal from './modals/MVPsModal'
+
 function HistoryContent() {
+  const [mvpsTournament, setMvpsTournament] = useState(null)
+  const [isMVPsModalOpen, setIsMVPsModalOpen] = useState(false)
   const [tournaments, setTournaments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -298,7 +303,6 @@ function HistoryContent() {
                     >
                       <div className="tournament-history-info">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <span style={{ display: 'flex', alignItems: 'center' }}>{getGameIcon(tournament.game)}</span>
                           <h4>{tournament.name}</h4>
                         </div>
                         <div className="tournament-meta-info">
@@ -400,19 +404,50 @@ function HistoryContent() {
                                   <Table size={16} />
                                   Full View
                                 </button>
+                                <button
+                                  className="btn-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setMvpsTournament(tournament)
+                                    setIsMVPsModalOpen(true)
+                                  }}
+                                  style={{
+                                    padding: '0.5rem 1rem',
+                                    fontSize: '0.85rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => e.target.style.background = '#2563eb'}
+                                  onMouseLeave={(e) => e.target.style.background = '#3b82f6'}
+                                >
+                                  <Award size={16} /> MVP
+                                </button>
                               </div>
                             </div>
-                            <PointsTable teams={teams} tournament={tournament} />
-                          </div>
-                        ) : teamCount > 0 ? (
-                          <div className="no-teams-message">
-                            <Users size={24} />
-                            <p>Teams are being loaded...</p>
+
+                            {teams.length > 0 ? (
+                              <div className="tournament-standings-table">
+                                <PointsTable teams={teams} tournament={tournament} />
+                              </div>
+                            ) : (
+                              <div className="no-teams-message">
+                                <Users size={24} />
+                                <p>No teams added to this tournament</p>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="no-teams-message">
                             <Users size={24} />
-                            <p>No teams added to this tournament</p>
+                            <p>Teams are being loaded...</p>
                           </div>
                         )}
                       </div>
@@ -424,6 +459,15 @@ function HistoryContent() {
           </div>
         )}
       </div>
+
+      {/* MVPs Modal */}
+      {isMVPsModalOpen && mvpsTournament && (
+        <MVPsModal
+          isOpen={isMVPsModalOpen}
+          onClose={() => { setIsMVPsModalOpen(false); setMvpsTournament(null); }}
+          tournament={mvpsTournament}
+        />
+      )}
 
       {/* Team Details Modal */}
       {selectedTournament && (

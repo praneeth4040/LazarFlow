@@ -121,64 +121,62 @@ const MVPsModal = ({ isOpen, onClose, tournament }) => {
                             <p>No player statistics available yet. Add teams and calculate results to see MVPs.</p>
                         </div>
                     ) : (
-                        <div className="mvps-table-container">
-                            <table className="mvps-table">
-                                <thead>
-                                    <tr>
-                                        <th className="rank-col">#</th>
-                                        <th className="player-col">Player</th>
-                                        <th className="team-col">Team(s)</th>
-                                        <th className="matches-col">M</th>
-                                        <th className="kills-col">Kills</th>
-                                        <th className="avg-col">Avg</th>
-                                        <th className="wwcd-col">WWCD</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {mvps.map((player, index) => (
-                                        <tr 
-                                            key={index} 
-                                            className={index < 3 ? `top-${index + 1}` : ''}
-                                        >
-                                            <td className="rank-col">
-                                                <span className="rank-number">
-                                                    {index === 0 && <Trophy size={16} className="gold-icon" />}
-                                                    {index === 1 && <Award size={16} className="silver-icon" />}
-                                                    {index === 2 && <Award size={16} className="bronze-icon" />}
-                                                    {index + 1}
-                                                </span>
-                                            </td>
-                                            <td className="player-col">
-                                                <strong>{player.name}</strong>
-                                            </td>
-                                            <td className="team-col">
-                                                <span className="team-badges">
-                                                    {player.teams.map((team, idx) => (
-                                                        <span key={idx} className="team-badge">
-                                                            {team}
-                                                        </span>
-                                                    ))}
-                                                </span>
-                                            </td>
-                                            <td className="matches-col">{player.matches_played}</td>
-                                            <td className="kills-col">
-                                                <strong>{player.kills}</strong>
-                                            </td>
-                                            <td className="avg-col">{player.avgKills}</td>
-                                            <td className="wwcd-col">
-                                                {player.wwcd > 0 && (
-                                                    <span className="wwcd-badge">
-                                                        <Target size={14} />
-                                                        {player.wwcd}
-                                                    </span>
-                                                )}
-                                                {player.wwcd === 0 && '-'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <div className="tournament-standings-table">
+  <table className="standings-table-white" role="table" aria-label="Tournament MVPs">
+    <thead>
+      <tr>
+        <th className="rank-col">#</th>
+        <th className="player-col">Player</th>
+        <th className="team-col">Team(s)</th>
+        <th className="matches-col">M</th>
+        <th className="kills-col">Kills</th>
+        <th className="avg-col">Avg</th>
+        <th className="wwcd-col">WWCD</th>
+      </tr>
+    </thead>
+    <tbody>
+      {mvps.map((player, index) => (
+        <tr key={index} className={index < 3 ? `top-${index + 1}` : ''}>
+          <td className="rank-col">
+            <span className="rank-number">
+              {index === 0 && <Trophy size={16} className="gold-icon" />}
+              {index === 1 && <Award size={16} className="silver-icon" />}
+              {index === 2 && <Award size={16} className="bronze-icon" />}
+              {index + 1}
+            </span>
+          </td>
+          <td className="player-col">
+            <strong>{player.name}</strong>
+          </td>
+          <td className="team-col">
+            <span className="team-badges">
+              {player.teams.map((team, idx) => (
+                <span key={idx} className="team-badge">
+                  {team}
+                </span>
+              ))}
+            </span>
+          </td>
+          <td className="matches-col">{player.matches_played}</td>
+          <td className="kills-col">
+            <strong>{player.kills}</strong>
+          </td>
+          <td className="avg-col">{player.avgKills}</td>
+          <td className="wwcd-col">
+            {player.wwcd > 0 ? (
+              <span className="wwcd-badge">
+                <Target size={14} />
+                {player.wwcd}
+              </span>
+            ) : (
+              '-'
+            )}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
                     )}
                 </div>
 

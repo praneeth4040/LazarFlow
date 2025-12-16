@@ -62,6 +62,7 @@ function Login() {
 
         {error && <div className="error-message">{error}</div>}
 
+        {/*
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -77,6 +78,7 @@ function Login() {
           <div className="divider-text">or</div>
           <div className="divider-line"></div>
         </div>
+        */}
 
         <form onSubmit={handleLogin}>
           <div className="form-group">
