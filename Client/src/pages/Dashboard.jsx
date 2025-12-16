@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
+import React, { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
@@ -11,58 +9,17 @@ import CreateTournamentModal from '../components/modals/CreateTournamentModal'
 import './Dashboard.css'
 import { Menu } from 'lucide-react'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../hooks/useAuth'
+import { createTournament } from '../lib/dataService'
 
 
 function Dashboard() {
-  const navigate = useNavigate()
+  const { user, loading, logout } = useAuth()
   const [activeTab, setActiveTab] = useState('home')
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [newTournament, setNewTournament] = useState(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const { addToast } = useToast()
-
-  const checkUser = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        navigate('/login')
-      } else {
-        setUser(user)
-      }
-    } catch (error) {
-      console.error('Error checking user:', error)
-      navigate('/login')
-    } finally {
-      setLoading(false)
-    }
-  }, [navigate])
-
-  useEffect(() => {
-    checkUser()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        setUser(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        navigate('/login')
-      }
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }, [navigate, checkUser])
-
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      navigate('/login')
-    } catch (error) {
-      console.error('Error logging out:', error)
-    }
-  }
 
   const handleCreateClick = () => {
     setIsCreateModalOpen(true)
@@ -72,24 +29,10 @@ function Dashboard() {
     if (!user) return
 
     try {
-      const { data, error } = await supabase
-        .from('tournaments')
-        .insert([
-          {
-            name: tournamentData.name,
-            user_id: user.id,
-            status: 'active', // Set to active immediately for now
-            game: tournamentData.game,
-            points_system: tournamentData.pointsSystem,
-            kill_points: tournamentData.killPoints
-          }
-        ])
-        .select()
+      const createdTournament = await createTournament(tournamentData, user.id)
 
-      if (error) throw error
-
-      if (data && data[0]) {
-        setNewTournament(data[0])
+      if (createdTournament) {
+        setNewTournament(createdTournament)
         setActiveTab('home')
         setIsCreateModalOpen(false)
       }
@@ -118,7 +61,7 @@ function Dashboard() {
       case 'lazareon':
         return <LazarEonContent />
       case 'profile':
-        return <ProfileContent user={user} onLogout={handleLogout} />
+        return <ProfileContent user={user} onLogout={logout} />
       case 'history':
         return <HistoryContent />
       case 'layout':

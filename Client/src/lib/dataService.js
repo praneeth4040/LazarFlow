@@ -121,3 +121,22 @@ export const renameThemeByIndex = async (index, name) => {
   await setUserThemes(next)
   return next
 }
+
+export const createTournament = async (tournamentData, userId) => {
+  const { data, error } = await supabase
+    .from('tournaments')
+    .insert([
+      {
+        name: tournamentData.name,
+        user_id: userId,
+        status: 'active',
+        game: tournamentData.game,
+        points_system: tournamentData.pointsSystem,
+        kill_points: tournamentData.killPoints
+      }
+    ])
+    .select()
+
+  if (error) throw error
+  return data?.[0]
+}
