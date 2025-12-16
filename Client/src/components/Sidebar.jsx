@@ -1,5 +1,4 @@
-import React from 'react'
-import { LayoutDashboard, Trophy, User, Plus, X, History } from 'lucide-react'
+import { LayoutDashboard, Trophy, User, Plus, X, History, AppWindow } from 'lucide-react'
 import './Sidebar.css'
 
 function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user }) {
@@ -49,6 +48,18 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           </button>
 
           <button
+            id="tour-layout-nav"
+            className={`nav-item ${activeTab === 'layout' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('layout');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <AppWindow size={20} />
+            <span className="nav-label">Layout</span>
+          </button>
+
+          <button
             id="tour-lazareon-nav"
             className={`nav-item ${activeTab === 'lazareon' ? 'active' : ''}`}
             onClick={() => {
@@ -58,18 +69,6 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
           >
             <Trophy size={20} />
             <span className="nav-label">LazarEon</span>
-          </button>
-
-          <button
-            id="tour-profile-nav"
-            className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => {
-              setActiveTab('profile');
-              if (window.innerWidth < 768) onClose();
-            }}
-          >
-            <User size={20} />
-            <span className="nav-label">Profile</span>
           </button>
 
           <button
@@ -83,6 +82,19 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, isOpen, onClose, user
             <History size={20} />
             <span className="nav-label">History</span>
           </button>
+
+          <button
+            id="tour-profile-nav"
+            className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('profile');
+              if (window.innerWidth < 768) onClose();
+            }}
+          >
+            <User size={20} />
+            <span className="nav-label">Profile</span>
+          </button>
+          
         </nav>
 
         <div className="sidebar-footer">

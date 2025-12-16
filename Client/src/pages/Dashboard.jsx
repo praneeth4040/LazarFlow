@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import Sidebar from '../components/Sidebar'
@@ -6,6 +6,7 @@ import HomeContent from '../components/HomeContent'
 import LazarEonContent from '../components/LazarEonContent'
 import ProfileContent from '../components/ProfileContent'
 import HistoryContent from '../components/HistoryContent'
+import LayoutContent from '../components/LayoutContent'
 import CreateTournamentModal from '../components/modals/CreateTournamentModal'
 import './Dashboard.css'
 import { Menu } from 'lucide-react'
@@ -22,6 +23,22 @@ function Dashboard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const { addToast } = useToast()
 
+  const checkUser = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        navigate('/login')
+      } else {
+        setUser(user)
+      }
+    } catch (error) {
+      console.error('Error checking user:', error)
+      navigate('/login')
+    } finally {
+      setLoading(false)
+    }
+  }, [navigate])
+
   useEffect(() => {
     checkUser()
 
@@ -36,23 +53,7 @@ function Dashboard() {
     return () => {
       authListener.subscription.unsubscribe()
     }
-  }, [navigate])
-
-  async function checkUser() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        navigate('/login')
-      } else {
-        setUser(user)
-      }
-    } catch (error) {
-      console.error('Error checking user:', error)
-      navigate('/login')
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [navigate, checkUser])
 
   const handleLogout = async () => {
     try {
@@ -120,6 +121,8 @@ function Dashboard() {
         return <ProfileContent user={user} onLogout={handleLogout} />
       case 'history':
         return <HistoryContent />
+      case 'layout':
+        return <LayoutContent />
       default:
         return <HomeContent />
     }
