@@ -13,9 +13,6 @@ import {
   ChevronUp,
   AlertCircle,
   Table,
-  Flame,
-  Gamepad2,
-  Sparkles,
   Image as ImageIcon
 } from 'lucide-react'
 import './TabContent.css'
@@ -184,15 +181,6 @@ function HistoryContent() {
     }
   }
 
-  const handleViewTeams = (tournament) => {
-    setSelectedTournament(tournament)
-    setIsTeamDetailsOpen(true)
-    // Ensure teams are loaded
-    if (!tournamentTeams[tournament.id]) {
-      fetchTournamentTeams(tournament.id)
-    }
-  }
-
   const handleViewStandings = (tournament) => {
     console.log('📊 Opening standings modal for tournament:', tournament?.name, tournament?.id)
     if (!tournament || !tournament.id) {
@@ -221,15 +209,6 @@ function HistoryContent() {
       hour: '2-digit',
       minute: '2-digit'
     })
-  }
-
-  const getGameIcon = (game) => {
-    const icons = {
-      freeFire: <Flame size={20} style={{ color: '#ff6b35' }} />,
-      bgmi: <Gamepad2 size={20} style={{ color: '#10b981' }} />,
-      other: <Sparkles size={20} style={{ color: '#8b5cf6' }} />,
-    }
-    return icons[game] || <Sparkles size={20} style={{ color: '#8b5cf6' }} />
   }
 
   const getStatusBadge = (status) => {

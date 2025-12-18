@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { X, Globe, Lock, ExternalLink } from 'lucide-react'
 import './LiveTournamentModal.css'
 
-import { getUserThemes, updateTournamentTheme } from '../../lib/dataService';
+import { getUserThemes, updateTournamentTheme, ensureTournamentPublicAndShareId } from '../../lib/dataService';
 import { useToast } from '../../context/ToastContext';
 
 const LiveTournamentModal = ({ isOpen, onClose, tournament }) => {
@@ -15,7 +15,9 @@ const LiveTournamentModal = ({ isOpen, onClose, tournament }) => {
     const [selectedThemeIdx, setSelectedThemeIdx] = useState(0);
     const { addToast } = useToast();
 
-    const liveLink = tournament ? `${window.location.origin}/live/${tournament.id}` : '';
+    const liveLink = tournament
+        ? `${window.location.origin}/live/${tournament.share_id || tournament.id}`
+        : '';
 
     const layouts = [
         { id: 'single', name: 'Single (Points Table)' }
@@ -52,7 +54,8 @@ const LiveTournamentModal = ({ isOpen, onClose, tournament }) => {
                 await updateTournamentTheme(tournament.id, themeToApply);
             }
 
-            const url = new URL(liveLink);
+            const pubTournament = await ensureTournamentPublicAndShareId(tournament.id, tournament.name);
+            const url = new URL(`${window.location.origin}/live/${pubTournament.share_id}`);
             url.searchParams.set('layout', selectedLayout);
             if (!showMvpList) {
                 url.searchParams.set('hideMvp', 'true');

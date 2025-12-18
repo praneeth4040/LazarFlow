@@ -58,7 +58,11 @@ const LiveMVP = ({ teams }) => {
                             return (
                                 <tr key={`${player.teamId}-${player.name}-${globalIndex}`} className="team-row">
                                     <td className="td-rank">
-                                        <div className={`rank-badge ${globalIndex < 3 ? 'top-rank' : ''}`}>
+                                        <div className={`rank-badge ${
+                                            globalIndex === 0 ? 'rank-1' : 
+                                            globalIndex === 1 ? 'rank-2' : 
+                                            globalIndex === 2 ? 'rank-3' : ''
+                                        }`}>
                                             {globalIndex + 1}
                                         </div>
                                     </td>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { useToast } from '../context/ToastContext'
 import './Auth.css'
 
 function SignUp() {
@@ -8,24 +9,30 @@ function SignUp() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [message, setMessage] = useState(null)
   const navigate = useNavigate()
+  const { addToast } = useToast()
 
   const handleSignUp = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setError(null)
-    setMessage(null)
 
     // Validate passwords match
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      addToast('error', '❌ Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      addToast('error', '❌ Password must be at least 6 characters long')
       setLoading(false)
       return
     }
 
     try {
+      addToast('info', '📧 Creating your account...')
+      
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -33,33 +40,29 @@ function SignUp() {
 
       if (signUpError) throw signUpError
 
-      setMessage('Sign up successful! Check your email to confirm your account.')
+      addToast('success', '✅ Account created successfully! Check your email to confirm.')
+      
+      // Clear form
+      setEmail('')
+      setPassword('')
+      setConfirmPassword('')
+      
+      // Redirect to login after 2 seconds
       setTimeout(() => {
         navigate('/login')
       }, 2000)
     } catch (err) {
-      setError(err.message || 'Failed to sign up')
-      console.error(err)
+      console.error('Sign up error:', err)
+      
+      // Handle specific error cases
+      if (err.message?.includes('already registered')) {
+        addToast('error', '❌ This email is already registered. Please login instead.')
+      } else if (err.message?.includes('Invalid email')) {
+        addToast('error', '❌ Please enter a valid email address')
+      } else {
+        addToast('error', `❌ Sign up failed: ${err.message || 'Unknown error'}`)
+      }
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleGoogleSignUp = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const { data, error: googleError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      })
-
-      if (googleError) throw googleError
-    } catch (err) {
-      setError(err.message || 'Failed to sign up with Google')
-      console.error(err)
       setLoading(false)
     }
   }
@@ -69,34 +72,8 @@ function SignUp() {
       <div className="auth-card">
         <img src="/logo.jpeg" alt="LazarFlow" className="auth-logo" />
         <h1>LazarFlow</h1>
-        <h2>Sign Up</h2>
-        <div style={{marginTop: '2rem', textAlign: 'center', color: '#1a1a1a'}}>
-          <p>
-            Presently, we are only handling <b>invite only</b> sign ups.<br/>
-            If you want access, contact us on our Instagram profile:<br/>
-            <a href="https://www.instagram.com/lazar_flow/" target="_blank" rel="noopener noreferrer" style={{color: '#0066cc'}}>https://www.instagram.com/lazar_flow/</a>
-          </p>
-        </div>
-        {/*
-        {error && <div className="error-message">{error}</div>}
-        {message && <div className="success-message">{message}</div>}
-
-        <button
-          type="button"
-          onClick={handleGoogleSignUp}
-          disabled={loading}
-          className="google-button"
-        >
-          <span>G</span>
-          Continue with Google
-        </button>
-
-        <div className="divider">
-          <div className="divider-line"></div>
-          <div className="divider-text">or</div>
-          <div className="divider-line"></div>
-        </div>
-
+        <h2>Create Your Account</h2>
+        
         <form onSubmit={handleSignUp}>
           <div className="form-group">
             <label htmlFor="email">Email</label>
@@ -107,6 +84,7 @@ function SignUp() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -115,10 +93,12 @@ function SignUp() {
             <input
               id="password"
               type="password"
-              placeholder="Enter a password"
+              placeholder="Enter a password (min. 6 characters)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={loading}
+              minLength={6}
             />
           </div>
 
@@ -131,6 +111,7 @@ function SignUp() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -139,14 +120,13 @@ function SignUp() {
             disabled={loading}
             className="auth-button"
           >
-            {loading ? 'Signing up...' : 'Sign Up'}
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
 
         <div className="auth-footer">
           <p>Already have an account? <a href="/login">Login here</a></p>
         </div>
-        */}
       </div>
     </div>
   )

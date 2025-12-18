@@ -5,6 +5,19 @@ export const getCurrentUser = async () => {
   return user || null
 }
 
+const slugify = (str) => {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+const generateShareId = (name) => {
+  const base = slugify(name || 'tournament')
+  const rand = Math.random().toString(36).slice(2, 8)
+  return `${base}-${rand}`
+}
+
 export const getUserThemes = async () => {
   const user = await getCurrentUser()
   if (!user) return []
@@ -77,6 +90,26 @@ export const getTournamentById = async (id) => {
   return data
 }
 
+export const getTournamentByLiveId = async (liveid) => {
+  // Try public share_id first
+  const { data: byShare, error: shareErr } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('share_id', liveid)
+    .eq('is_public', true)
+    .single()
+  if (!shareErr && byShare) return byShare
+
+  // Fallback to direct id (for authenticated usage or legacy links)
+  const { data: byId, error: idErr } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('id', liveid)
+    .single()
+  if (idErr) throw idErr
+  return byId
+}
+
 export const getTournamentTeams = async (tournamentId) => {
   const { data, error } = await supabase
     .from('tournament_teams')
@@ -93,6 +126,24 @@ export const updateTournamentTheme = async (id, theme) => {
     .eq('id', id)
   if (error) throw error
   return true
+}
+
+export const ensureTournamentPublicAndShareId = async (id, name) => {
+  // Fetch current tournament to check share_id
+  const { data: current } = await supabase
+    .from('tournaments')
+    .select('share_id,is_public')
+    .eq('id', id)
+    .single()
+
+  const nextShareId = current?.share_id || generateShareId(name)
+  const { data, error } = await supabase
+    .from('tournaments')
+    .update({ is_public: true, share_id: nextShareId })
+    .eq('id', id)
+    .select()
+  if (error) throw error
+  return data?.[0] || { id, share_id: nextShareId, is_public: true }
 }
 
 export const setUserThemes = async (themes) => {
@@ -118,6 +169,16 @@ export const renameThemeByIndex = async (index, name) => {
   const arr = await getUserThemes()
   if (index < 0 || index >= arr.length) return arr
   const next = arr.map((t, i) => i === index ? { ...t, name } : t)
+  await setUserThemes(next)
+  return next
+}
+
+export const updateThemeByIndex = async (index, theme) => {
+  const arr = await getUserThemes()
+  if (index < 0 || index >= arr.length) {
+    throw new Error('Invalid theme index')
+  }
+  const next = arr.map((t, i) => i === index ? { ...theme } : t)
   await setUserThemes(next)
   return next
 }

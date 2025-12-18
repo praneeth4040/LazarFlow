@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUserThemes, deleteThemeByIndex, renameThemeByIndex, appendThemeToProfile } from '../lib/dataService';
+import { getUserThemes, deleteThemeByIndex, renameThemeByIndex } from '../lib/dataService';
 import { useToast } from '../context/ToastContext';
+import { useSubscription } from '../hooks/useSubscription';
 import './LayoutContent.css';
 
 const LayoutContent = () => {
@@ -11,6 +12,7 @@ const LayoutContent = () => {
   const [editingName, setEditingName] = useState('');
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { limits } = useSubscription();
 
   const handleLayoutClick = (layout) => {
     const disabledLayouts = ['split', 'card'];
@@ -18,36 +20,14 @@ const LayoutContent = () => {
     setActiveLayout(layout);
   };
 
-  const handleOpenDesigner = () => {
-    navigate(`/edit-layout/${activeLayout}`);
-  };
-
   const handleCreateNewLayout = async () => {
-    const base = {
-      name: 'Untitled Theme',
-      layout: activeLayout,
-      backgroundColor: '#ffffff',
-      headerBackgroundColor: 'transparent',
-      footerBackgroundColor: '#000000',
-      tableStyles: {
-        header: { backgroundColor: 'transparent', textColor: '#1a202c' },
-        rank: { backgroundColor: '', textColor: '' },
-        team: { backgroundColor: '', textColor: '' },
-        wwcd: { backgroundColor: '', textColor: '' },
-        place: { backgroundColor: '', textColor: '' },
-        kills: { backgroundColor: '', textColor: '' },
-        total: { backgroundColor: '', textColor: '' }
-      }
-    };
-    try {
-      await appendThemeToProfile(base);
-      const arr = await getUserThemes();
-      const newIdx = arr.length - 1;
-      addToast('success', 'New layout created');
-      navigate(`/edit-layout/${activeLayout}?themeIdx=${newIdx}`);
-    } catch {
-      addToast('error', 'Failed to create new layout');
+    // Check layout limit BEFORE navigating to designer
+    if (themes.length >= limits.maxLayouts) {
+      addToast('error', `You can only have ${limits.maxLayouts} layout(s) on the free tier. Please delete an existing layout or upgrade your plan.`);
+      return;
     }
+    // Navigate to designer without creating - user will save explicitly
+    navigate(`/edit-layout/${activeLayout}`);
   };
 
   const loadThemes = async () => {
@@ -133,10 +113,7 @@ const LayoutContent = () => {
       <div style={{ marginTop: '24px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 style={{ margin: 0 }}>Themes for {activeLayout}</h3>
-          <div>
-            <button onClick={handleOpenDesigner} className="open-designer-btn">Open Designer</button>
-            <button onClick={handleCreateNewLayout} className="new-layout-btn">New Layout</button>
-          </div>
+          <button onClick={handleCreateNewLayout} className="new-layout-btn">New Layout</button>
         </div>
         <div className="themes-grid">
           {filtered.length === 0 && (

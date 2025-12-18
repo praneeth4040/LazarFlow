@@ -9,13 +9,10 @@ import {
   Calculator,
   Trophy,
   AlertCircle,
-  X,
   Radio,
   Flag,
   Award,
   BarChart3,
-  Flame,
-  Gamepad2,
   Sparkles,
   Settings,
   ArrowRight
@@ -55,8 +52,6 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
   const [openSettingsMenu, setOpenSettingsMenu] = useState(null) // Track which tournament's settings menu is open
   const openSettingsMenuRef = useRef(null) // Ref to track current open menu for click-outside handler
 
-  // State for AI extraction (assuming these are needed for the new AI card)
-  const [extracting, setExtracting] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false) // Assuming this state is needed for the empty state button
 
   useEffect(() => {
@@ -226,21 +221,6 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
     })
   }
 
-  const getGameIcon = (game) => {
-    const icons = {
-      freeFire: '🔥',
-      bgmi: '🎮',
-      other: '◆',
-    }
-    return icons[game] || '◆'
-  }
-
-  const handleAddTeamsClick = (tournament) => {
-    console.log('Opening teams modal for:', tournament.name)
-    setSelectedTournament(tournament)
-    setIsTeamsModalOpen(true)
-  }
-
   const handleCalculateClick = (tournament) => {
     console.log('Opening calculate modal for:', tournament.name)
     setCalculateTournament(tournament)
@@ -294,28 +274,6 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
   const handleCloseLeaderboardModal = () => {
     setIsLeaderboardModalOpen(false)
     setLeaderboardTournament(null)
-  }
-
-
-
-
-
-  const getTeamCount = async (tournamentId) => {
-    try {
-      const { count, error } = await supabase
-        .from('tournament_teams')
-        .select('*', { count: 'exact' })
-        .eq('tournament_id', tournamentId)
-
-      if (error) {
-        console.error('Error fetching team count:', error)
-        return 0
-      }
-      return count || 0
-    } catch (err) {
-      console.error('Exception fetching team count:', err)
-      return 0
-    }
   }
 
   const handleCreateTournament = async (tournamentData) => {
@@ -602,12 +560,6 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
         console.error('Toast failed:', e)
       }
     }
-  }
-
-  // Placeholder for AI extraction function, as it's referenced in the new snippet
-  const handleAiExtraction = () => {
-    console.log("AI Extraction triggered (function not fully implemented in HomeContent)");
-    // This would typically involve opening a file picker and then calling extractTeamsFromImage
   }
 
   return (

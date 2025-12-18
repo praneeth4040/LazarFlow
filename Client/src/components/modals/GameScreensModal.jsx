@@ -9,12 +9,6 @@ function GameScreensModal({ isOpen, onClose, tournament, userEmail }) {
     const [error, setError] = useState(null)
     const [selectedImageIndex, setSelectedImageIndex] = useState(null)
 
-    useEffect(() => {
-        if (isOpen && tournament && userEmail) {
-            fetchGameScreens()
-        }
-    }, [isOpen, tournament, userEmail])
-
     const sanitizeForPath = (str) => {
         if (!str) return 'unknown'
         return str
@@ -24,7 +18,7 @@ function GameScreensModal({ isOpen, onClose, tournament, userEmail }) {
             .replace(/^_|_$/g, '')
     }
 
-    const fetchGameScreens = async () => {
+    const fetchGameScreens = React.useCallback(async () => {
         try {
             setLoading(true)
             setError(null)
@@ -82,7 +76,13 @@ function GameScreensModal({ isOpen, onClose, tournament, userEmail }) {
         } finally {
             setLoading(false)
         }
-    }
+    }, [tournament, userEmail])
+
+    useEffect(() => {
+        if (isOpen && tournament && userEmail) {
+            fetchGameScreens()
+        }
+    }, [isOpen, tournament, userEmail, fetchGameScreens])
 
     const handleDownload = async (imageUrl, imageName) => {
         try {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import './WhatsNewModal.css';
 
 const WhatsNewModal = ({ isOpen, onClose }) => {

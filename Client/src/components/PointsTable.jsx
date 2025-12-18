@@ -2,7 +2,7 @@ import React from 'react'
 import { calculateStandings } from '../utils/templateHandler'
 import './PointsTable.css'
 
-const PointsTable = ({ teams, tournament, className = '' }) => {
+const PointsTable = ({ teams, className = '' }) => {
   // Calculate and sort standings
   const standings = calculateStandings(teams)
 

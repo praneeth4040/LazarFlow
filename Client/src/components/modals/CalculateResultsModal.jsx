@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext'
 import { uploadGameResultImages } from '../../lib/imageStorage'
 import RankMappingModal from './RankMappingModal'
 import './CalculateResultsModal.css'
+import { useSubscription } from '../../hooks/useSubscription';
 
 function CalculateResultsModal({ isOpen, onClose, tournament }) {
   const [mode, setMode] = useState('manual') // 'manual' or 'ai'
@@ -15,39 +16,18 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
   const [teamSearch, setTeamSearch] = useState('')
   const [filteredTeams, setFilteredTeams] = useState([])
   const [loading, setLoading] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
   const [referenceImage, setReferenceImage] = useState(null)
 
   // AI extraction state
-  const [aiScreenshot, setAiScreenshot] = useState(null)
   const [extractedData, setExtractedData] = useState(null)
   const [showMappingModal, setShowMappingModal] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [pendingImageFiles, setPendingImageFiles] = useState([]) // Store image files until submission
   const { addToast } = useToast()
 
-  useEffect(() => {
-    if (isOpen && tournament) {
-      fetchTeams()
-    }
-  }, [isOpen, tournament])
+  const { features, loading: subLoading } = useSubscription();
 
-  useEffect(() => {
-    if (teamSearch.trim()) {
-      // Filter teams by search term AND exclude teams already added to results
-      const addedTeamIds = results.map(r => r.team_id)
-      setFilteredTeams(
-        teams.filter(team =>
-          team.team_name.toLowerCase().includes(teamSearch.toLowerCase()) &&
-          !addedTeamIds.includes(team.id)
-        )
-      )
-    } else {
-      setFilteredTeams([])
-    }
-  }, [teamSearch, teams, results])
-
-  const fetchTeams = async () => {
+  const fetchTeams = React.useCallback(async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
@@ -68,7 +48,28 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [tournament, addToast])
+
+  useEffect(() => {
+    if (isOpen && tournament) {
+      fetchTeams()
+    }
+  }, [isOpen, tournament, fetchTeams])
+
+  useEffect(() => {
+    if (teamSearch.trim()) {
+      // Filter teams by search term AND exclude teams already added to results
+      const addedTeamIds = results.map(r => r.team_id)
+      setFilteredTeams(
+        teams.filter(team =>
+          team.team_name.toLowerCase().includes(teamSearch.toLowerCase()) &&
+          !addedTeamIds.includes(team.id)
+        )
+      )
+    } else {
+      setFilteredTeams([])
+    }
+  }, [teamSearch, teams, results])
 
   const handleAddResult = (team) => {
     const newResult = {
@@ -135,7 +136,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
     try {
       setExtracting(true)
       // Use the first image as preview if needed, or just set a flag
-      setAiScreenshot(files[0])
+      // setAiScreenshot(files[0]) // Removed unused state
 
       // Extract data from screenshots
       const extracted = await extractResultsFromScreenshot(files)
@@ -227,7 +228,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       setLoading(true);
       console.log('📤 Submitting results:', results);
 
-      
+
 
       // Update each team with their points and player stats
       for (const result of results) {
@@ -289,7 +290,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
             name: member.name || member,
             kills: member.kills || 0,
             wwcd: member.wwcd || 0,
-            matches_played: member.matches_played || 0,
+            matches_played: (member.matches_played || 0) + 1,
           }));
         }
 
@@ -343,12 +344,12 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
       } catch (e) {
         console.error('Toast failed:', e);
       }
-      setSubmitted(true);
-      setTimeout(() => {
-        onClose();
-        setResults([]);
-        setSubmitted(false);
-      }, 1500);
+      // Reset form
+      setResults([])
+      setReferenceImage(null)
+      setPendingImageFiles([])
+      setExtractedData(null)
+      onClose()
     } catch (err) {
       console.error('❌ Error submitting results:', err);
       try {
@@ -381,7 +382,14 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
           </button>
           <button
             className={`mode-btn ${mode === 'ai' ? 'active' : ''}`}
-            onClick={() => setMode('ai')}
+            onClick={() => {
+              if (!subLoading && features.canUseAI) {
+                setMode('ai')
+              } else {
+                addToast('warning', 'AI Results Extraction is locked for Casual tier.')
+              }
+            }}
+            style={{ opacity: !subLoading && features.canUseAI ? 1 : 0.5, cursor: !subLoading && features.canUseAI ? 'pointer' : 'not-allowed' }}
           >
             <Sparkles size={16} /> AI Powered
           </button>
@@ -641,7 +649,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
                     <button
                       type="button"
                       className="btn-cancel"
-                      onClick={() => { setExtractedData(null); setResults([]); setAiScreenshot(null); setPendingImageFiles([]) }}
+                      onClick={() => { setExtractedData(null); setResults([]); setPendingImageFiles([]) }}
                       disabled={loading}
                     >
                       Upload Different Screenshot

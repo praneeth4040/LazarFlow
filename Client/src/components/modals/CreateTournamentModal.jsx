@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Sparkles } from 'lucide-react';
 import './CreateTournamentModal.css';
 import { useToast } from '../../context/ToastContext'
+import { useSubscription } from '../../hooks/useSubscription';
 
 const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
   const defaultPointsSystems = {
@@ -50,6 +51,8 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
   const [killPoints, setKillPoints] = useState(1);
   const [placementCount, setPlacementCount] = useState(12);
   const { addToast } = useToast()
+
+  const { features, loading: subLoading } = useSubscription();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -139,6 +142,12 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
           <h2>Create New Tournament</h2>
           <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
+
+        {!subLoading && features.isCasual && (
+          <div className="casual-warning" style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: '0.9rem' }}>
+            <strong>Note:</strong> You are in Casual mode. AI features will be disabled for this tournament.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {/* Tournament Name */}

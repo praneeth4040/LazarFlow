@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, User, Plus, X, History, AppWindow } from 'lucide-react'
+import { LayoutDashboard, Trophy, Plus, X, History, AppWindow, User } from 'lucide-react'
 import './Sidebar.css'
 
 function Sidebar({ activeTab, setActiveTab, onCreateClick, onWhatsNewClick, isOpen, onClose, user }) {
@@ -86,14 +86,13 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, onWhatsNewClick, isOp
           <button
             id="tour-profile-nav"
             className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-
             onClick={() => {
-              setActiveTab('history');
+              setActiveTab('profile');
               if (window.innerWidth < 768) onClose();
             }}
           >
-            <History size={20} />
-            <span className="nav-label">History</span>
+            <User size={20} />
+            <span className="nav-label">Profile</span>
           </button>
 
         </nav>
@@ -116,7 +115,6 @@ function Sidebar({ activeTab, setActiveTab, onCreateClick, onWhatsNewClick, isOp
               fontSize: '13px',
               marginBottom: '16px',
               cursor: 'pointer',
-              marginBottom: '16px'
             }}
           >
             Hashtag WhatsNew ✨

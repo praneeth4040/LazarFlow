@@ -4,6 +4,7 @@ import { PenLine, Bot, Plus, X, Loader2, User } from 'lucide-react'
 import AddMembersModal from './AddMembersModal'
 import './AddTeamsModal.css'
 import { useToast } from '../../context/ToastContext'
+import { useSubscription } from '../../hooks/useSubscription';
 
 const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
   const [mode, setMode] = useState('manual') // 'manual' or 'ai'
@@ -12,6 +13,9 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
   const [aiText, setAiText] = useState('')
   const [loading, setLoading] = useState(false)
   const { addToast } = useToast()
+
+  const { features } = useSubscription();
+
 
   // Member addition state
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
@@ -126,9 +130,16 @@ const AddTeamsModal = ({ isOpen, onClose, onSubmit, tournamentName }) => {
           </button>
           <button
             className={`mode-btn ${mode === 'ai' ? 'active' : ''}`}
-            onClick={() => setMode('ai')}
+            onClick={() => {
+              if (features.canUseAI) {
+                setMode('ai')
+              } else {
+                addToast('warning', 'AI Extraction is only available in Premium/Trial tiers.')
+              }
+            }}
+            style={{ opacity: features.canUseAI ? 1 : 0.5, cursor: features.canUseAI ? 'pointer' : 'not-allowed' }}
           >
-            <Bot size={16} /> AI Extract
+            <Bot size={16} /> AI Extract {!features.canUseAI && <span style={{ fontSize: '0.7em', marginLeft: '4px' }}>(Locked)</span>}
           </button>
         </div>
 

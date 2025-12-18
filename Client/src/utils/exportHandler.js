@@ -174,7 +174,7 @@ export const shareViaSocial = (platform, shareUrl, data = {}) => {
   try {
     const {
       title = 'Check out this tournament',
-      tournamentName = 'Tournament',
+      // tournamentName = 'Tournament',
       text = 'Check out this tournament standings!'
     } = data
 
@@ -252,7 +252,7 @@ export const downloadSVG = (svgContent, filename) => {
  * @param {string} format - File format (png, pdf, svg, etc)
  * @returns {string} Generated filename
  */
-export const generateExportFilename = (tournamentName, format = 'png') => {
+export const generateExportFilename = (tournamentName) => {
   try {
     // Remove special characters and spaces
     const cleanName = tournamentName

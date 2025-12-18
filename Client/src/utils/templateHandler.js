@@ -4,7 +4,7 @@
  */
 
 // Constants
-const SUPPORTED_FORMATS = ['svg', 'png', 'jpg', 'jpeg', 'webp']
+// const SUPPORTED_FORMATS = ['svg', 'png', 'jpg', 'jpeg', 'webp']
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_EXTENSIONS = ['svg', 'png', 'jpg', 'jpeg', 'webp']
 
@@ -110,7 +110,7 @@ export const replaceSVGTeamData = (svgContent, standings) => {
       const template = match[1]
       let teamRows = ''
 
-      standings.forEach((team, index) => {
+      standings.forEach((team) => {
         let row = template
         row = row.replaceAll('{RANK}', team.rank)
         row = row.replaceAll('{TEAM_NAME}', team.name)

@@ -1,21 +1,23 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { useToast } from '../context/ToastContext'
 import './Auth.css'
 
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const navigate = useNavigate()
+  const { addToast } = useToast()
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setError(null)
 
     try {
+      addToast('info', '🔐 Logging you in...')
+      
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -24,31 +26,21 @@ function Login() {
       if (signInError) throw signInError
 
       if (data.user) {
+        addToast('success', '✅ Welcome back!')
         navigate('/dashboard')
       }
     } catch (err) {
-      setError(err.message || 'Failed to login')
-      console.error(err)
+      console.error('Login error:', err)
+      
+      // Handle specific error cases
+      if (err.message?.includes('Invalid login credentials')) {
+        addToast('error', '❌ Invalid email or password. Please try again.')
+      } else if (err.message?.includes('Email not confirmed')) {
+        addToast('error', '❌ Please confirm your email address first.')
+      } else {
+        addToast('error', `❌ Login failed: ${err.message || 'Unknown error'}`)
+      }
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const { data, error: googleError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      })
-
-      if (googleError) throw googleError
-    } catch (err) {
-      setError(err.message || 'Failed to login with Google')
-      console.error(err)
       setLoading(false)
     }
   }
@@ -58,27 +50,7 @@ function Login() {
       <div className="auth-card">
         <img src="/logo.jpeg" alt="LazarFlow" className="auth-logo" />
         <h1>LazarFlow</h1>
-        <h2>Login</h2>
-
-        {error && <div className="error-message">{error}</div>}
-
-        {/*
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="google-button"
-        >
-          <span>G</span>
-          Continue with Google
-        </button>
-
-        <div className="divider">
-          <div className="divider-line"></div>
-          <div className="divider-text">or</div>
-          <div className="divider-line"></div>
-        </div>
-        */}
+        <h2>Welcome Back</h2>
 
         <form onSubmit={handleLogin}>
           <div className="form-group">
@@ -90,6 +62,7 @@ function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
 
@@ -102,6 +75,7 @@ function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={loading}
             />
           </div>
 

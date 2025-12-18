@@ -651,13 +651,22 @@
   font-size: 1.1rem;
 }
 
-.rank-badge.top-rank {
-  background: #fbbf24;
-  /* Fallback gold */
+.rank-badge.rank-1 {
+  background: #fbbf24; /* Gold */
   color: #000;
-  background: var(--live-body-text-color);
-  /* Use theme color for top ranks usually looks good or specialized gold var */
-  color: var(--live-bg-color);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+}
+
+.rank-badge.rank-2 {
+  background: #94a3b8; /* Silver */
+  color: #000;
+  box-shadow: 0 0 10px rgba(148, 163, 184, 0.5);
+}
+
+.rank-badge.rank-3 {
+  background: #b45309; /* Bronze */
+  color: #fff;
+  box-shadow: 0 0 10px rgba(180, 83, 9, 0.5);
 }
 
 /* Animation */

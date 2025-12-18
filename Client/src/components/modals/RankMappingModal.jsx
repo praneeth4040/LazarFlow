@@ -177,7 +177,7 @@ const RankMappingModal = ({ isOpen, extractedData, teams, onSave, onCancel }) =>
                     <div className="mappings-list">
                         {extractedData.map((rankData) => {
                             const selectedTeamId = mappings[rankData.rank]
-                            const selectedTeam = teams.find(t => t.id === selectedTeamId)
+                            // const selectedTeam = teams.find(t => t.id === selectedTeamId)
 
                             return (
                                 <div key={rankData.rank} className="mapping-row">

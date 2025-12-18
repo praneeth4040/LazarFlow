@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { X, Trophy, Award, Target, Zap } from 'lucide-react'
+import { X, Trophy, Award, Target } from 'lucide-react'
 import './MVPsModal.css'
 
 const MVPsModal = ({ isOpen, onClose, tournament }) => {
@@ -8,13 +8,7 @@ const MVPsModal = ({ isOpen, onClose, tournament }) => {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
-    useEffect(() => {
-        if (isOpen && tournament) {
-            fetchMVPs()
-        }
-    }, [isOpen, tournament])
-
-    const fetchMVPs = async () => {
+    const fetchMVPs = React.useCallback(async () => {
         try {
             setLoading(true)
             setError(null)
@@ -83,7 +77,13 @@ const MVPsModal = ({ isOpen, onClose, tournament }) => {
         } finally {
             setLoading(false)
         }
-    }
+    }, [tournament])
+
+    useEffect(() => {
+        if (isOpen && tournament) {
+            fetchMVPs()
+        }
+    }, [isOpen, tournament, fetchMVPs])
 
     if (!isOpen || !tournament) return null
 

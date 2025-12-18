@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useLocation } from 'react-router-dom'
 import SEO from '../components/SEO'
 import './NewLiveTournament.css'
 import { Trophy, List } from 'lucide-react'
@@ -14,15 +14,27 @@ import LiveTable from '../components/live/LiveTable'
 import LiveMVP from '../components/live/LiveMVP'
 import LiveFooter from '../components/live/LiveFooter'
 
+// Public page must not depend on authenticated hooks
+
 const NewLiveTournament = ({ previewConfig }) => {
     const { liveid } = useParams()
+    const location = useLocation()
     const [view, setView] = useState('table') // 'table' | 'mvp'
+
+    // Check for hideMvp param
+    const searchParams = new URLSearchParams(location.search)
+    const hideMvp = searchParams.get('hideMvp') === 'true'
 
     // 1. Data Logic
     const { tournament, teams, loading, error } = useLiveTournament(liveid, previewConfig)
 
     // 2. Theme Logic
     const { themeSource, customStyles } = useTournamentTheme(tournament, previewConfig)
+
+    // Safety check: if view is mvp but hidden, switch back to table
+    if (view === 'mvp' && hideMvp) {
+        setView('table');
+    }
 
     // 3. Render
     if (loading) return (
@@ -61,13 +73,15 @@ const NewLiveTournament = ({ previewConfig }) => {
                         <List size={18} />
                         <span>Points Table</span>
                     </button>
-                    <button
-                        className={`toggle-btn ${view === 'mvp' ? 'active' : ''}`}
-                        onClick={() => setView('mvp')}
-                    >
-                        <Trophy size={18} />
-                        <span>MVPs</span>
-                    </button>
+                    {!hideMvp && (
+                        <button
+                            className={`toggle-btn ${view === 'mvp' ? 'active' : ''}`}
+                            onClick={() => setView('mvp')}
+                        >
+                            <Trophy size={18} />
+                            <span>MVPs</span>
+                        </button>
+                    )}
                 </div>
             </div>
 

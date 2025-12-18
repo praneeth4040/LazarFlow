@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
-import { getLatestUserTheme, appendThemeToProfile, uploadBackgroundImage, uploadAsset, getUserThemes } from '../lib/dataService';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { getLatestUserTheme, appendThemeToProfile, uploadBackgroundImage, uploadAsset, getUserThemes, updateThemeByIndex } from '../lib/dataService';
 import NewLiveTournament from './NewLiveTournament';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useSubscription } from '../hooks/useSubscription';
 import './EditLayout.css';
 
 // Reusable Accordion Section Component
@@ -128,10 +129,13 @@ const SOCIAL_PLATFORMS = [
 const EditLayout = () => {
   const { layoutId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
   const [activeSection, setActiveSection] = useState('background'); // Default open section
   const [activeTableSection, setActiveTableSection] = useState(null);
   const { addToast } = useToast();
+  const { limits, features } = useSubscription();
+  const [currentThemeIndex, setCurrentThemeIndex] = useState(null); // Track if editing existing theme
 
   // Updated config state
   const [config, setConfig] = useState({
@@ -158,7 +162,7 @@ const EditLayout = () => {
       footerBackgroundImage: '',
       footerLeft: '@LazarFlow',
       footerCenter: 'POWERED BY LAZARFLOW',
-      footerRight: 'lazarflow.com',
+      footerRight: 'lazarflow.app',
       footerSocials: [],
       tableStyles: {
         header: {
@@ -208,6 +212,7 @@ const EditLayout = () => {
         const themeIdxParam = search.get('themeIdx');
         if (themeIdxParam != null) {
           const idx = parseInt(themeIdxParam, 10);
+          setCurrentThemeIndex(idx); // Store the index for updates
           const arr = await getUserThemes();
           const found = arr[idx];
           if (found) {
@@ -224,6 +229,8 @@ const EditLayout = () => {
             }));
           }
         } else {
+          // No theme index - this is a new layout creation
+          setCurrentThemeIndex(null);
           const loaded = await getLatestUserTheme();
           if (loaded && Object.keys(loaded).length > 0) {
             setConfig(prev => ({
@@ -361,10 +368,29 @@ const EditLayout = () => {
             <button
               onClick={async () => {
                 try {
-                  await appendThemeToProfile({ ...config.theme, layout: layoutId });
-                  addToast('success', 'Theme saved successfully');
-                } catch {
-                  addToast('error', 'Failed to save theme');
+                  const currentThemes = await getUserThemes();
+                  const themeToSave = { ...config.theme, layout: layoutId };
+
+                  // Check if we're updating an existing theme
+                  if (currentThemeIndex !== null) {
+                    // Update existing theme at the stored index
+                    await updateThemeByIndex(currentThemeIndex, themeToSave);
+                    addToast('success', 'Layout updated successfully');
+                  } else {
+                    // Creating a new layout - check limit for FREE tier
+                    if (currentThemes.length >= limits.maxLayouts) {
+                      addToast('error', `You can only have ${limits.maxLayouts} layout(s) on the free tier. Please upgrade or delete an existing layout.`);
+                      return;
+                    }
+                    // Append new theme
+                    await appendThemeToProfile(themeToSave);
+                    addToast('success', 'Layout created successfully');
+                    // Navigate back to layout page after creating
+                    navigate('/dashboard');
+                  }
+                } catch (error) {
+                  console.error('Save error:', error);
+                  addToast('error', 'Failed to save layout: ' + (error.message || 'Unknown error'));
                 }
               }}
               style={{
@@ -377,7 +403,7 @@ const EditLayout = () => {
                 fontWeight: 600
               }}
             >
-              Save
+              {currentThemeIndex !== null ? 'Update Layout' : 'Save Layout'}
             </button>
           </div>
         </div>
@@ -534,14 +560,23 @@ const EditLayout = () => {
                     return (
                       <div key={s.type}>
                         <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.8125rem', color: '#a3a3a3' }}>
-                          {platform?.label} Link
+                          {platform?.label} Link {!features.canCustomSocial && '(Upgrade to Edit)'}
                         </label>
                         <input
                           type="text"
                           value={s.url || ''}
                           onChange={(e) => setFooterPlatformUrl(s.type, e.target.value)}
                           placeholder={platform?.placeholder}
-                          style={{ width: '100%', background: '#262626', border: '1px solid #404040', color: 'white', padding: '8px', borderRadius: '4px' }}
+                          disabled={!features.canCustomSocial}
+                          style={{
+                            width: '100%',
+                            background: features.canCustomSocial ? '#262626' : '#1a1a1a',
+                            border: '1px solid #404040',
+                            color: features.canCustomSocial ? 'white' : '#666',
+                            padding: '8px',
+                            borderRadius: '4px',
+                            cursor: features.canCustomSocial ? 'text' : 'not-allowed'
+                          }}
                         />
                       </div>
                     );

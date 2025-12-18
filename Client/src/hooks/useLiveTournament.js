@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getTournamentById, getTournamentTeams } from '../lib/dataService'
+import { getTournamentByLiveId, getTournamentTeams } from '../lib/dataService'
 import { subscribeToTournamentTeams } from '../lib/realtime'
 import { subscribeToLiveUpdates } from '../lib/liveSync'
 
@@ -14,10 +14,10 @@ export const useLiveTournament = (liveid, previewConfig) => {
         try {
             setLoading(true)
 
-            const tournamentData = await getTournamentById(liveid)
+            const tournamentData = await getTournamentByLiveId(liveid)
             setTournament(tournamentData)
 
-            const teamsData = await getTournamentTeams(liveid)
+            const teamsData = await getTournamentTeams(tournamentData.id)
 
             // Calculate total points for sorting
             const processedTeams = (teamsData || []).map(team => {
