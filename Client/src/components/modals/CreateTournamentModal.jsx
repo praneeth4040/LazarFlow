@@ -145,7 +145,7 @@ const CreateTournamentModal = ({ isOpen, onClose, onSubmit }) => {
 
         {!subLoading && features.isCasual && (
           <div className="casual-warning" style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: '0.9rem' }}>
-            <strong>Note:</strong> You are in Casual mode. AI features will be disabled for this tournament.
+            <strong>Note:</strong> You are in Casual mode. AI features will be disabled for this tournament. Join Community for more features and benefits like <strong>Higher Tiers</strong>, <strong>priority support</strong>, and more.
           </div>
         )}
 
