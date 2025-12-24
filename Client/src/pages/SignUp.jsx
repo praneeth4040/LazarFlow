@@ -32,28 +32,34 @@ function SignUp() {
 
     try {
       addToast('info', '📧 Creating your account...')
-      
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            username: email.split('@')[0] + '_' + Math.floor(Math.random() * 1000),
+            display_name: email.split('@')[0]
+          }
+        }
       })
 
       if (signUpError) throw signUpError
 
       addToast('success', '✅ Account created successfully! Check your email to confirm.')
-      
+
       // Clear form
       setEmail('')
       setPassword('')
       setConfirmPassword('')
-      
+
       // Redirect to login after 2 seconds
       setTimeout(() => {
         navigate('/login')
       }, 2000)
     } catch (err) {
       console.error('Sign up error:', err)
-      
+
       // Handle specific error cases
       if (err.message?.includes('already registered')) {
         addToast('error', '❌ This email is already registered. Please login instead.')
@@ -73,7 +79,7 @@ function SignUp() {
         <img src="/logo.jpeg" alt="LazarFlow" className="auth-logo" />
         <h1>LazarFlow</h1>
         <h2>Create Your Account</h2>
-        
+
         <form onSubmit={handleSignUp}>
           <div className="form-group">
             <label htmlFor="email">Email</label>
