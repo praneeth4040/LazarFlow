@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
+import { useSubscription } from '../hooks/useSubscription';
+import { getUserThemes } from '../lib/dataService';
 
 const DashboardScreen = ({ navigation }) => {
     const [activeTab, setActiveTab] = useState('home');
@@ -13,6 +15,25 @@ const DashboardScreen = ({ navigation }) => {
     const [refreshing, setRefreshing] = useState(false);
     const [user, setUser] = useState(null);
     const [activeSettingsId, setActiveSettingsId] = useState(null);
+    const [activeLayoutsCount, setActiveLayoutsCount] = useState(0);
+    const [expandedSections, setExpandedSections] = useState({
+        account: true,
+        stats: false,
+        partnership: false,
+        legal: false
+    });
+
+    const { tier, tournamentsCreated, loading: subLoading, limits } = useSubscription();
+
+    useEffect(() => {
+        if (user?.id) {
+            const fetchLayoutsCount = async () => {
+                const themes = await getUserThemes();
+                setActiveLayoutsCount(themes.length);
+            };
+            fetchLayoutsCount();
+        }
+    }, [user?.id]);
 
     useEffect(() => {
         let subscription = null;
@@ -306,34 +327,243 @@ const DashboardScreen = ({ navigation }) => {
         </ScrollView>
     );
 
-    const renderProfile = () => (
-        <ScrollView style={styles.content}>
-            <View style={styles.profileHeader}>
-                <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{user?.email?.charAt(0).toUpperCase()}</Text>
-                </View>
-                <Text style={styles.profileEmail}>{user?.email}</Text>
-                <View style={styles.tierBadge}>
-                    <Text style={styles.tierBadgeText}>Free Tier</Text>
-                </View>
-            </View>
+    const formatDate = (dateString) => {
+        if (!dateString) return "—";
+        return new Date(dateString).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        });
+    };
 
-            <View style={styles.profileMenu}>
-                <TouchableOpacity style={styles.menuItem}>
-                    <Text style={styles.menuText}>Account Details</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('PrivacyPolicy')}>
-                    <Text style={styles.menuText}>Privacy Policy</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('TermsAndConditions')}>
-                    <Text style={styles.menuText}>Terms & Conditions</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.menuItem, styles.logoutItem]} onPress={handleLogout}>
-                    <Text style={styles.logoutText}>Log Out</Text>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-    );
+    const getTierDisplayName = (tierName) => {
+        const isInTrial = tierName?.toLowerCase() === 'free' && tournamentsCreated < 2;
+        const tierMap = {
+            'free': isInTrial ? 'Free Trial' : 'Free Tier',
+            'ranked': 'Ranked Tier',
+            'competitive': 'Competitive Tier',
+            'premier': 'Premier Tier',
+            'developer': 'Developer Tier'
+        };
+        return tierMap[tierName?.toLowerCase()] || 'Free Tier';
+    };
+
+    const getTierColors = (tierName) => {
+        const colorMap = {
+            'free': { bg: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', border: 'rgba(99, 102, 241, 0.2)' },
+            'ranked': { bg: 'rgba(34, 197, 94, 0.1)', color: '#4ade80', border: 'rgba(34, 197, 94, 0.2)' },
+            'competitive': { bg: 'rgba(249, 115, 22, 0.1)', color: '#fb923c', border: 'rgba(249, 115, 22, 0.2)' },
+            'premier': { bg: 'rgba(168, 85, 247, 0.1)', color: '#c084fc', border: 'rgba(168, 85, 247, 0.2)' },
+            'developer': { bg: 'rgba(239, 68, 68, 0.1)', color: '#f87171', border: 'rgba(239, 68, 68, 0.2)' }
+        };
+        return colorMap[tierName?.toLowerCase()] || colorMap['free'];
+    };
+
+    const toggleSection = (section) => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
+    };
+
+    const renderProfile = () => {
+        const colors = getTierColors(tier);
+        const isInTrial = tier?.toLowerCase() === 'free' && tournamentsCreated < 2;
+        const displayName = user?.email?.split('@')[0] || 'User';
+
+        return (
+            <ScrollView style={styles.content}>
+                <View style={styles.profileHeaderHero}>
+                    <View style={styles.heroGradient} />
+                    <View style={styles.avatarCircle}>
+                        <Text style={styles.avatarInitial}>{user?.email?.charAt(0).toUpperCase()}</Text>
+                    </View>
+                </View>
+
+                <View style={[styles.profileContent, { marginTop: -40 }]}>
+                    <Text style={styles.profileName}>{displayName}</Text>
+                    <View style={styles.badgeContainer}>
+                        <View style={[styles.planBadge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+                            <Text style={[styles.planBadgeText, { color: colors.color }]}>{getTierDisplayName(tier)}</Text>
+                        </View>
+                    </View>
+
+                    {isInTrial && (
+                        <View style={styles.trialBanner}>
+                            <View style={styles.trialHeader}>
+                                <Sparkles size={16} color="#818cf8" />
+                                <Text style={styles.trialTitle}>You're on Free Trial!</Text>
+                            </View>
+                            <Text style={styles.trialDescription}>
+                                Enjoying full features with 3 layouts and custom social links.
+                                Use {2 - tournamentsCreated} more AI tournaments to keep these perks!
+                            </Text>
+                        </View>
+                    )}
+
+                    {/* Account Details */}
+                    <View style={styles.infoGroup}>
+                        <TouchableOpacity
+                            style={styles.groupHeader}
+                            onPress={() => toggleSection('account')}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.groupLabel}>Account Details</Text>
+                            <Settings size={16} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        {expandedSections.account && (
+                            <View style={styles.groupContent}>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>User ID</Text>
+                                    <Text style={styles.infoValue} numberOfLines={1}>{user?.id}</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Email</Text>
+                                    <Text style={styles.infoValue}>{user?.email}</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Member Since</Text>
+                                    <Text style={styles.infoValue}>{formatDate(user?.created_at)}</Text>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Subscription Stats */}
+                    <View style={styles.infoGroup}>
+                        <TouchableOpacity
+                            style={styles.groupHeader}
+                            onPress={() => toggleSection('stats')}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.groupLabel}>Subscription Stats</Text>
+                            <BarChart2 size={16} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        {expandedSections.stats && (
+                            <View style={styles.groupContent}>
+                                <View style={styles.statContainer}>
+                                    <View style={styles.statHeader}>
+                                        <View>
+                                            <Text style={styles.statLabel}>Tournaments Created</Text>
+                                            <Text style={styles.statSubLabel}>
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxAILobbies - tournamentsCreated)} remaining`}
+                                            </Text>
+                                        </View>
+                                        <Text style={[styles.statValue, { color: colors.color }]}>
+                                            {tournamentsCreated} / {limits.maxAILobbies === Infinity ? '∞' : limits.maxAILobbies}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.progressBarBg}>
+                                        <View style={[
+                                            styles.progressBarFill,
+                                            {
+                                                width: `${limits.maxAILobbies === Infinity ? 100 : Math.min((tournamentsCreated / limits.maxAILobbies) * 100, 100)}%`,
+                                                backgroundColor: colors.color
+                                            }
+                                        ]} />
+                                    </View>
+                                </View>
+
+                                <View style={styles.statContainer}>
+                                    <View style={styles.statHeader}>
+                                        <View>
+                                            <Text style={styles.statLabel}>Active Layouts</Text>
+                                            <Text style={styles.statSubLabel}>
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxLayouts - activeLayoutsCount)} slots remaining`}
+                                            </Text>
+                                        </View>
+                                        <Text style={[styles.statValue, { color: colors.color }]}>
+                                            {activeLayoutsCount} / {limits.maxLayouts === Infinity ? '∞' : limits.maxLayouts}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.progressBarBg}>
+                                        <View style={[
+                                            styles.progressBarFill,
+                                            {
+                                                width: `${limits.maxLayouts === Infinity ? 100 : Math.min((activeLayoutsCount / limits.maxLayouts) * 100, 100)}%`,
+                                                backgroundColor: colors.color
+                                            }
+                                        ]} />
+                                    </View>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Partnership */}
+                    <View style={styles.infoGroup}>
+                        <TouchableOpacity
+                            style={styles.groupHeader}
+                            onPress={() => toggleSection('partnership')}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.groupLabel}>Partnership</Text>
+                            <Trophy size={16} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        {expandedSections.partnership && (
+                            <View style={styles.groupContent}>
+                                <View style={styles.infoRow}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.infoLabel}>Become a Partner</Text>
+                                        <Text style={styles.statSubLabel}>Collaborate effectively with LazarFlow</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.collabBtn}
+                                        onPress={() => Alert.alert('Request Collaboration', 'Redirecting to email...', [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            { text: 'Proceed', onPress: () => { } }
+                                        ])}
+                                    >
+                                        <Text style={styles.collabBtnText}>Request</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Legal */}
+                    <View style={styles.infoGroup}>
+                        <TouchableOpacity
+                            style={styles.groupHeader}
+                            onPress={() => toggleSection('legal')}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.groupLabel}>Legal & Support</Text>
+                            <Flag size={16} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        {expandedSections.legal && (
+                            <View style={styles.groupContent}>
+                                <TouchableOpacity
+                                    style={styles.infoRow}
+                                    onPress={() => navigation.navigate('PrivacyPolicy')}
+                                >
+                                    <Text style={styles.infoLabel}>Privacy Policy</Text>
+                                    <ArrowRight size={14} color={Theme.colors.border} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.infoRow}
+                                    onPress={() => navigation.navigate('TermsAndConditions')}
+                                >
+                                    <Text style={styles.infoLabel}>Terms & Conditions</Text>
+                                    <ArrowRight size={14} color={Theme.colors.border} />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+
+                    <TouchableOpacity style={styles.mobileLogoutBtn} onPress={handleLogout}>
+                        <Text style={styles.mobileLogoutBtnText}>⤴ Log Out</Text>
+                    </TouchableOpacity>
+
+                    <View style={{ height: 40 }} />
+                </View>
+            </ScrollView>
+        );
+    };
 
     const renderContent = () => {
         if (loading && !refreshing) {
@@ -560,69 +790,187 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginTop: 10,
     },
-    profileHeader: {
+    profileHeaderHero: {
+        height: 120,
+        backgroundColor: Theme.colors.primary,
         alignItems: 'center',
-        paddingVertical: 30,
-        backgroundColor: Theme.colors.card,
-        borderRadius: 16,
-        marginBottom: 20,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
+        justifyContent: 'center',
+        overflow: 'hidden',
     },
-    avatar: {
+    heroGradient: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(26, 115, 232, 0.1)', // Subtle gradient placeholder
+    },
+    avatarCircle: {
         width: 80,
         height: 80,
         borderRadius: 40,
         backgroundColor: Theme.colors.accent,
+        borderWidth: 4,
+        borderColor: Theme.colors.secondary,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 15,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
     },
-    avatarText: {
+    avatarInitial: {
         fontSize: 32,
         fontWeight: 'bold',
         color: '#fff',
     },
-    profileEmail: {
-        fontSize: 18,
-        fontWeight: '600',
+    profileContent: {
+        paddingHorizontal: 20,
+    },
+    profileName: {
+        fontSize: 24,
+        fontWeight: 'bold',
         color: Theme.colors.textPrimary,
+        textAlign: 'center',
         marginBottom: 8,
     },
-    tierBadge: {
-        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+    badgeContainer: {
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    planBadge: {
         paddingHorizontal: 12,
         paddingVertical: 4,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: 'rgba(26, 115, 232, 0.2)',
     },
-    tierBadgeText: {
-        color: Theme.colors.accent,
+    planBadgeText: {
         fontSize: 12,
-        fontWeight: '600',
+        fontWeight: '700',
     },
-    profileMenu: {
+    trialBanner: {
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(99, 102, 241, 0.3)',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 24,
+    },
+    trialHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    trialTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#818cf8',
+    },
+    trialDescription: {
+        fontSize: 14,
+        color: Theme.colors.textSecondary,
+        lineHeight: 20,
+    },
+    infoGroup: {
+        marginBottom: 16,
         backgroundColor: Theme.colors.card,
-        borderRadius: 16,
-        overflow: 'hidden',
+        borderRadius: 12,
         borderWidth: 1,
         borderColor: Theme.colors.border,
+        overflow: 'hidden',
     },
-    menuItem: {
-        paddingVertical: 15,
-        paddingHorizontal: 20,
+    groupHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        backgroundColor: 'rgba(0,0,0,0.02)',
+    },
+    groupLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    groupContent: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
     },
-    menuText: {
+    infoLabel: {
+        fontSize: 14,
+        color: Theme.colors.textSecondary,
+    },
+    infoValue: {
+        fontSize: 14,
+        fontWeight: '600',
         color: Theme.colors.textPrimary,
+        flex: 1,
+        textAlign: 'right',
+        marginLeft: 20,
+    },
+    statContainer: {
+        marginBottom: 16,
+    },
+    statHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    },
+    statLabel: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: Theme.colors.textPrimary,
+    },
+    statSubLabel: {
+        fontSize: 11,
+        color: Theme.colors.textSecondary,
+        marginTop: 2,
+    },
+    statValue: {
         fontSize: 16,
+        fontWeight: 'bold',
     },
-    logoutItem: {
-        borderBottomWidth: 0,
+    progressBarBg: {
+        height: 8,
+        backgroundColor: Theme.colors.border,
+        borderRadius: 4,
+        overflow: 'hidden',
     },
-    logoutText: {
+    progressBarFill: {
+        height: '100%',
+        borderRadius: 4,
+    },
+    collabBtn: {
+        backgroundColor: Theme.colors.textPrimary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    collabBtnText: {
+        color: Theme.colors.secondary,
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    mobileLogoutBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        marginTop: 10,
+    },
+    mobileLogoutBtnText: {
         color: Theme.colors.danger,
         fontSize: 16,
         fontWeight: '600',
