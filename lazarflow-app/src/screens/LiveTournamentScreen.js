@@ -1,6 +1,6 @@
-// Screen to view live standings and MVPs
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, ScrollView, StatusBar, Platform, TouchableOpacity, Share } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabaseClient';
 import { Trophy, Award, Share2, Download } from 'lucide-react-native';
@@ -19,11 +19,13 @@ const LiveTournamentScreen = ({ route }) => {
     const [sharing, setSharing] = useState(false);
     const viewShotRef = React.useRef();
 
-    useEffect(() => {
-        if (id) {
-            fetchTournamentData();
-        }
-    }, [id]);
+    useFocusEffect(
+        useCallback(() => {
+            if (id) {
+                fetchTournamentData();
+            }
+        }, [id])
+    );
 
     const handleShare = async () => {
         try {
