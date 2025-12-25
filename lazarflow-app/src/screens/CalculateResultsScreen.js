@@ -124,45 +124,63 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         try {
             const extracted = await extractResultsFromScreenshot(imageAssets);
 
-            // Improved auto-mapping algorithm
+            // Improved auto-mapping algorithm (Matched with Web Client logic)
             const initialMappings = {};
-            const assignedTeamIds = new Set();
+            const candidateMatches = {}; // { [registeredId]: { rank: number, score: number } }
 
             extracted.forEach(res => {
-                // Step 1: Try team name fuzzy match (High confidence primary check)
-                const teamMatch = fuzzyMatch(res.team_name, teams);
-                if (teamMatch && !assignedTeamIds.has(teamMatch.item.id)) {
-                    initialMappings[res.team_name] = teamMatch.item.id;
-                    assignedTeamIds.add(teamMatch.item.id);
-                    return;
-                }
+                let bestTeamId = null;
+                let bestScore = 0;
 
-                // Step 2: Try player-level matching (Secondary check for Match 2+)
-                if (res.players && res.players.length > 0) {
-                    for (const registeredTeam of teams) {
-                        if (assignedTeamIds.has(registeredTeam.id)) continue;
+                // Loop through all registered teams to find the best match for THIS AI result
+                teams.forEach(registeredTeam => {
+                    const teamMembers = registeredTeam.members || [];
+                    if (teamMembers.length === 0) return;
 
-                        const teamMembers = registeredTeam.members || [];
-                        if (teamMembers.length === 0) continue;
+                    let matchedPlayersCount = 0;
+                    let totalSim = 0;
 
-                        // Count how many players in THIS AI result match THIS registered team
-                        let matchCount = 0;
-                        res.players.forEach(aiPlayer => {
-                            const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.85);
-                            if (pMatch) matchCount++;
-                        });
-
-                        // Threshold: If 2 or more players match, consider it the same team
-                        if (matchCount >= 2) {
-                            console.log(`🤖 Auto-mapped "${res.team_name}" to "${registeredTeam.team_name}" via player matches (${matchCount})`);
-                            initialMappings[res.team_name] = registeredTeam.id;
-                            assignedTeamIds.add(registeredTeam.id);
-                            break;
+                    // Match each AI detected player against THIS team's members
+                    res.players.forEach(aiPlayer => {
+                        const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.82); // Slightly stricter for better accuracy
+                        if (pMatch) {
+                            matchedPlayersCount++;
+                            totalSim += pMatch.score;
                         }
+                    });
+
+                    // Rule: Must match at least 2 players
+                    if (matchedPlayersCount >= 2) {
+                        const avgSim = totalSim / matchedPlayersCount;
+                        // Score formula from web: (count * 10) + avgSim
+                        const score = (matchedPlayersCount * 10) + avgSim;
+
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestTeamId = registeredTeam.id;
+                        }
+                    }
+                });
+
+                if (bestTeamId) {
+                    // Conflict Resolution: If multiple AI slots match the same registered team,
+                    // the one with the higher score wins the mapping.
+                    const existingClaim = candidateMatches[bestTeamId];
+                    if (!existingClaim || bestScore > existingClaim.score) {
+                        candidateMatches[bestTeamId] = {
+                            rank: res.rank,
+                            score: bestScore
+                        };
                     }
                 }
             });
 
+            // Convert candidate matches back to the mappings state format (Rank based)
+            Object.entries(candidateMatches).forEach(([teamId, data]) => {
+                initialMappings[data.rank] = teamId;
+            });
+
+            console.log(`🤖 Auto-mapped ${Object.keys(initialMappings).length} teams based on player analysis (>=2 players)`);
             setAiResults(extracted);
             setMappings(initialMappings);
             setShowMapping(true);
@@ -176,7 +194,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
     const handleApplyMapping = () => {
         const newResults = aiResults.map(res => {
-            const teamId = mappings[res.team_name];
+            const teamId = mappings[res.rank];
             const team = teams.find(t => t.id === teamId);
 
             if (!team) return null;
@@ -194,7 +212,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 placement_points: placementPoints,
                 kill_points: killPoints,
                 total_points: placementPoints + killPoints,
-                players: res.players // Pass through for potential stat tracking
+                players: res.players // Pass raw AI players through for roster sync in handleSubmit
             };
         }).filter(r => r !== null);
 
@@ -223,27 +241,72 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
                 };
 
-                // Update individual member stats in the members JSON
-                const currentMembers = team.members || [];
-                const updatedMembers = currentMembers.map(m => {
-                    const memberName = typeof m === 'object' ? m.name : m;
-                    const resultMember = result.members.find(rm => rm.name === memberName);
-                    if (resultMember) {
-                        return {
-                            name: memberName,
-                            kills: (m.kills || 0) + (resultMember.kills || 0),
-                            matches_played: (m.matches_played || 0) + 1,
-                            wwcd: (m.wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
-                        };
-                    }
-                    return typeof m === 'object' ? m : { name: m, kills: 0, matches_played: 0, wwcd: 0 };
+                // Update individual member stats AND synchronize roster (capture new player names)
+                let currentMembers = (team.members || []).map(m => {
+                    return typeof m === 'object' ? {
+                        name: m.name || '',
+                        kills: m.kills || 0,
+                        matches_played: m.matches_played || 0,
+                        wwcd: m.wwcd || 0
+                    } : { name: m, kills: 0, matches_played: 0, wwcd: 0 };
                 });
+
+                // If this result came from AI, we have result.players
+                if (result.players && result.players.length > 0) {
+                    const seenInRoster = new Set();
+
+                    for (const aiPlayer of result.players) {
+                        const pMatch = fuzzyMatchName(aiPlayer.name, currentMembers, 0.8);
+
+                        if (pMatch) {
+                            // Find index of matching member
+                            const mIdx = currentMembers.findIndex(m => m.name === pMatch.member.name);
+                            if (mIdx !== -1 && !seenInRoster.has(mIdx)) {
+                                currentMembers[mIdx] = {
+                                    ...currentMembers[mIdx],
+                                    kills: (currentMembers[mIdx].kills || 0) + (aiPlayer.kills || 0),
+                                    matches_played: (currentMembers[mIdx].matches_played || 0) + 1,
+                                    wwcd: (currentMembers[mIdx].wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
+                                };
+                                seenInRoster.add(mIdx);
+                            }
+                        } else {
+                            // NO MATCH FOUND: Add this new player to the team roster!
+                            // This ensures the 2nd match will find them automatically.
+                            currentMembers.push({
+                                name: aiPlayer.name,
+                                kills: aiPlayer.kills || 0,
+                                matches_played: 1,
+                                wwcd: (parseInt(result.position) === 1 ? 1 : 0)
+                            });
+                        }
+                    }
+
+                    // For members NOT seen in this match, still increment their matches_played if that's the desired rule
+                    // or just leave them. Web client usually only increments if they participated.
+                } else {
+                    // Manual mode: If members were selected manually (future feature) or just update existing
+                    // Currently manual mode uses result.members if defined
+                    const resultMembers = result.members || [];
+                    currentMembers = currentMembers.map(m => {
+                        const rm = resultMembers.find(rpm => rpm.name === m.name);
+                        if (rm) {
+                            return {
+                                ...m,
+                                kills: (m.kills || 0) + (rm.kills || 0),
+                                matches_played: (m.matches_played || 0) + 1,
+                                wwcd: (m.wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
+                            };
+                        }
+                        return m;
+                    });
+                }
 
                 const { error } = await supabase
                     .from('tournament_teams')
                     .update({
                         total_points: newStats,
-                        members: updatedMembers
+                        members: currentMembers
                     })
                     .eq('id', result.team_id);
 
@@ -356,7 +419,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                             <TouchableOpacity
                                                 style={[
                                                     styles.teamPicker,
-                                                    mappings[res.team_name] ? styles.teamPickerFilled : styles.teamPickerEmpty
+                                                    mappings[res.rank] ? styles.teamPickerFilled : styles.teamPickerEmpty
                                                 ]}
                                                 onPress={() => {
                                                     setSelectedAiTeam(res);
@@ -365,9 +428,9 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                             >
                                                 <Text style={[
                                                     styles.selectedTeamName,
-                                                    !mappings[res.team_name] && styles.unselectedText
+                                                    !mappings[res.rank] && styles.unselectedText
                                                 ]}>
-                                                    {teams.find(t => t.id === mappings[res.team_name])?.team_name || 'Select Team'}
+                                                    {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team'}
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
@@ -483,9 +546,9 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                         <ScrollView style={styles.teamOptionsList}>
                             {teams.map(team => {
                                 const isMappedToOther = Object.entries(mappings).some(
-                                    ([aiName, registeredId]) => registeredId === team.id && aiName !== selectedAiTeam?.team_name
+                                    ([rank, registeredId]) => registeredId === team.id && parseInt(rank) !== selectedAiTeam?.rank
                                 );
-                                const isSelected = mappings[selectedAiTeam?.team_name] === team.id;
+                                const isSelected = mappings[selectedAiTeam?.rank] === team.id;
 
                                 return (
                                     <TouchableOpacity
@@ -499,7 +562,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         onPress={() => {
                                             setMappings({
                                                 ...mappings,
-                                                [selectedAiTeam.team_name]: team.id
+                                                [selectedAiTeam.rank]: team.id
                                             });
                                             setMappingModalVisible(false);
                                         }}

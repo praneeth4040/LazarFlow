@@ -190,8 +190,8 @@ const LiveTournamentScreen = ({ route }) => {
         <View style={[styles.row, index % 2 === 0 ? styles.evenRow : styles.oddRow]}>
             <Text style={[styles.cell, styles.rankCell, index < 3 && styles.topRank]}>{index + 1}</Text>
             <View style={[styles.cell, styles.teamCell]}>
-                <Text style={styles.playerName}>{item.name}</Text>
-                <Text style={styles.playerTeam}>{item.team_name}</Text>
+                <Text style={styles.mvpPlayerName}>{item.name}</Text>
+                <Text style={styles.mvpTeamName}>{item.team_name}</Text>
             </View>
             <Text style={[styles.cell, styles.pointCell, styles.mvpKills]}>{item.kills || 0}</Text>
         </View>
@@ -393,14 +393,16 @@ const styles = StyleSheet.create({
     activeTabText: {
         color: Theme.colors.accent,
     },
-    playerName: {
+    mvpPlayerName: {
         fontSize: 16,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
+        textAlign: 'left',
     },
-    playerTeam: {
+    mvpTeamName: {
         fontSize: 12,
         color: Theme.colors.textSecondary,
+        textAlign: 'left',
     },
     mvpKills: {
         width: 60,
