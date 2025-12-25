@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
@@ -112,7 +113,7 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const handleBannerAction = () => {
-        Alert.alert('LexiView', 'LexiView is our advanced AI engine that extracts scoreboard data from images with extreme accuracy. Try it out in your next tournament!');
+        navigation.navigate('CreateTournament');
     };
 
     // --- Action Handlers ---
@@ -187,16 +188,21 @@ const DashboardScreen = ({ navigation }) => {
 
     const renderHeader = () => {
         let title = 'Home';
+        if (activeTab === 'home') {
+            const username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
+            title = `Welcome ${username}`;
+        }
         if (activeTab === 'history') title = 'History';
         if (activeTab === 'profile') title = 'Profile';
 
         return (
             <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 10 }]}>
-                <Text style={styles.headerTitle}>{title}</Text>
-                {activeTab === 'home' && (
-                    <TouchableOpacity style={styles.addButton} onPress={handleCreateTournament}>
-                        <Plus size={24} color={Theme.colors.accent} />
-                    </TouchableOpacity>
+                {activeTab === 'home' ? (
+                    <Text style={styles.headerTitle}>
+                        Welcome <Text style={{ color: Theme.colors.accent }}>{user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'}</Text>
+                    </Text>
+                ) : (
+                    <Text style={styles.headerTitle}>{title}</Text>
                 )}
             </View>
         );
@@ -583,6 +589,20 @@ const DashboardScreen = ({ navigation }) => {
             {renderHeader()}
             <View style={{ flex: 1 }} onStartShouldSetResponder={() => activeSettingsId !== null ? setActiveSettingsId(null) : false}>
                 {renderContent()}
+                {activeTab === 'home' && (
+                    <TouchableOpacity style={styles.fabContainer} onPress={handleCreateTournament} activeOpacity={0.8}>
+                        <LinearGradient
+                            colors={['#1E3A8A', '#3B82F6']}
+                            style={styles.fabGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <View style={{ transform: [{ rotate: '-45deg' }] }}>
+                                <Plus size={28} color="#fff" />
+                            </View>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                )}
             </View>
             <View style={styles.tabBar}>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('home')}>
@@ -996,6 +1016,29 @@ const styles = StyleSheet.create({
     tabLabelActive: {
         color: Theme.colors.accent,
         fontWeight: '600',
+    },
+    fabContainer: {
+        position: 'absolute',
+        bottom: 30,
+        right: 30,
+        width: 60,
+        height: 60,
+        borderRadius: 16,
+        transform: [{ rotate: '45deg' }],
+        shadowColor: '#1E3A8A',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 10,
+        zIndex: 100,
+    },
+    fabGradient: {
+        flex: 1,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
     },
 });
 
