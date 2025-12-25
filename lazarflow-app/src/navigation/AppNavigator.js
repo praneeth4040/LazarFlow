@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
-import LandingScreen from '../screens/LandingScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -50,7 +50,7 @@ export default function AppNavigator() {
     return (
         <NavigationContainer>
             <Stack.Navigator
-                initialRouteName={session ? "Dashboard" : "Landing"}
+                initialRouteName={session ? "Dashboard" : "Onboarding"}
                 screenOptions={{
                     headerShown: false,
                     contentStyle: { backgroundColor: Theme.colors.secondary }
@@ -58,7 +58,7 @@ export default function AppNavigator() {
             >
                 {!session ? (
                     <>
-                        <Stack.Screen name="Landing" component={LandingScreen} />
+                        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                         <Stack.Screen name="Login" component={LoginScreen} />
                         <Stack.Screen name="SignUp" component={SignUpScreen} />
                     </>

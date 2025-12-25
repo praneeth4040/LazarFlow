@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Github, Chrome as Google } from 'lucide-react-native';
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
@@ -114,22 +114,7 @@ const SignUpScreen = ({ navigation }) => {
                         )}
                     </TouchableOpacity>
 
-                    <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>or continue with</Text>
-                        <View style={styles.dividerLine} />
-                    </View>
 
-                    <View style={styles.socialButtons}>
-                        <TouchableOpacity style={styles.socialButton}>
-                            <Google size={20} color="#EA4335" />
-                            <Text style={styles.socialButtonText}>Google</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.socialButton}>
-                            <Github size={20} color="#181717" />
-                            <Text style={styles.socialButtonText}>GitHub</Text>
-                        </TouchableOpacity>
-                    </View>
 
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>Already have an account?</Text>
@@ -242,43 +227,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
-    },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 32,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: Theme.colors.border,
-    },
-    dividerText: {
-        marginHorizontal: 16,
-        color: Theme.colors.textSecondary,
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    socialButtons: {
-        flexDirection: 'row',
-        gap: 16,
-    },
-    socialButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        height: 56,
-        borderRadius: 28,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        backgroundColor: Theme.colors.card,
-    },
-    socialButtonText: {
-        color: Theme.colors.textPrimary,
-        fontSize: 14,
-        fontWeight: '600',
     },
     footer: {
         flexDirection: 'row',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Github, Chrome as Google } from 'lucide-react-native';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
@@ -208,43 +208,6 @@ const styles = StyleSheet.create({
     },
     forgotPasswordText: {
         color: Theme.colors.accent,
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 32,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: Theme.colors.border,
-    },
-    dividerText: {
-        marginHorizontal: 16,
-        color: Theme.colors.textSecondary,
-        fontSize: 14,
-        fontWeight: '500',
-    },
-    socialButtons: {
-        flexDirection: 'row',
-        gap: 16,
-    },
-    socialButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        height: 56,
-        borderRadius: 28,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        backgroundColor: Theme.colors.card,
-    },
-    socialButtonText: {
-        color: Theme.colors.textPrimary,
         fontSize: 14,
         fontWeight: '600',
     },

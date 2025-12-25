@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award } from 'lucide-react-native';
+import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
@@ -20,6 +21,7 @@ const DashboardScreen = ({ navigation }) => {
     const [expandedSections, setExpandedSections] = useState({
         account: true,
         stats: false,
+        history: false,
         partnership: false,
         legal: false
     });
@@ -116,6 +118,18 @@ const DashboardScreen = ({ navigation }) => {
         navigation.navigate('CreateTournament');
     };
 
+    const handleDesignUpload = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+        });
+
+        if (!result.canceled) {
+            Alert.alert('Design Uploaded', 'This is a demo. In the full version, your custom design will be applied to your tournament layouts!');
+        }
+    };
+
     // --- Action Handlers ---
 
     const toggleSettings = (id) => {
@@ -192,11 +206,11 @@ const DashboardScreen = ({ navigation }) => {
             const username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
             title = `Welcome ${username}`;
         }
-        if (activeTab === 'history') title = 'History';
-        if (activeTab === 'profile') title = 'Profile';
+        if (activeTab === 'design') title = 'Design Studio';
+        if (activeTab === 'profile') title = 'Account Settings';
 
         return (
-            <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 10 }]}>
+            <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
                 {activeTab === 'home' ? (
                     <Text style={styles.headerTitle}>
                         Welcome <Text style={{ color: Theme.colors.accent }}>{user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'}</Text>
@@ -290,48 +304,72 @@ const DashboardScreen = ({ navigation }) => {
                     <Text style={styles.emptyText}>No active tournaments</Text>
                 </View>
             )}
-            <View style={{ height: 100 }} />
+            <View style={{ height: 80 }} />
         </ScrollView>
     );
 
-    const renderHistory = () => (
-        <ScrollView
-            style={styles.content}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.accent} />}
-        >
-            <Text style={styles.sectionTitle}>Past Tournaments</Text>
-            {pastTournaments.length > 0 ? (
-                pastTournaments.map(tournament => (
-                    <TouchableOpacity
-                        key={tournament.id}
-                        style={styles.card}
-                        onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })}
-                    >
-                        <View style={styles.cardInfo}>
-                            <Text style={styles.cardTitle}>{tournament.name}</Text>
-                            <Text style={styles.cardMeta}>{new Date(tournament.created_at).toLocaleDateString()}</Text>
-                        </View>
-                        <View style={styles.cardActions}>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })} title="Leaderboard">
-                                <BarChart2 size={18} color={Theme.colors.textSecondary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id, view: 'mvp' })} title="MVPs">
-                                <Award size={18} color={Theme.colors.accent} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteTournament(tournament)} title="Delete">
-                                <Trash2 size={18} color="#ef4444" />
-                            </TouchableOpacity>
-                        </View>
-                    </TouchableOpacity>
-                ))
-            ) : (
-                <View style={styles.emptyState}>
-                    <History size={48} color="#334155" />
-                    <Text style={styles.emptyText}>No past tournaments</Text>
+    const renderDesign = () => (
+        <ScrollView style={styles.content}>
+            <View style={styles.designHero}>
+                <Palette size={48} color={Theme.colors.accent} style={{ marginBottom: 15 }} />
+                <Text style={styles.designHeroTitle}>Custom Designs</Text>
+                <Text style={styles.designHeroDesc}>Upload your own banners, logos, or backgrounds to personalize your tournament standings.</Text>
+            </View>
+
+            <TouchableOpacity style={styles.uploadArea} onPress={handleDesignUpload} activeOpacity={0.7}>
+                <Upload size={32} color={Theme.colors.textSecondary} style={{ marginBottom: 12 }} />
+                <Text style={styles.uploadTitle}>Upload Design</Text>
+                <Text style={styles.uploadSubs}>JPG, PNG or SVG (max. 5MB)</Text>
+            </TouchableOpacity>
+
+            <View style={styles.demoLayoutCard}>
+                <View style={styles.demoLayoutHeader}>
+                    <Sparkles size={16} color={Theme.colors.accent} />
+                    <Text style={styles.demoLayoutTitle}>Design Presets</Text>
                 </View>
-            )}
+                <Text style={styles.demoLayoutDesc}>Premium users can also choose from our curated list of 20+ professional esports themes.</Text>
+                <TouchableOpacity style={styles.demoViewBtn} onPress={() => Alert.alert('Coming Soon', 'Preset gallery is under development.')}>
+                    <Text style={styles.demoViewBtnText}>View Presets</Text>
+                    <ArrowRight size={14} color="#fff" />
+                </TouchableOpacity>
+            </View>
         </ScrollView>
     );
+
+    const renderHistoryContent = () => {
+        if (pastTournaments.length === 0) {
+            return (
+                <View style={[styles.emptyState, { marginTop: 20 }]}>
+                    <History size={40} color={Theme.colors.border} />
+                    <Text style={styles.emptyText}>No past tournaments yet</Text>
+                </View>
+            );
+        }
+
+        return pastTournaments.map(tournament => (
+            <TouchableOpacity
+                key={tournament.id}
+                style={[styles.card, { marginHorizontal: 0 }]}
+                onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })}
+            >
+                <View style={styles.cardInfo}>
+                    <Text style={styles.cardTitle}>{tournament.name}</Text>
+                    <Text style={styles.cardMeta}>{new Date(tournament.created_at).toLocaleDateString()}</Text>
+                </View>
+                <View style={styles.cardActions}>
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })} title="Leaderboard">
+                        <BarChart2 size={16} color={Theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id, view: 'mvp' })} title="MVPs">
+                        <Award size={16} color={Theme.colors.accent} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteTournament(tournament)} title="Delete">
+                        <Trash2 size={16} color="#ef4444" />
+                    </TouchableOpacity>
+                </View>
+            </TouchableOpacity>
+        ));
+    };
 
     const formatDate = (dateString) => {
         if (!dateString) return "—";
@@ -432,6 +470,24 @@ const DashboardScreen = ({ navigation }) => {
                                     <Text style={styles.infoLabel}>Member Since</Text>
                                     <Text style={styles.infoValue}>{formatDate(user?.created_at)}</Text>
                                 </View>
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Tournament History */}
+                    <View style={styles.infoGroup}>
+                        <TouchableOpacity
+                            style={styles.groupHeader}
+                            onPress={() => toggleSection('history')}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.groupLabel}>Tournament History</Text>
+                            <History size={16} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        {expandedSections.history && (
+                            <View style={styles.groupContent}>
+                                {renderHistoryContent()}
                             </View>
                         )}
                     </View>
@@ -580,7 +636,7 @@ const DashboardScreen = ({ navigation }) => {
             );
         }
         if (activeTab === 'home') return renderHome();
-        if (activeTab === 'history') return renderHistory();
+        if (activeTab === 'design') return renderDesign();
         if (activeTab === 'profile') return renderProfile();
     };
 
@@ -598,7 +654,7 @@ const DashboardScreen = ({ navigation }) => {
                             end={{ x: 1, y: 1 }}
                         >
                             <View style={{ transform: [{ rotate: '-45deg' }] }}>
-                                <Plus size={28} color="#fff" />
+                                <Plus size={24} color="#fff" />
                             </View>
                         </LinearGradient>
                     </TouchableOpacity>
@@ -609,9 +665,9 @@ const DashboardScreen = ({ navigation }) => {
                     <Home size={24} color={activeTab === 'home' ? Theme.colors.accent : Theme.colors.textSecondary} />
                     <Text style={[styles.tabLabel, activeTab === 'home' && styles.tabLabelActive]}>Home</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('history')}>
-                    <History size={24} color={activeTab === 'history' ? Theme.colors.accent : Theme.colors.textSecondary} />
-                    <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>History</Text>
+                <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('design')}>
+                    <Palette size={24} color={activeTab === 'design' ? Theme.colors.accent : Theme.colors.textSecondary} />
+                    <Text style={[styles.tabLabel, activeTab === 'design' && styles.tabLabelActive]}>Design</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('profile')}>
                     <User size={24} color={activeTab === 'profile' ? Theme.colors.accent : Theme.colors.textSecondary} />
@@ -632,7 +688,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 15,
+        paddingVertical: 10,
         backgroundColor: Theme.colors.primary,
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
@@ -647,7 +703,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        padding: 20,
+        padding: 16,
     },
     loadingContainer: {
         flex: 1,
@@ -1019,11 +1075,11 @@ const styles = StyleSheet.create({
     },
     fabContainer: {
         position: 'absolute',
-        bottom: 30,
-        right: 30,
-        width: 60,
-        height: 60,
-        borderRadius: 16,
+        bottom: 25,
+        right: 25,
+        width: 52,
+        height: 52,
+        borderRadius: 14,
         transform: [{ rotate: '45deg' }],
         shadowColor: '#1E3A8A',
         shadowOffset: { width: 0, height: 8 },
@@ -1039,6 +1095,86 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
+    },
+    // New Design Styles
+    designHero: {
+        alignItems: 'center',
+        paddingVertical: 30,
+        backgroundColor: Theme.colors.card,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        marginBottom: 20,
+        paddingHorizontal: 20,
+    },
+    designHeroTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+        marginBottom: 10,
+    },
+    designHeroDesc: {
+        fontSize: 14,
+        color: Theme.colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: 20,
+    },
+    uploadArea: {
+        height: 160,
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 16,
+        borderWidth: 2,
+        borderColor: Theme.colors.border,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    uploadTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    uploadSubs: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        marginTop: 4,
+    },
+    demoLayoutCard: {
+        backgroundColor: '#1E293B',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 40,
+    },
+    demoLayoutHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 10,
+    },
+    demoLayoutTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    demoLayoutDesc: {
+        fontSize: 14,
+        color: '#94A3B8',
+        lineHeight: 22,
+        marginBottom: 20,
+    },
+    demoViewBtn: {
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 10,
+        gap: 8,
+    },
+    demoViewBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
     },
 });
 
