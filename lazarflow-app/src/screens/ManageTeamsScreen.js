@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAr
 import { X, Plus, Bot, User, Trash2, ArrowLeft, Loader2, Sparkles, Send } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
+import { extractTeamsFromText } from '../lib/aiExtraction';
 
 const ManageTeamsScreen = ({ route, navigation }) => {
     const { tournamentId, tournamentName } = route.params || {};
@@ -52,19 +53,14 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
         setLoading(true);
         try {
-            // Simplified AI extraction logic for now (splitting by lines/bullets)
-            // In a real scenario, this would call an Edge Function or AI service
-            const extracted = aiText
-                .split('\n')
-                .map(line => line.replace(/^\d+\.\s*/, '').replace(/^-\s*/, '').trim())
-                .filter(line => line.length > 0 && line.length < 50);
+            const extracted = await extractTeamsFromText(aiText);
 
             if (extracted.length === 0) {
                 Alert.alert('Info', 'No team names could be identified. Try a clearer format.');
                 return;
             }
 
-            setTeams([...teams, ...extracted.map(name => ({ name, members: [] }))]);
+            setTeams([...teams, ...extracted]);
             setAiText('');
             setMode('manual');
             Alert.alert('Success', `Extracted ${extracted.length} teams!`);
@@ -75,9 +71,41 @@ const ManageTeamsScreen = ({ route, navigation }) => {
         }
     };
 
+    const [expandedTeamIndex, setExpandedTeamIndex] = useState(null);
+    const [newMemberName, setNewMemberName] = useState('');
+
+    const toggleExpandTeam = (index) => {
+        if (expandedTeamIndex === index) {
+            setExpandedTeamIndex(null);
+        } else {
+            setExpandedTeamIndex(index);
+            setNewMemberName('');
+        }
+    };
+
+    const handleAddMember = (index) => {
+        if (!newMemberName.trim()) return;
+        const updatedTeams = [...teams];
+        const memberName = newMemberName.trim();
+
+        // Members can be objects or strings in this app's database schema
+        // We'll use objects to support future stats
+        const newMember = { name: memberName, kills: 0, wwcd: 0, matches_played: 0 };
+
+        updatedTeams[index].members = [...(updatedTeams[index].members || []), newMember];
+        setTeams(updatedTeams);
+        setNewMemberName('');
+    };
+
+    const handleRemoveMember = (teamIndex, memberIndex) => {
+        const updatedTeams = [...teams];
+        updatedTeams[teamIndex].members = updatedTeams[teamIndex].members.filter((_, i) => i !== memberIndex);
+        setTeams(updatedTeams);
+    };
+
     const handleSave = async () => {
-        if (teams.length < 2) {
-            Alert.alert('Error', 'Please add at least 2 teams');
+        if (teams.length < 1) {
+            Alert.alert('Error', 'Please add at least 1 team');
             return;
         }
 
@@ -90,16 +118,17 @@ const ManageTeamsScreen = ({ route, navigation }) => {
                 tournament_id: tournamentId,
                 team_name: t.name,
                 members: t.members,
-                total_points: { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 }
+                total_points: t.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 }
             }));
 
             const { error } = await supabase.from('tournament_teams').insert(teamsToInsert);
             if (error) throw error;
 
-            Alert.alert('Success', 'Teams saved successfully!', [
+            Alert.alert('Success', 'Teams and members saved successfully!', [
                 { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
             ]);
         } catch (error) {
+            console.error('Error saving teams:', error);
             Alert.alert('Error', 'Failed to save teams');
         } finally {
             setSubmitting(false);
@@ -169,7 +198,7 @@ const ManageTeamsScreen = ({ route, navigation }) => {
                     </View>
                 )}
 
-                <Text style={styles.sectionTitle}>Teams ({teams.length})</Text>
+                <Text style={styles.sectionTitle}>Teams & Members ({teams.length})</Text>
                 {teams.length === 0 ? (
                     <View style={styles.emptyState}>
                         <User size={48} color={Theme.colors.border} />
@@ -178,12 +207,63 @@ const ManageTeamsScreen = ({ route, navigation }) => {
                 ) : (
                     <View style={styles.teamList}>
                         {teams.map((team, index) => (
-                            <View key={index} style={styles.teamCard}>
-                                <Text style={styles.teamNumber}>{index + 1}</Text>
-                                <Text style={styles.teamName}>{team.name}</Text>
-                                <TouchableOpacity onPress={() => handleRemoveTeam(index)} style={styles.removeBtn}>
-                                    <Trash2 size={18} color={Theme.colors.danger} />
+                            <View key={index} style={styles.teamCardContainer}>
+                                <TouchableOpacity
+                                    style={[styles.teamCard, expandedTeamIndex === index && styles.teamCardExpanded]}
+                                    onPress={() => toggleExpandTeam(index)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.teamNumber}>{index + 1}</Text>
+                                    <Text style={styles.teamName}>{team.name}</Text>
+                                    <View style={styles.teamMeta}>
+                                        <Text style={styles.memberCount}>{team.members?.length || 0} members</Text>
+                                        <TouchableOpacity onPress={() => handleRemoveTeam(index)} style={styles.removeBtn}>
+                                            <Trash2 size={18} color={Theme.colors.danger} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </TouchableOpacity>
+
+                                {expandedTeamIndex === index && (
+                                    <View style={styles.memberSection}>
+                                        <View style={styles.memberInputRow}>
+                                            <TextInput
+                                                style={styles.memberInput}
+                                                placeholder="Add member name..."
+                                                value={newMemberName}
+                                                onChangeText={setNewMemberName}
+                                                placeholderTextColor={Theme.colors.textSecondary}
+                                                onSubmitEditing={() => handleAddMember(index)}
+                                            />
+                                            <TouchableOpacity
+                                                style={styles.addMemberBtn}
+                                                onPress={() => handleAddMember(index)}
+                                            >
+                                                <Plus size={16} color="#fff" />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <View style={styles.memberList}>
+                                            {team.members && team.members.length > 0 ? (
+                                                team.members.map((member, mIdx) => (
+                                                    <View key={mIdx} style={styles.memberItem}>
+                                                        <User size={14} color={Theme.colors.textSecondary} />
+                                                        <Text style={styles.memberName}>
+                                                            {typeof member === 'object' ? member.name : member}
+                                                        </Text>
+                                                        <TouchableOpacity
+                                                            onPress={() => handleRemoveMember(index, mIdx)}
+                                                            style={styles.removeMemberBtn}
+                                                        >
+                                                            <X size={14} color={Theme.colors.textSecondary} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))
+                                            ) : (
+                                                <Text style={styles.noMembersText}>No members added yet</Text>
+                                            )}
+                                        </View>
+                                    </View>
+                                )}
                             </View>
                         ))}
                     </View>
@@ -314,31 +394,105 @@ const styles = StyleSheet.create({
         color: Theme.colors.textPrimary,
         marginBottom: 12,
     },
-    teamList: {
-        gap: 10,
+    teamCardContainer: {
+        marginBottom: 10,
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        overflow: 'hidden',
     },
     teamCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Theme.colors.primary,
-        padding: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
+        padding: 16,
+    },
+    teamCardExpanded: {
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.border,
+        backgroundColor: 'rgba(26, 115, 232, 0.02)',
     },
     teamNumber: {
-        width: 24,
+        width: 30,
         fontWeight: 'bold',
-        color: Theme.colors.textSecondary,
+        color: Theme.colors.accent,
+        fontSize: 16,
     },
     teamName: {
         flex: 1,
         fontSize: 16,
         color: Theme.colors.textPrimary,
-        fontWeight: '500',
+        fontWeight: '600',
+    },
+    teamMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    memberCount: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        backgroundColor: Theme.colors.secondary,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
     },
     removeBtn: {
         padding: 4,
+    },
+    memberSection: {
+        padding: 16,
+        backgroundColor: 'rgba(26, 115, 232, 0.01)',
+    },
+    memberInputRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 12,
+    },
+    memberInput: {
+        flex: 1,
+        backgroundColor: Theme.colors.secondary,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 8,
+        padding: 10,
+        color: Theme.colors.textPrimary,
+        fontSize: 14,
+    },
+    addMemberBtn: {
+        backgroundColor: Theme.colors.accent,
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    memberList: {
+        gap: 8,
+    },
+    memberItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.secondary,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+        gap: 10,
+    },
+    memberName: {
+        flex: 1,
+        fontSize: 14,
+        color: Theme.colors.textPrimary,
+    },
+    removeMemberBtn: {
+        padding: 4,
+    },
+    noMembersText: {
+        textAlign: 'center',
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        fontStyle: 'italic',
+        marginTop: 4,
     },
     emptyState: {
         alignItems: 'center',

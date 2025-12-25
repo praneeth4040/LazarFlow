@@ -1,57 +1,48 @@
-// Main screen for creating a new tournament
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
-import { X, Sparkles, Trophy, Target, ChevronDown, Save, ArrowLeft } from 'lucide-react-native';
+import { X, Sparkles, Save, ArrowLeft, Trash2 } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
-const CreateTournamentScreen = ({ navigation }) => {
-    const defaultPointsSystems = {
-        freeFire: [
-            { placement: 1, points: 12 },
-            { placement: 2, points: 9 },
-            { placement: 3, points: 8 },
-            { placement: 4, points: 7 },
-            { placement: 5, points: 6 },
-            { placement: 6, points: 5 },
-            { placement: 7, points: 4 },
-            { placement: 8, points: 3 },
-            { placement: 9, points: 2 },
-            { placement: 10, points: 1 },
-            { placement: 11, points: 0 },
-            { placement: 12, points: 0 },
-        ],
-        bgmi: [
-            { placement: 1, points: 10 },
-            { placement: 2, points: 6 },
-            { placement: 3, points: 5 },
-            { placement: 4, points: 4 },
-            { placement: 5, points: 3 },
-            { placement: 6, points: 2 },
-            { placement: 7, points: 1 },
-            { placement: 8, points: 1 },
-        ],
-        other: [
-            { placement: 1, points: 10 },
-            { placement: 2, points: 8 },
-            { placement: 3, points: 6 },
-            { placement: 4, points: 4 },
-            { placement: 5, points: 2 },
-        ],
-    };
-
+const EditTournamentScreen = ({ route, navigation }) => {
+    const { tournamentId } = route.params || {};
+    const [tournament, setTournament] = useState(null);
     const [name, setName] = useState('');
     const [game, setGame] = useState('freeFire');
-    const [pointsSystem, setPointsSystem] = useState(defaultPointsSystems.freeFire);
+    const [pointsSystem, setPointsSystem] = useState([]);
     const [killPoints, setKillPoints] = useState(1);
-    const [placementCount, setPlacementCount] = useState(12);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    const handleGameChange = (selectedGame) => {
-        setGame(selectedGame);
-        const defaultSystem = defaultPointsSystems[selectedGame];
-        setPointsSystem(defaultSystem);
-        setPlacementCount(defaultSystem.length);
+    useEffect(() => {
+        if (tournamentId) {
+            fetchTournament();
+        }
+    }, [tournamentId]);
+
+    const fetchTournament = async () => {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('tournaments')
+                .select('*')
+                .eq('id', tournamentId)
+                .single();
+
+            if (error) throw error;
+
+            setTournament(data);
+            setName(data.name);
+            setGame(data.game || 'freeFire');
+            setPointsSystem(data.points_system || []);
+            setKillPoints(data.kill_points || 1);
+        } catch (error) {
+            console.error('Error fetching tournament:', error);
+            Alert.alert('Error', 'Failed to fetch tournament details');
+            navigation.goBack();
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handlePointsChange = (index, value) => {
@@ -60,43 +51,73 @@ const CreateTournamentScreen = ({ navigation }) => {
         setPointsSystem(newSystem);
     };
 
-    const handleCreate = async () => {
+    const handleSave = async () => {
         if (!name.trim()) {
             Alert.alert('Error', 'Please enter a tournament name');
             return;
         }
 
-        setLoading(true);
+        setSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error('Not authenticated');
-
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('tournaments')
-                .insert([
-                    {
-                        name: name.trim(),
-                        game: game,
-                        user_id: user.id,
-                        points_system: pointsSystem,
-                        kill_points: killPoints,
-                        status: 'active'
-                    }
-                ])
-                .select()
-                .single();
+                .update({
+                    name: name.trim(),
+                    game: game,
+                    points_system: pointsSystem,
+                    kill_points: killPoints
+                })
+                .eq('id', tournamentId);
 
             if (error) throw error;
 
-            Alert.alert('Success', 'Tournament created successfully!');
-            navigation.navigate('ManageTeams', { tournamentId: data.id, tournamentName: data.name });
+            Alert.alert('Success', 'Tournament updated successfully!', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+            ]);
         } catch (error) {
-            console.error('Error creating tournament:', error);
-            Alert.alert('Error', error.message || 'Failed to create tournament');
+            console.error('Error updating tournament:', error);
+            Alert.alert('Error', 'Failed to update tournament');
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
+
+    const confirmDelete = () => {
+        Alert.alert(
+            "Delete Tournament",
+            `Are you sure you want to delete "${name}"? This cannot be undone.`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            setSaving(true);
+                            const { error } = await supabase
+                                .from('tournaments')
+                                .delete()
+                                .eq('id', tournamentId);
+                            if (error) throw error;
+                            navigation.navigate('Dashboard');
+                        } catch (err) {
+                            Alert.alert("Error", "Failed to delete tournament");
+                        } finally {
+                            setSaving(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Theme.colors.accent} />
+            </View>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>
@@ -104,8 +125,10 @@ const CreateTournamentScreen = ({ navigation }) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={Theme.colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Create Tournament</Text>
-                <View style={{ width: 40 }} />
+                <Text style={styles.headerTitle}>Edit Tournament</Text>
+                <TouchableOpacity onPress={handleSave} disabled={saving}>
+                    {saving ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={styles.saveBtnText}>Save</Text>}
+                </TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -127,7 +150,7 @@ const CreateTournamentScreen = ({ navigation }) => {
                             <TouchableOpacity
                                 key={g}
                                 style={[styles.gameCard, game === g && styles.gameCardActive]}
-                                onPress={() => handleGameChange(g)}
+                                onPress={() => setGame(g)}
                             >
                                 <Text style={[styles.gameCardText, game === g && styles.gameCardTextActive]}>
                                     {g === 'freeFire' ? 'Free Fire' : g === 'bgmi' ? 'BGMI' : 'Other'}
@@ -167,21 +190,12 @@ const CreateTournamentScreen = ({ navigation }) => {
                         ))}
                     </View>
                 </View>
-            </ScrollView>
 
-            <View style={styles.footer}>
-                <TouchableOpacity
-                    style={[styles.createButton, loading && styles.buttonDisabled]}
-                    onPress={handleCreate}
-                    disabled={loading}
-                >
-                    {loading ? (
-                        <ActivityIndicator color="#fff" />
-                    ) : (
-                        <Text style={styles.createButtonText}>Create & Add Teams</Text>
-                    )}
+                <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
+                    <Trash2 size={20} color={Theme.colors.danger} />
+                    <Text style={styles.deleteButtonText}>Delete Tournament</Text>
                 </TouchableOpacity>
-            </View>
+            </ScrollView>
         </SafeAreaView>
     );
 };
@@ -191,6 +205,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Theme.colors.secondary,
         paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.secondary,
     },
     header: {
         flexDirection: 'row',
@@ -206,6 +226,11 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
+    },
+    saveBtnText: {
+        color: Theme.colors.accent,
+        fontWeight: 'bold',
+        fontSize: 16,
     },
     scrollContent: {
         padding: 20,
@@ -314,31 +339,23 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: Theme.colors.textSecondary,
     },
-    footer: {
-        padding: 16,
-        backgroundColor: Theme.colors.primary,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
-    },
-    createButton: {
-        backgroundColor: Theme.colors.accent,
-        paddingVertical: 16,
-        borderRadius: 12,
+    deleteButton: {
+        flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: Theme.colors.accent,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
+        justifyContent: 'center',
+        padding: 16,
+        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+        borderWidth: 1,
+        borderColor: Theme.colors.danger,
+        borderRadius: 12,
+        marginTop: 20,
+        gap: 8,
     },
-    createButtonText: {
-        color: '#fff',
+    deleteButtonText: {
+        color: Theme.colors.danger,
         fontSize: 16,
         fontWeight: 'bold',
     },
-    buttonDisabled: {
-        opacity: 0.7,
-    },
 });
 
-export default CreateTournamentScreen;
+export default EditTournamentScreen;

@@ -159,7 +159,7 @@ const DashboardScreen = ({ navigation }) => {
     const handleEditTournament = (tournament) => {
         // Close settings
         setActiveSettingsId(null);
-        Alert.alert("Edit", "Edit functionality coming soon!");
+        navigation.navigate('EditTournament', { tournamentId: tournament.id });
     };
 
 

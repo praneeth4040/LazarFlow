@@ -12,7 +12,9 @@ import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
 import CreateTournamentScreen from '../screens/CreateTournamentScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
+import AdvancedLayoutScreen from '../screens/AdvancedLayoutScreen';
 import CalculateResultsScreen from '../screens/CalculateResultsScreen';
+import EditTournamentScreen from '../screens/EditTournamentScreen';
 import { Theme } from '../styles/theme';
 import { supabase } from '../lib/supabaseClient';
 
@@ -96,6 +98,16 @@ export default function AppNavigator() {
                         <Stack.Screen
                             name="CalculateResults"
                             component={CalculateResultsScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="EditTournament"
+                            component={EditTournamentScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="AdvancedLayout"
+                            component={AdvancedLayoutScreen}
                             options={{ headerShown: false }}
                         />
                     </>

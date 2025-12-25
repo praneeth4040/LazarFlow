@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert, ActivityIndicator, Image, Platform, StatusBar } from 'react-native';
-import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight } from 'lucide-react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
+import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
+import { extractResultsFromScreenshot } from '../lib/aiResultExtraction';
+import { fuzzyMatch, fuzzyMatchName } from '../lib/aiUtils';
 
 const CalculateResultsScreen = ({ route, navigation }) => {
     const { tournament } = route.params || {};
@@ -15,6 +17,11 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [extracting, setExtracting] = useState(false);
+    const [aiResults, setAiResults] = useState([]);
+    const [showMapping, setShowMapping] = useState(false);
+    const [mappings, setMappings] = useState({}); // { [aiTeamName]: registeredTeamId }
+    const [selectedAiTeam, setSelectedAiTeam] = useState(null); // The AI result currently being re-mapped
+    const [mappingModalVisible, setMappingModalVisible] = useState(false);
 
     useEffect(() => {
         if (tournament?.id) {
@@ -52,6 +59,10 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             placement_points: 0,
             kill_points: 0,
             total_points: 0,
+            members: (team.members || []).map(m => ({
+                name: typeof m === 'object' ? m.name : m,
+                kills: 0
+            }))
         };
 
         setResults([newResult, ...results]);
@@ -75,6 +86,22 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         setResults(updatedResults);
     };
 
+    const handleUpdateMemberKills = (resultIndex, memberIndex, kills) => {
+        const updatedResults = [...results];
+        const member = updatedResults[resultIndex].members[memberIndex];
+        member.kills = parseInt(kills) || 0;
+
+        // Auto-update team kills if they match the sum of member kills
+        const totalMemberKills = updatedResults[resultIndex].members.reduce((sum, m) => sum + (m.kills || 0), 0);
+        updatedResults[resultIndex].kills = totalMemberKills;
+
+        // Re-calculate points
+        updatedResults[resultIndex].kill_points = totalMemberKills * (tournament.kill_points || 0);
+        updatedResults[resultIndex].total_points = updatedResults[resultIndex].placement_points + updatedResults[resultIndex].kill_points;
+
+        setResults(updatedResults);
+    };
+
     const handleRemoveResult = (index) => {
         setResults(results.filter((_, i) => i !== index));
     };
@@ -82,19 +109,97 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const handlePickImage = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 1,
+            allowsMultipleSelection: true,
+            quality: 0.8,
         });
 
         if (!result.canceled) {
-            handleAIUpload(result.assets[0]);
+            handleAIUpload(result.assets);
         }
     };
 
-    const handleAIUpload = async (imageAsset) => {
-        Alert.alert('Coming Soon', 'AI OCR features are being optimized for mobile. Please use manual entry for now.');
-        // Implementation for AI extraction follows similar logic as web Client
-        // Involves calling your backend /extract-results endpoint
+    const handleAIUpload = async (imageAssets) => {
+        setExtracting(true);
+        try {
+            const extracted = await extractResultsFromScreenshot(imageAssets);
+
+            // Improved auto-mapping algorithm
+            const initialMappings = {};
+            const assignedTeamIds = new Set();
+
+            extracted.forEach(res => {
+                // Step 1: Try team name fuzzy match (High confidence primary check)
+                const teamMatch = fuzzyMatch(res.team_name, teams);
+                if (teamMatch && !assignedTeamIds.has(teamMatch.item.id)) {
+                    initialMappings[res.team_name] = teamMatch.item.id;
+                    assignedTeamIds.add(teamMatch.item.id);
+                    return;
+                }
+
+                // Step 2: Try player-level matching (Secondary check for Match 2+)
+                if (res.players && res.players.length > 0) {
+                    for (const registeredTeam of teams) {
+                        if (assignedTeamIds.has(registeredTeam.id)) continue;
+
+                        const teamMembers = registeredTeam.members || [];
+                        if (teamMembers.length === 0) continue;
+
+                        // Count how many players in THIS AI result match THIS registered team
+                        let matchCount = 0;
+                        res.players.forEach(aiPlayer => {
+                            const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.85);
+                            if (pMatch) matchCount++;
+                        });
+
+                        // Threshold: If 2 or more players match, consider it the same team
+                        if (matchCount >= 2) {
+                            console.log(`🤖 Auto-mapped "${res.team_name}" to "${registeredTeam.team_name}" via player matches (${matchCount})`);
+                            initialMappings[res.team_name] = registeredTeam.id;
+                            assignedTeamIds.add(registeredTeam.id);
+                            break;
+                        }
+                    }
+                }
+            });
+
+            setAiResults(extracted);
+            setMappings(initialMappings);
+            setShowMapping(true);
+        } catch (err) {
+            console.error('AI Error:', err);
+            Alert.alert('Error', 'Failed to extract results from image');
+        } finally {
+            setExtracting(false);
+        }
+    };
+
+    const handleApplyMapping = () => {
+        const newResults = aiResults.map(res => {
+            const teamId = mappings[res.team_name];
+            const team = teams.find(t => t.id === teamId);
+
+            if (!team) return null;
+
+            const pos = parseInt(res.rank);
+            const pointsEntry = tournament.points_system.find(p => p.placement === pos);
+            const placementPoints = pointsEntry ? pointsEntry.points : 0;
+            const killPoints = (res.kills || 0) * (tournament.kill_points || 0);
+
+            return {
+                team_id: team.id,
+                team_name: team.team_name,
+                position: String(res.rank),
+                kills: res.kills || 0,
+                placement_points: placementPoints,
+                kill_points: killPoints,
+                total_points: placementPoints + killPoints,
+                players: res.players // Pass through for potential stat tracking
+            };
+        }).filter(r => r !== null);
+
+        setResults([...newResults, ...results.filter(r => !newResults.some(nr => nr.team_id === r.team_id))]);
+        setShowMapping(false);
+        setMode('manual');
     };
 
     const handleSubmit = async () => {
@@ -110,7 +215,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 if (!team) continue;
 
                 const currentStats = team.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 };
-
                 const newStats = {
                     matches_played: (currentStats.matches_played || 0) + 1,
                     wins: (currentStats.wins || 0) + (parseInt(result.position) === 1 ? 1 : 0),
@@ -118,9 +222,28 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
                 };
 
+                // Update individual member stats in the members JSON
+                const currentMembers = team.members || [];
+                const updatedMembers = currentMembers.map(m => {
+                    const memberName = typeof m === 'object' ? m.name : m;
+                    const resultMember = result.members.find(rm => rm.name === memberName);
+                    if (resultMember) {
+                        return {
+                            name: memberName,
+                            kills: (m.kills || 0) + (resultMember.kills || 0),
+                            matches_played: (m.matches_played || 0) + 1,
+                            wwcd: (m.wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
+                        };
+                    }
+                    return typeof m === 'object' ? m : { name: m, kills: 0, matches_played: 0, wwcd: 0 };
+                });
+
                 const { error } = await supabase
                     .from('tournament_teams')
-                    .update({ total_points: newStats })
+                    .update({
+                        total_points: newStats,
+                        members: updatedMembers
+                    })
                     .eq('id', result.team_id);
 
                 if (error) throw error;
@@ -192,11 +315,79 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     </View>
                 ) : (
                     <View style={styles.aiUploadSection}>
-                        <TouchableOpacity style={styles.uploadCard} onPress={handlePickImage}>
-                            <Upload size={48} color={Theme.colors.accent} />
-                            <Text style={styles.uploadTitle}>Upload Screenshot</Text>
-                            <Text style={styles.uploadSubtitle}>AI will auto-fill the standings</Text>
-                        </TouchableOpacity>
+                        {extracting ? (
+                            <View style={styles.extractingLoader}>
+                                <ActivityIndicator size="large" color={Theme.colors.accent} />
+                                <Text style={styles.extractingText}>AI is analyzing screenshots...</Text>
+                            </View>
+                        ) : showMapping ? (
+                            <View style={styles.mappingSection}>
+                                <View style={styles.mappingHeader}>
+                                    <Text style={styles.mappingTitle}>Verify AI Extraction</Text>
+                                    <Text style={styles.mappingSubtitle}>Map extracted teams to your registered teams</Text>
+                                </View>
+                                {aiResults.map((res, index) => (
+                                    <View key={index} style={styles.mappingRow}>
+                                        <View style={styles.aiTeamInfo}>
+                                            <View style={styles.aiTeamHeader}>
+                                                <Text style={styles.aiTeamLabel}>AI Found:</Text>
+                                                <Text style={styles.aiTeamStats}>Rank #{res.rank} • {res.kills} kills</Text>
+                                            </View>
+                                            <Text style={styles.aiTeamName}>{res.team_name}</Text>
+
+                                            {res.players && res.players.length > 0 && (
+                                                <View style={styles.aiPlayerList}>
+                                                    {res.players.map((p, pIdx) => (
+                                                        <View key={pIdx} style={styles.aiPlayerItem}>
+                                                            <Text style={styles.aiPlayerName}>{p.name}</Text>
+                                                            <Text style={styles.aiPlayerKills}>{p.kills}k</Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        <View style={styles.mappingArrow}>
+                                            <ChevronRight size={16} color={Theme.colors.textSecondary} />
+                                        </View>
+
+                                        <View style={styles.teamPickerContainer}>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.teamPicker,
+                                                    mappings[res.team_name] ? styles.teamPickerFilled : styles.teamPickerEmpty
+                                                ]}
+                                                onPress={() => {
+                                                    setSelectedAiTeam(res);
+                                                    setMappingModalVisible(true);
+                                                }}
+                                            >
+                                                <Text style={[
+                                                    styles.selectedTeamName,
+                                                    !mappings[res.team_name] && styles.unselectedText
+                                                ]}>
+                                                    {teams.find(t => t.id === mappings[res.team_name])?.team_name || 'Select Team'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                ))}
+                                <View style={styles.mappingActions}>
+                                    <TouchableOpacity style={styles.cancelMappingBtn} onPress={() => setShowMapping(false)}>
+                                        <Text style={styles.cancelMappingText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.applyMappingBtn} onPress={handleApplyMapping}>
+                                        <Text style={styles.applyMappingText}>Apply Results</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : (
+                            <TouchableOpacity style={styles.uploadCard} onPress={handlePickImage}>
+                                <Upload size={48} color={Theme.colors.accent} />
+                                <Text style={styles.uploadTitle}>Upload Screenshot</Text>
+                                <Text style={styles.uploadSubtitle}>AI will auto-fill the standings from Free Fire / BGMI shots</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 )}
 
@@ -228,7 +419,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         />
                                     </View>
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>Kills</Text>
+                                        <Text style={styles.inputLabel}>Tealm Kills</Text>
                                         <TextInput
                                             style={styles.fieldInput}
                                             keyboardType="numeric"
@@ -242,11 +433,113 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         <Text style={styles.pointsValue}>{item.total_points}</Text>
                                     </View>
                                 </View>
+
+                                {item.members && item.members.length > 0 && (
+                                    <View style={styles.memberKillsSection}>
+                                        <Text style={styles.memberKillsTitle}>Individual Player Kills</Text>
+                                        {item.members.map((member, mIdx) => (
+                                            <View key={mIdx} style={styles.memberKillRow}>
+                                                <Text style={styles.memberKillName}>{member.name}</Text>
+                                                <TextInput
+                                                    style={styles.memberKillInput}
+                                                    keyboardType="numeric"
+                                                    value={String(member.kills || 0)}
+                                                    onChangeText={(v) => handleUpdateMemberKills(index, mIdx, v)}
+                                                    placeholder="0"
+                                                />
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
                         ))}
                     </View>
                 )}
             </ScrollView>
+
+            <Modal
+                transparent={true}
+                visible={mappingModalVisible}
+                animationType="slide"
+                onRequestClose={() => setMappingModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Map AI Result</Text>
+                            <TouchableOpacity onPress={() => setMappingModalVisible(false)}>
+                                <X size={24} color={Theme.colors.textPrimary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.aiSummary}>
+                            <Text style={styles.aiSummaryLabel}>AI extracted data for:</Text>
+                            <Text style={styles.aiSummaryName}>{selectedAiTeam?.team_name}</Text>
+                            <Text style={styles.aiSummaryDetail}>#{selectedAiTeam?.rank} • {selectedAiTeam?.kills} kills</Text>
+                        </View>
+
+                        <Text style={styles.sectionLabel}>Select Registered Team</Text>
+                        <ScrollView style={styles.teamOptionsList}>
+                            {teams.map(team => {
+                                const isMappedToOther = Object.entries(mappings).some(
+                                    ([aiName, registeredId]) => registeredId === team.id && aiName !== selectedAiTeam?.team_name
+                                );
+                                const isSelected = mappings[selectedAiTeam?.team_name] === team.id;
+
+                                return (
+                                    <TouchableOpacity
+                                        key={team.id}
+                                        style={[
+                                            styles.teamOption,
+                                            isSelected && styles.teamOptionSelected,
+                                            isMappedToOther && styles.teamOptionDisabled
+                                        ]}
+                                        disabled={isMappedToOther}
+                                        onPress={() => {
+                                            setMappings({
+                                                ...mappings,
+                                                [selectedAiTeam.team_name]: team.id
+                                            });
+                                            setMappingModalVisible(false);
+                                        }}
+                                    >
+                                        <View style={styles.teamOptionLeft}>
+                                            <Text style={[
+                                                styles.teamOptionText,
+                                                isSelected && styles.teamOptionTextSelected,
+                                                isMappedToOther && styles.teamOptionTextDisabled
+                                            ]}>
+                                                {team.team_name}
+                                            </Text>
+                                            {isMappedToOther && (
+                                                <Text style={styles.alreadyMappedText}>Already assigned</Text>
+                                            )}
+                                        </View>
+                                        {isSelected && (
+                                            <Check size={20} color={Theme.colors.accent} />
+                                        )}
+                                        {isMappedToOther && (
+                                            <X size={16} color={Theme.colors.textSecondary} />
+                                        )}
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+
+                        <TouchableOpacity
+                            style={styles.clearMappingBtn}
+                            onPress={() => {
+                                const newMappings = { ...mappings };
+                                delete newMappings[selectedAiTeam.team_name];
+                                setMappings(newMappings);
+                                setMappingModalVisible(false);
+                            }}
+                        >
+                            <Text style={styles.clearMappingText}>Clear Mapping</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 };
@@ -456,6 +749,289 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: Theme.colors.accent,
+    },
+    extractingLoader: {
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        padding: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    extractingText: {
+        color: Theme.colors.textPrimary,
+        fontWeight: '600',
+    },
+    mappingSection: {
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        padding: 16,
+    },
+    mappingHeader: {
+        marginBottom: 20,
+    },
+    mappingTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    mappingSubtitle: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+    },
+    mappingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.border,
+        gap: 10,
+    },
+    aiTeamInfo: {
+        flex: 1,
+    },
+    aiTeamLabel: {
+        fontSize: 10,
+        color: Theme.colors.textSecondary,
+        textTransform: 'uppercase',
+    },
+    aiTeamName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    aiTeamStats: {
+        fontSize: 11,
+        color: Theme.colors.accent,
+    },
+    teamPickerContainer: {
+        flex: 1,
+    },
+    teamPicker: {
+        backgroundColor: Theme.colors.secondary,
+        padding: 10,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    selectedTeamName: {
+        fontSize: 13,
+        color: Theme.colors.textPrimary,
+        fontWeight: 'bold',
+    },
+    unselectedText: {
+        color: Theme.colors.textSecondary,
+        fontWeight: 'normal',
+    },
+    teamPickerEmpty: {
+        borderColor: Theme.colors.danger,
+        backgroundColor: 'rgba(239, 68, 68, 0.02)',
+    },
+    teamPickerFilled: {
+        borderColor: Theme.colors.accent,
+        backgroundColor: 'rgba(26, 115, 232, 0.05)',
+    },
+    aiTeamHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 2,
+    },
+    aiPlayerList: {
+        marginTop: 6,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 4,
+    },
+    aiPlayerItem: {
+        flexDirection: 'row',
+        backgroundColor: Theme.colors.secondary,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        alignItems: 'center',
+        gap: 4,
+        borderWidth: 0.5,
+        borderColor: Theme.colors.border,
+    },
+    aiPlayerName: {
+        fontSize: 10,
+        color: Theme.colors.textPrimary,
+        maxWidth: 60,
+    },
+    aiPlayerKills: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: Theme.colors.accent,
+    },
+    mappingArrow: {
+        paddingHorizontal: 4,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: Theme.colors.primary,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        padding: 24,
+        maxHeight: '80%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    aiSummary: {
+        backgroundColor: Theme.colors.secondary,
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    aiSummaryLabel: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        marginBottom: 4,
+    },
+    aiSummaryName: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    aiSummaryDetail: {
+        fontSize: 14,
+        color: Theme.colors.accent,
+        fontWeight: '600',
+    },
+    sectionLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Theme.colors.textSecondary,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+    },
+    teamOptionsList: {
+        marginBottom: 20,
+    },
+    teamOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        marginBottom: 8,
+    },
+    teamOptionSelected: {
+        borderColor: Theme.colors.accent,
+        backgroundColor: 'rgba(26, 115, 232, 0.05)',
+    },
+    teamOptionText: {
+        fontSize: 16,
+        color: Theme.colors.textPrimary,
+    },
+    teamOptionTextSelected: {
+        color: Theme.colors.accent,
+        fontWeight: 'bold',
+    },
+    teamOptionDisabled: {
+        backgroundColor: Theme.colors.secondary,
+        borderColor: Theme.colors.border,
+        opacity: 0.6,
+    },
+    teamOptionTextDisabled: {
+        color: Theme.colors.textSecondary,
+    },
+    alreadyMappedText: {
+        fontSize: 10,
+        color: Theme.colors.textSecondary,
+        fontStyle: 'italic',
+    },
+    teamOptionLeft: {
+        flex: 1,
+    },
+    clearMappingBtn: {
+        alignItems: 'center',
+        padding: 12,
+    },
+    clearMappingText: {
+        color: Theme.colors.danger,
+        fontWeight: '600',
+    },
+    mappingActions: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 20,
+    },
+    cancelMappingBtn: {
+        flex: 1,
+        padding: 14,
+        alignItems: 'center',
+        borderRadius: 8,
+        backgroundColor: Theme.colors.secondary,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    cancelMappingText: {
+        color: Theme.colors.textPrimary,
+        fontWeight: 'bold',
+    },
+    applyMappingBtn: {
+        flex: 2,
+        padding: 14,
+        alignItems: 'center',
+        borderRadius: 8,
+        backgroundColor: Theme.colors.accent,
+    },
+    applyMappingText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    memberKillsSection: {
+        marginTop: 16,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.05)',
+    },
+    memberKillsTitle: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: Theme.colors.textSecondary,
+        marginBottom: 8,
+        textTransform: 'uppercase',
+    },
+    memberKillRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 6,
+    },
+    memberKillName: {
+        fontSize: 14,
+        color: Theme.colors.textPrimary,
+    },
+    memberKillInput: {
+        backgroundColor: Theme.colors.secondary,
+        borderRadius: 4,
+        padding: 4,
+        width: 40,
+        textAlign: 'center',
+        fontSize: 14,
+        color: Theme.colors.accent,
+        fontWeight: 'bold',
     },
     emptyState: {
         alignItems: 'center',

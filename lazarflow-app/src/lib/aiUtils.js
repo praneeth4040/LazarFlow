@@ -54,3 +54,18 @@ export const fuzzyMatch = (name, list, threshold = 0.8) => {
     }
     return bestScore >= threshold ? { item: best, score: bestScore } : null;
 };
+
+export const fuzzyMatchName = (name, list, threshold = 0.8) => {
+    const target = typeof name === 'object' && name !== null ? (name.name || '') : name;
+    let best = null;
+    let bestScore = 0;
+    for (const member of list || []) {
+        const candidate = typeof member === 'object' && member !== null ? (member.name || member) : member;
+        const score = nameSimilarity(target, candidate);
+        if (score > bestScore) {
+            best = member;
+            bestScore = score;
+        }
+    }
+    return bestScore >= threshold ? { member: best, score: bestScore } : null;
+};

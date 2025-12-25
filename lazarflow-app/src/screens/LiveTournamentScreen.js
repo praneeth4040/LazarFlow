@@ -1,7 +1,11 @@
+// Screen to view live standings and MVPs
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, Alert, ScrollView, StatusBar, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, Alert, ScrollView, StatusBar, Platform, TouchableOpacity, Share } from 'react-native';
 import { supabase } from '../lib/supabaseClient';
-import { Trophy, Award } from 'lucide-react-native';
+import { Trophy, Award, Share2, Download } from 'lucide-react-native';
+import ViewShot, { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { Theme } from '../styles/theme';
 
 const LiveTournamentScreen = ({ route }) => {
@@ -9,12 +13,71 @@ const LiveTournamentScreen = ({ route }) => {
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(true);
     const [tournament, setTournament] = useState(null);
+    const [mvps, setMvps] = useState([]);
+    const [activeTab, setActiveTab] = useState('leaderboard');
+    const [sharing, setSharing] = useState(false);
+    const viewShotRef = React.useRef();
 
     useEffect(() => {
         if (id) {
             fetchTournamentData();
         }
     }, [id]);
+
+    const handleShare = async () => {
+        try {
+            setSharing(true);
+            const uri = await captureRef(viewShotRef, {
+                format: 'png',
+                quality: 0.8,
+            });
+
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri);
+            } else {
+                Alert.alert('Error', 'Sharing is not available on this device');
+            }
+        } catch (error) {
+            console.error('Error sharing image:', error);
+            Alert.alert('Error', 'Failed to generate sharing image');
+        } finally {
+            setSharing(false);
+        }
+    };
+
+    const handleExportCSV = async () => {
+        try {
+            let csvContent = '';
+
+            if (activeTab === 'leaderboard') {
+                csvContent = 'Rank,Team,Wins,Placement Points,Kill Points,Total Points\n';
+                teams.forEach((team, index) => {
+                    csvContent += `${index + 1},"${team.team_name}",${team.wins || 0},${team.placement_points || 0},${team.kill_points || 0},${team.total || 0}\n`;
+                });
+            } else {
+                csvContent = 'Rank,Player,Team,Kills\n';
+                mvps.forEach((player, index) => {
+                    csvContent += `${index + 1},"${player.name}","${player.team_name}",${player.kills || 0}\n`;
+                });
+            }
+
+            const fileName = `${tournament?.name || 'Tournament'}_${activeTab}.csv`;
+            const fileUri = FileSystem.cacheDirectory + fileName;
+
+            await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+                encoding: 'utf8',
+            });
+
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(fileUri);
+            } else {
+                Alert.alert('Error', 'Sharing is not available on this device');
+            }
+        } catch (error) {
+            console.error('Error exporting CSV:', error);
+            Alert.alert('Error', 'Failed to export CSV');
+        }
+    };
 
     const fetchTournamentData = async () => {
         try {
@@ -54,6 +117,26 @@ const LiveTournamentScreen = ({ route }) => {
             }).sort((a, b) => b.total - a.total);
 
             setTeams(sortedTeams);
+
+            // Calculate MVPs from individual members
+            const allPlayers = [];
+            (teamsData || []).forEach(team => {
+                if (Array.isArray(team.members)) {
+                    team.members.forEach(member => {
+                        const m = typeof member === 'object' ? member : { name: member, kills: 0 };
+                        allPlayers.push({
+                            ...m,
+                            team_name: team.team_name,
+                        });
+                    });
+                }
+            });
+
+            const sortedMVPs = allPlayers
+                .sort((a, b) => (b.kills || 0) - (a.kills || 0))
+                .slice(0, 10); // Show top 10
+
+            setMvps(sortedMVPs);
         } catch (error) {
             console.error('Error fetching tournament data:', error);
             Alert.alert('Error', 'Failed to load tournament data');
@@ -69,6 +152,14 @@ const LiveTournamentScreen = ({ route }) => {
             </View>
         );
     }
+
+    const config = tournament?.layout_config || {};
+    const themeStyles = {
+        container: { backgroundColor: config.backgroundColor || Theme.colors.secondary },
+        header: { backgroundColor: config.primaryColor || Theme.colors.primary },
+        headerText: { color: config.textColor || Theme.colors.textPrimary },
+        accentText: { color: config.accentColor || Theme.colors.accent },
+    };
 
     const renderHeader = () => (
         <View style={styles.tableHeader}>
@@ -94,26 +185,88 @@ const LiveTournamentScreen = ({ route }) => {
         </View>
     );
 
+    const renderMVPItem = ({ item, index }) => (
+        <View style={[styles.row, index % 2 === 0 ? styles.evenRow : styles.oddRow]}>
+            <Text style={[styles.cell, styles.rankCell, index < 3 && styles.topRank]}>{index + 1}</Text>
+            <View style={[styles.cell, styles.teamCell]}>
+                <Text style={styles.playerName}>{item.name}</Text>
+                <Text style={styles.playerTeam}>{item.team_name}</Text>
+            </View>
+            <Text style={[styles.cell, styles.pointCell, styles.mvpKills]}>{item.kills || 0}</Text>
+        </View>
+    );
+
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.tourneyInfo}>
-                <Text style={styles.tourneyName}>{tournament?.name}</Text>
-                <Text style={styles.tourneyGame}>{tournament?.game}</Text>
+        <SafeAreaView style={[styles.container, themeStyles.container]}>
+            <View style={[styles.tourneyInfo, themeStyles.header]}>
+                <View style={styles.headerTop}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[styles.tourneyName, themeStyles.headerText]}>{tournament?.name}</Text>
+                        <Text style={[styles.tourneyGame, themeStyles.accentText]}>{tournament?.game}</Text>
+                    </View>
+                    <View style={styles.actionButtons}>
+                        <TouchableOpacity onPress={handleShare} disabled={sharing} style={styles.iconButton}>
+                            {sharing ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Share2 size={20} color={Theme.colors.textSecondary} />}
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleExportCSV} style={styles.iconButton}>
+                            <Download size={20} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                        onPress={() => setActiveTab('leaderboard')}
+                        style={[styles.tab, activeTab === 'leaderboard' && styles.activeTab]}
+                    >
+                        <Trophy size={18} color={activeTab === 'leaderboard' ? Theme.colors.accent : Theme.colors.textSecondary} />
+                        <Text style={[styles.tabText, activeTab === 'leaderboard' && styles.activeTabText]}>Leaderboard</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => setActiveTab('mvps')}
+                        style={[styles.tab, activeTab === 'mvps' && styles.activeTab]}
+                    >
+                        <Award size={18} color={activeTab === 'mvps' ? Theme.colors.accent : Theme.colors.textSecondary} />
+                        <Text style={[styles.tabText, activeTab === 'mvps' && styles.activeTabText]}>MVPs</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
-            <View style={styles.tableContainer}>
-                {renderHeader()}
-                <FlatList
-                    data={teams}
-                    keyExtractor={item => item.id}
-                    renderItem={renderItem}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No teams added yet.</Text>
+            <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }} style={styles.tableContainer}>
+                {activeTab === 'leaderboard' ? (
+                    <>
+                        {renderHeader()}
+                        <FlatList
+                            data={teams}
+                            keyExtractor={item => item.id}
+                            renderItem={renderItem}
+                            ListEmptyComponent={
+                                <View style={styles.emptyContainer}>
+                                    <Text style={styles.emptyText}>No teams added yet.</Text>
+                                </View>
+                            }
+                        />
+                    </>
+                ) : (
+                    <>
+                        <View style={styles.tableHeader}>
+                            <Text style={[styles.headerCell, styles.rankCell]}>#</Text>
+                            <Text style={[styles.headerCell, styles.teamCell]}>Player</Text>
+                            <Text style={[styles.headerCell, styles.pointCell, { width: 60 }]}>Kills</Text>
                         </View>
-                    }
-                />
-            </View>
+                        <FlatList
+                            data={mvps}
+                            keyExtractor={(item, idx) => `mvp-${idx}`}
+                            renderItem={renderMVPItem}
+                            ListEmptyComponent={
+                                <View style={styles.emptyContainer}>
+                                    <Text style={styles.emptyText}>No player stats available.</Text>
+                                </View>
+                            }
+                        />
+                    </>
+                )}
+            </ViewShot>
         </SafeAreaView>
     );
 };
@@ -135,6 +288,20 @@ const styles = StyleSheet.create({
         backgroundColor: Theme.colors.primary,
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
+    },
+    headerTop: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    iconButton: {
+        padding: 8,
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        borderRadius: 8,
     },
     tourneyName: {
         fontSize: 24,
@@ -197,6 +364,48 @@ const styles = StyleSheet.create({
     topRank: {
         color: Theme.colors.accent,
         fontWeight: 'bold',
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        marginTop: 20,
+        gap: 12,
+    },
+    tab: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: Theme.colors.secondary,
+        gap: 8,
+    },
+    activeTab: {
+        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+        borderWidth: 1,
+        borderColor: Theme.colors.accent,
+    },
+    tabText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Theme.colors.textSecondary,
+    },
+    activeTabText: {
+        color: Theme.colors.accent,
+    },
+    playerName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    playerTeam: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+    },
+    mvpKills: {
+        width: 60,
+        color: Theme.colors.accent,
+        fontWeight: 'bold',
+        fontSize: 18,
     },
     emptyContainer: {
         padding: 40,
