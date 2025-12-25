@@ -1,6 +1,7 @@
 // Screen to view live standings and MVPs
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, SafeAreaView, ActivityIndicator, Alert, ScrollView, StatusBar, Platform, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, ScrollView, StatusBar, Platform, TouchableOpacity, Share } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabaseClient';
 import { Trophy, Award, Share2, Download } from 'lucide-react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
