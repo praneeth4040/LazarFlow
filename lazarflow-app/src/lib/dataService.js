@@ -9,18 +9,16 @@ export const getUserThemes = async () => {
     const user = await getCurrentUser();
     if (!user) return [];
 
-    // In our mobile schema, we might have a different way of storing themes or it might strictly follow web.
-    // Fetching from profiles table like web:
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('theme_config')
-        .eq('id', user.id)
-        .single();
+    const { data: themes, error } = await supabase
+        .from('themes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-    if (error) return [];
+    if (error) {
+        console.error('Error fetching themes:', error);
+        return [];
+    }
 
-    const tc = profile?.theme_config;
-    if (Array.isArray(tc)) return tc;
-    if (tc && typeof tc === 'object') return [tc];
-    return [];
+    return themes || [];
 };

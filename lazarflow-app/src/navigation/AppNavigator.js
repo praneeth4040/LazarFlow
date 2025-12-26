@@ -15,6 +15,9 @@ import ManageTeamsScreen from '../screens/ManageTeamsScreen';
 import AdvancedLayoutScreen from '../screens/AdvancedLayoutScreen';
 import CalculateResultsScreen from '../screens/CalculateResultsScreen';
 import EditTournamentScreen from '../screens/EditTournamentScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import * as Linking from 'expo-linking';
 import { Theme } from '../styles/theme';
 import { supabase } from '../lib/supabaseClient';
 
@@ -23,6 +26,7 @@ const Stack = createStackNavigator();
 export default function AppNavigator() {
     const [isLoading, setIsLoading] = useState(true);
     const [session, setSession] = useState(null);
+    const [isRecovering, setIsRecovering] = useState(false);
 
     useEffect(() => {
         // Check for initial session
@@ -32,12 +36,27 @@ export default function AppNavigator() {
         });
 
         // Listen for auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('🔔 AUTH EVENT:', event);
             setSession(session);
+
+            if (event === 'PASSWORD_RECOVERY') {
+                console.log('🔑 Recovery mode activated');
+                setIsRecovering(true);
+            } else if (event === 'SIGNED_IN') {
+                // Check if we are in recovery mode; if so, don't reset yet
+                // The ResetPassword screen will handle resetting this state after success
+                if (!isRecovering) {
+                    console.log('👤 Normal sign-in detected');
+                    setIsRecovering(false);
+                }
+            } else if (event === 'SIGNED_OUT') {
+                setIsRecovering(false);
+            }
         });
 
         return () => subscription.unsubscribe();
-    }, []);
+    }, [isRecovering]);
 
     if (isLoading) {
         return (
@@ -47,20 +66,35 @@ export default function AppNavigator() {
         );
     }
 
+    const prefix = Linking.createURL('/');
+
+    const linking = {
+        prefixes: [prefix, 'lazarflow://'],
+        config: {
+            screens: {
+                ResetPassword: 'reset-password',
+                Login: 'login',
+            }
+        }
+    };
+
     return (
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
             <Stack.Navigator
-                initialRouteName={session ? "Dashboard" : "Onboarding"}
                 screenOptions={{
                     headerShown: false,
-                    contentStyle: { backgroundColor: Theme.colors.secondary }
+                    cardStyle: { backgroundColor: Theme.colors.secondary }
                 }}
             >
-                {!session ? (
+                {isRecovering ? (
+                    <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+                ) : !session ? (
                     <>
                         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                         <Stack.Screen name="Login" component={LoginScreen} />
                         <Stack.Screen name="SignUp" component={SignUpScreen} />
+                        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
                     </>
                 ) : (
                     <>

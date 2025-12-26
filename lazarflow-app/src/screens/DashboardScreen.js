@@ -25,6 +25,9 @@ const DashboardScreen = ({ navigation }) => {
         partnership: false,
         legal: false
     });
+    const [designTab, setDesignTab] = useState('own');
+    const [userThemesList, setUserThemesList] = useState([]);
+    const [uploading, setUploading] = useState(false);
 
     const { tier, tournamentsCreated, loading: subLoading, limits } = useSubscription();
 
@@ -101,6 +104,21 @@ const DashboardScreen = ({ navigation }) => {
         }
     };
 
+    const fetchUserThemes = async () => {
+        try {
+            const themes = await getUserThemes();
+            setUserThemesList(themes);
+        } catch (error) {
+            console.error('Error fetching themes:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'design') {
+            fetchUserThemes();
+        }
+    }, [activeTab]);
+
     const onRefresh = () => {
         setRefreshing(true);
         fetchTournaments();
@@ -119,14 +137,58 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const handleDesignUpload = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 0.8,
-        });
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                quality: 0.8,
+            });
 
-        if (!result.canceled) {
-            Alert.alert('Design Uploaded', 'This is a demo. In the full version, your custom design will be applied to your tournament layouts!');
+            if (result.canceled) return;
+
+            setUploading(true);
+            const { uri } = result.assets[0];
+            const uriParts = uri.split('.');
+            const fileType = uriParts[uriParts.length - 1];
+            const fileName = `theme_${user.id}_${Date.now()}.${fileType}`;
+
+            const formData = new FormData();
+            formData.append('file', {
+                uri,
+                name: fileName,
+                type: `image/${fileType}`,
+            });
+
+            const { data, error } = await supabase.storage
+                .from('themes')
+                .upload(fileName, formData);
+
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('themes')
+                .getPublicUrl(fileName);
+
+            // Insert into themes table with pending status
+            const { error: dbError } = await supabase
+                .from('themes')
+                .insert([{
+                    user_id: user.id,
+                    name: `Design ${Date.now()}`,
+                    url: publicUrl,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                }]);
+
+            if (dbError) throw dbError;
+
+            fetchUserThemes();
+            Alert.alert('Success', 'Your custom design has been uploaded and is currently under verification.');
+        } catch (error) {
+            console.error('Upload Error:', error);
+            Alert.alert('Upload Failed', error.message || 'Failed to upload design');
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -310,29 +372,67 @@ const DashboardScreen = ({ navigation }) => {
 
     const renderDesign = () => (
         <ScrollView style={styles.content}>
-            <View style={styles.designHero}>
-                <Palette size={48} color={Theme.colors.accent} style={{ marginBottom: 15 }} />
-                <Text style={styles.designHeroTitle}>Custom Designs</Text>
-                <Text style={styles.designHeroDesc}>Upload your own banners, logos, or backgrounds to personalize your tournament standings.</Text>
-            </View>
-
-            <TouchableOpacity style={styles.uploadArea} onPress={handleDesignUpload} activeOpacity={0.7}>
-                <Upload size={32} color={Theme.colors.textSecondary} style={{ marginBottom: 12 }} />
-                <Text style={styles.uploadTitle}>Upload Design</Text>
-                <Text style={styles.uploadSubs}>JPG, PNG or SVG (max. 5MB)</Text>
-            </TouchableOpacity>
-
-            <View style={styles.demoLayoutCard}>
-                <View style={styles.demoLayoutHeader}>
-                    <Sparkles size={16} color={Theme.colors.accent} />
-                    <Text style={styles.demoLayoutTitle}>Design Presets</Text>
-                </View>
-                <Text style={styles.demoLayoutDesc}>Premium users can also choose from our curated list of 20+ professional esports themes.</Text>
-                <TouchableOpacity style={styles.demoViewBtn} onPress={() => Alert.alert('Coming Soon', 'Preset gallery is under development.')}>
-                    <Text style={styles.demoViewBtnText}>View Presets</Text>
-                    <ArrowRight size={14} color="#fff" />
+            <View style={styles.designTabNav}>
+                <TouchableOpacity
+                    style={[styles.designTabBtn, designTab === 'own' && styles.designTabBtnActive]}
+                    onPress={() => setDesignTab('own')}
+                >
+                    <Text style={[styles.designTabLabel, designTab === 'own' && styles.designTabLabelActive]}>Own</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.designTabBtn, designTab === 'community' && styles.designTabBtnActive]}
+                    onPress={() => setDesignTab('community')}
+                >
+                    <Text style={[styles.designTabLabel, designTab === 'community' && styles.designTabLabelActive]}>Community</Text>
                 </TouchableOpacity>
             </View>
+
+
+            {designTab === 'own' && (
+                <View style={styles.designSection}>
+                    <TouchableOpacity style={styles.uploadAreaSmall} onPress={handleDesignUpload} disabled={uploading}>
+                        {uploading ? (
+                            <ActivityIndicator color={Theme.colors.accent} />
+                        ) : (
+                            <>
+                                <Upload size={24} color={Theme.colors.accent} />
+                                <Text style={styles.uploadTitleSmall}>Upload New Design</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+
+                    <View style={styles.themesGrid}>
+                        {userThemesList.map((theme, index) => (
+                            <View key={theme.id || index} style={styles.themeThumbCard}>
+                                <Image source={{ uri: theme.url }} style={styles.themeThumb} />
+                                <View style={styles.themeInfo}>
+                                    <View style={{ flex: 1, marginRight: 8 }}>
+                                        <Text style={styles.themeName} numberOfLines={1}>{theme.name || `Theme ${index + 1}`}</Text>
+                                        <View style={[styles.statusBadge, theme.status === 'pending' ? styles.statusPending : styles.statusVerified]}>
+                                            <Text style={styles.statusText}>{theme.status === 'pending' ? 'Pending' : 'Verified'}</Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={[styles.useThemeBtn, theme.status !== 'verified' && styles.useThemeBtnDisabled]}
+                                        disabled={theme.status !== 'verified'}
+                                        onPress={() => Alert.alert('Apply Design', 'Design applied to your tournaments!')}
+                                    >
+                                        <ArrowRight size={14} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                </View>
+            )}
+
+            {designTab === 'community' && (
+                <View style={[styles.emptyState, { marginTop: 40 }]}>
+                    <Sparkles size={48} color={Theme.colors.border} />
+                    <Text style={styles.emptyText}>Community Designs</Text>
+                    <Text style={styles.emptySubText}>Coming soon! Browse designs from other creators.</Text>
+                </View>
+            )}
         </ScrollView>
     );
 
@@ -1096,85 +1196,159 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
     },
-    // New Design Styles
-    designHero: {
-        alignItems: 'center',
-        paddingVertical: 30,
-        backgroundColor: Theme.colors.card,
-        borderRadius: 16,
+    // Design Studio Styles
+    designTabNav: {
+        flexDirection: 'row',
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 20,
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        marginBottom: 20,
-        paddingHorizontal: 20,
     },
-    designHeroTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: Theme.colors.textPrimary,
-        marginBottom: 10,
+    designTabBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 8,
     },
-    designHeroDesc: {
+    designTabBtnActive: {
+        backgroundColor: Theme.colors.accent,
+    },
+    designTabLabel: {
         fontSize: 14,
+        fontWeight: '600',
         color: Theme.colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 20,
     },
-    uploadArea: {
-        height: 160,
-        backgroundColor: Theme.colors.primary,
+    designTabLabelActive: {
+        color: '#fff',
+    },
+    designSection: {
+        gap: 16,
+    },
+    activeDesignCard: {
+        backgroundColor: Theme.colors.card,
         borderRadius: 16,
-        borderWidth: 2,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
         borderColor: Theme.colors.border,
-        borderStyle: 'dashed',
+        gap: 16,
+    },
+    activePreview: {
+        width: 80,
+        height: 80,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 20,
     },
-    uploadTitle: {
+    activeDesignInfo: {
+        flex: 1,
+    },
+    activeDesignTitle: {
         fontSize: 16,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
+        marginBottom: 4,
     },
-    uploadSubs: {
+    activeDesignStatus: {
         fontSize: 12,
         color: Theme.colors.textSecondary,
-        marginTop: 4,
     },
-    demoLayoutCard: {
-        backgroundColor: '#1E293B',
+    editDesignBtn: {
+        padding: 8,
+        backgroundColor: Theme.colors.secondary,
+        borderRadius: 8,
+    },
+    uploadAreaSmall: {
+        height: 100,
+        backgroundColor: Theme.colors.primary,
         borderRadius: 16,
-        padding: 20,
-        marginBottom: 40,
-    },
-    demoLayoutHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 10,
-    },
-    demoLayoutTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    demoLayoutDesc: {
-        fontSize: 14,
-        color: '#94A3B8',
-        lineHeight: 22,
-        marginBottom: 20,
-    },
-    demoViewBtn: {
-        backgroundColor: Theme.colors.accent,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderStyle: 'dashed',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 10,
-        gap: 8,
+        gap: 12,
+        marginBottom: 8,
     },
-    demoViewBtnText: {
-        color: '#fff',
+    uploadTitleSmall: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: Theme.colors.textPrimary,
+    },
+    themesGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        justifyContent: 'space-between',
+    },
+    themeThumbCard: {
+        width: '48%',
+        backgroundColor: Theme.colors.card,
+        borderRadius: 12,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    themeThumb: {
+        width: '100%',
+        height: 120,
+        backgroundColor: Theme.colors.primary,
+    },
+    themeInfo: {
+        padding: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    themeName: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: Theme.colors.textPrimary,
+        flex: 1,
+        marginRight: 8,
+    },
+    useThemeBtn: {
+        backgroundColor: Theme.colors.accent,
+        padding: 4,
+        borderRadius: 6,
+    },
+    emptySubText: {
+        fontSize: 14,
+        color: Theme.colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 8,
+        paddingHorizontal: 40,
+    },
+    statusBadge: {
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        alignSelf: 'flex-start',
+        marginTop: 4,
+    },
+    statusPending: {
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+        borderWidth: 0.5,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+    statusVerified: {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderWidth: 0.5,
+        borderColor: 'rgba(16, 185, 129, 0.3)',
+    },
+    statusText: {
+        fontSize: 10,
         fontWeight: 'bold',
+        color: Theme.colors.textSecondary,
+        textTransform: 'uppercase',
+    },
+    useThemeBtnDisabled: {
+        opacity: 0.5,
+        backgroundColor: Theme.colors.border,
     },
 });
 

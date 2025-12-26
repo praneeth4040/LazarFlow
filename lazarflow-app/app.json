@@ -1,10 +1,11 @@
 {
   "expo": {
     "name": "LazarFlow",
-    "slug": "LazarFlow",
+    "slug": "lazarflow-app",
+    "scheme": "lazarflow",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/padded_icon.png",
     "userInterfaceStyle": "light",
     "jsEngine": "hermes",
     "splash": {
@@ -24,7 +25,7 @@
         "INTERNET"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/padded_icon.png",
         "backgroundColor": "#ffffff"
       }
     },

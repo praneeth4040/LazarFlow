@@ -59,7 +59,7 @@ const SignUpScreen = ({ navigation }) => {
                         style={styles.logo}
                         resizeMode="contain"
                     />
-                    <Text style={styles.title}>Create Account</Text>
+                    <Text style={styles.title}>Get Started</Text>
                     <Text style={styles.subtitle}>Join thousands of tournament organizers</Text>
                 </View>
 
