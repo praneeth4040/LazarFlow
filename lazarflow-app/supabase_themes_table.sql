@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS public.themes (
     name TEXT NOT NULL,
     url TEXT NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'verified', 'rejected')),
+    mapping_config JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );

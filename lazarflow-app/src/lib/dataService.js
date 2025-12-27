@@ -11,7 +11,7 @@ export const getUserThemes = async () => {
 
     const { data: themes, error } = await supabase
         .from('themes')
-        .select('*')
+        .select('*, mapping_config')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
