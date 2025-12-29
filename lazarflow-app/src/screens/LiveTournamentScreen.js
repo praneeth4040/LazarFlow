@@ -1,13 +1,17 @@
-// Screen to view live standings and MVPs
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, ScrollView, StatusBar, Platform, TouchableOpacity, Share } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabaseClient';
 import { Trophy, Award, Share2, Download } from 'lucide-react-native';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy'; // Fix for deprecated method warning
 import { Theme } from '../styles/theme';
+import DesignRenderer from '../components/DesignRenderer';
+import { getUserThemes } from '../lib/dataService';
+import { Palette, X } from 'lucide-react-native';
+import { Dimensions, Modal, Image } from 'react-native';
 
 const LiveTournamentScreen = ({ route }) => {
     const { id } = route?.params || {};
@@ -17,13 +21,30 @@ const LiveTournamentScreen = ({ route }) => {
     const [mvps, setMvps] = useState([]);
     const [activeTab, setActiveTab] = useState('leaderboard');
     const [sharing, setSharing] = useState(false);
+    const [designMode, setDesignMode] = useState(false);
+    const [themes, setThemes] = useState([]);
+    const [selectedTheme, setSelectedTheme] = useState(null);
+    const [showThemeSelector, setShowThemeSelector] = useState(false);
     const viewShotRef = React.useRef();
 
-    useEffect(() => {
-        if (id) {
-            fetchTournamentData();
+    useFocusEffect(
+        useCallback(() => {
+            if (id) {
+                fetchTournamentData();
+                loadThemes();
+            }
+        }, [id])
+    );
+
+    const loadThemes = async () => {
+        const userThemes = await getUserThemes();
+        const verified = userThemes.filter(t => t.status === 'verified');
+        setThemes(verified);
+        if (verified.length > 0) {
+            // Optionally auto-select the first one or leave null
+            // setSelectedTheme(verified[0]);
         }
-    }, [id]);
+    };
 
     const handleShare = async () => {
         try {
@@ -206,6 +227,12 @@ const LiveTournamentScreen = ({ route }) => {
                         <Text style={[styles.tourneyGame, themeStyles.accentText]}>{tournament?.game}</Text>
                     </View>
                     <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                            onPress={() => setShowThemeSelector(true)}
+                            style={[styles.iconButton, designMode && styles.activeIconButton]}
+                        >
+                            <Palette size={20} color={designMode ? Theme.colors.accent : Theme.colors.textSecondary} />
+                        </TouchableOpacity>
                         <TouchableOpacity onPress={handleShare} disabled={sharing} style={styles.iconButton}>
                             {sharing ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Share2 size={20} color={Theme.colors.textSecondary} />}
                         </TouchableOpacity>
@@ -233,8 +260,15 @@ const LiveTournamentScreen = ({ route }) => {
                 </View>
             </View>
 
-            <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }} style={styles.tableContainer}>
-                {activeTab === 'leaderboard' ? (
+            <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 0.9 }} style={[styles.tableContainer, designMode && styles.designContainer]}>
+                {designMode && selectedTheme ? (
+                    <DesignRenderer
+                        theme={selectedTheme}
+                        data={teams}
+                        tournament={tournament}
+                        width={Dimensions.get('window').width}
+                    />
+                ) : activeTab === 'leaderboard' ? (
                     <>
                         {renderHeader()}
                         <FlatList
@@ -268,7 +302,67 @@ const LiveTournamentScreen = ({ route }) => {
                     </>
                 )}
             </ViewShot>
-        </SafeAreaView>
+
+            {/* Theme Selector Modal */}
+            <Modal
+                visible={showThemeSelector}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setShowThemeSelector(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Select Design</Text>
+                            <TouchableOpacity onPress={() => setShowThemeSelector(false)}>
+                                <X size={24} color={Theme.colors.textPrimary} />
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={styles.modalSubtitle}>Choose a verified design to overlay your data.</Text>
+
+                        <ScrollView style={styles.themeList}>
+                            <TouchableOpacity
+                                style={[styles.themeOption, !designMode && styles.themeOptionActive]}
+                                onPress={() => {
+                                    setDesignMode(false);
+                                    setShowThemeSelector(false);
+                                }}
+                            >
+                                <View style={styles.themePreviewPlaceholder}>
+                                    <Text style={styles.themePlaceholderText}>Default Table</Text>
+                                </View>
+                                <Text style={styles.themeOptionName}>Standard View</Text>
+                            </TouchableOpacity>
+
+                            {themes.map(theme => (
+                                <TouchableOpacity
+                                    key={theme.id}
+                                    style={[styles.themeOption, selectedTheme?.id === theme.id && designMode && styles.themeOptionActive]}
+                                    onPress={() => {
+                                        setSelectedTheme(theme);
+                                        setDesignMode(true);
+                                        setShowThemeSelector(false);
+                                    }}
+                                >
+                                    <View style={styles.themePreviewPlaceholder}>
+                                        <Image
+                                            source={{ uri: theme.url }}
+                                            style={styles.themePreviewImage}
+                                            resizeMode="cover"
+                                        />
+                                    </View>
+                                    <Text style={styles.themeOptionName} numberOfLines={1}>{theme.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+
+                            {themes.length === 0 && (
+                                <Text style={styles.noThemesText}>No verified themes found. Upload one in Dashboard.</Text>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+        </SafeAreaView >
     );
 };
 
@@ -417,6 +511,86 @@ const styles = StyleSheet.create({
     emptyText: {
         color: Theme.colors.textSecondary,
         fontSize: 16,
+    },
+    activeIconButton: {
+        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+    },
+    designContainer: {
+        backgroundColor: '#000', // Ensure dark background for designs
+        justifyContent: 'center',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: Theme.colors.primary,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        maxHeight: '60%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        color: Theme.colors.textSecondary,
+        marginBottom: 20,
+    },
+    themeList: {
+        marginBottom: 20,
+    },
+    themeOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        marginBottom: 10,
+    },
+    themeOptionActive: {
+        borderColor: Theme.colors.accent,
+        backgroundColor: 'rgba(26, 115, 232, 0.05)',
+    },
+    themePreviewPlaceholder: {
+        width: 60,
+        height: 60,
+        backgroundColor: Theme.colors.secondary,
+        borderRadius: 6,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+        overflow: 'hidden',
+    },
+    themePreviewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    themePlaceholderText: {
+        fontSize: 10,
+        color: Theme.colors.textSecondary,
+        fontWeight: 'bold',
+    },
+    themeOptionName: {
+        fontSize: 16,
+        color: Theme.colors.textPrimary,
+        fontWeight: '500',
+    },
+    noThemesText: {
+        textAlign: 'center',
+        color: Theme.colors.textSecondary,
+        marginTop: 20,
     },
 });
 

@@ -20,8 +20,8 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [extracting, setExtracting] = useState(false);
     const [aiResults, setAiResults] = useState([]);
     const [showMapping, setShowMapping] = useState(false);
-    const [mappings, setMappings] = useState({}); // { [aiTeamName]: registeredTeamId }
-    const [selectedAiTeam, setSelectedAiTeam] = useState(null); // The AI result currently being re-mapped
+    const [mappings, setMappings] = useState({}); // { [rank]: registeredTeamId }
+    const [selectedAiTeam, setSelectedAiTeam] = useState(null);
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
 
     useEffect(() => {
@@ -73,17 +73,16 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
     const handleUpdateResult = (index, field, value) => {
         const updatedResults = [...results];
-        const val = field === 'kills' ? parseInt(value) || 0 : value;
+        const val = (field === 'kills' || field === 'position') ? parseInt(value) || 0 : value;
         updatedResults[index][field] = val;
 
         if (field === 'position' && tournament.points_system) {
-            const pos = parseInt(val);
-            const pointsEntry = tournament.points_system.find(p => p.placement === pos);
+            const pointsEntry = tournament.points_system.find(p => p.placement === val);
             updatedResults[index].placement_points = pointsEntry ? pointsEntry.points : 0;
         }
 
         updatedResults[index].kill_points = updatedResults[index].kills * (tournament.kill_points || 0);
-        updatedResults[index].total_points = updatedResults[index].placement_points + updatedResults[index].kill_points;
+        updatedResults[index].total_points = (updatedResults[index].placement_points || 0) + (updatedResults[index].kill_points || 0);
         setResults(updatedResults);
     };
 
@@ -92,13 +91,13 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         const member = updatedResults[resultIndex].members[memberIndex];
         member.kills = parseInt(kills) || 0;
 
-        // Auto-update team kills if they match the sum of member kills
+        // Auto-update team kills
         const totalMemberKills = updatedResults[resultIndex].members.reduce((sum, m) => sum + (m.kills || 0), 0);
         updatedResults[resultIndex].kills = totalMemberKills;
 
         // Re-calculate points
         updatedResults[resultIndex].kill_points = totalMemberKills * (tournament.kill_points || 0);
-        updatedResults[resultIndex].total_points = updatedResults[resultIndex].placement_points + updatedResults[resultIndex].kill_points;
+        updatedResults[resultIndex].total_points = (updatedResults[resultIndex].placement_points || 0) + (updatedResults[resultIndex].kill_points || 0);
 
         setResults(updatedResults);
     };
@@ -124,15 +123,15 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         try {
             const extracted = await extractResultsFromScreenshot(imageAssets);
 
-            // Improved auto-mapping algorithm (Matched with Web Client logic)
             const initialMappings = {};
-            const candidateMatches = {}; // { [registeredId]: { rank: number, score: number } }
+            const candidateMatches = {};
+
+            console.log(`🤖 Starting auto-mapping for ${extracted.length} ranks against ${teams.length} teams...`);
 
             extracted.forEach(res => {
                 let bestTeamId = null;
                 let bestScore = 0;
 
-                // Loop through all registered teams to find the best match for THIS AI result
                 teams.forEach(registeredTeam => {
                     const teamMembers = registeredTeam.members || [];
                     if (teamMembers.length === 0) return;
@@ -140,19 +139,16 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     let matchedPlayersCount = 0;
                     let totalSim = 0;
 
-                    // Match each AI detected player against THIS team's members
                     res.players.forEach(aiPlayer => {
-                        const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.82); // Slightly stricter for better accuracy
+                        const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.75);
                         if (pMatch) {
                             matchedPlayersCount++;
                             totalSim += pMatch.score;
                         }
                     });
 
-                    // Rule: Must match at least 2 players
                     if (matchedPlayersCount >= 2) {
                         const avgSim = totalSim / matchedPlayersCount;
-                        // Score formula from web: (count * 10) + avgSim
                         const score = (matchedPlayersCount * 10) + avgSim;
 
                         if (score > bestScore) {
@@ -163,8 +159,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 });
 
                 if (bestTeamId) {
-                    // Conflict Resolution: If multiple AI slots match the same registered team,
-                    // the one with the higher score wins the mapping.
                     const existingClaim = candidateMatches[bestTeamId];
                     if (!existingClaim || bestScore > existingClaim.score) {
                         candidateMatches[bestTeamId] = {
@@ -175,12 +169,10 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 }
             });
 
-            // Convert candidate matches back to the mappings state format (Rank based)
             Object.entries(candidateMatches).forEach(([teamId, data]) => {
                 initialMappings[data.rank] = teamId;
             });
 
-            console.log(`🤖 Auto-mapped ${Object.keys(initialMappings).length} teams based on player analysis (>=2 players)`);
             setAiResults(extracted);
             setMappings(initialMappings);
             setShowMapping(true);
@@ -212,7 +204,13 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 placement_points: placementPoints,
                 kill_points: killPoints,
                 total_points: placementPoints + killPoints,
-                players: res.players // Pass raw AI players through for roster sync in handleSubmit
+                members: (res.players || []).map(p => {
+                    const match = fuzzyMatchName(p.name, team.members || [], 0.75);
+                    return {
+                        name: match ? (typeof match.member === 'object' ? match.member.name : match.member) : p.name,
+                        kills: p.kills || 0
+                    };
+                })
             };
         }).filter(r => r !== null);
 
@@ -241,65 +239,42 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
                 };
 
-                // Update individual member stats AND synchronize roster (capture new player names)
+                // Initialize current members as objects
                 let currentMembers = (team.members || []).map(m => {
                     return typeof m === 'object' ? {
                         name: m.name || '',
-                        kills: m.kills || 0,
-                        matches_played: m.matches_played || 0,
-                        wwcd: m.wwcd || 0
+                        kills: parseInt(m.kills) || 0,
+                        matches_played: parseInt(m.matches_played) || 0,
+                        wwcd: parseInt(m.wwcd) || 0
                     } : { name: m, kills: 0, matches_played: 0, wwcd: 0 };
                 });
 
-                // If this result came from AI, we have result.players
-                if (result.players && result.players.length > 0) {
-                    const seenInRoster = new Set();
+                const resultMembers = result.members || [];
+                const seenInCurrentMatch = new Set();
 
-                    for (const aiPlayer of result.players) {
-                        const pMatch = fuzzyMatchName(aiPlayer.name, currentMembers, 0.8);
+                for (const rm of resultMembers) {
+                    const pMatch = fuzzyMatchName(rm.name, currentMembers, 0.75);
 
-                        if (pMatch) {
-                            // Find index of matching member
-                            const mIdx = currentMembers.findIndex(m => m.name === pMatch.member.name);
-                            if (mIdx !== -1 && !seenInRoster.has(mIdx)) {
-                                currentMembers[mIdx] = {
-                                    ...currentMembers[mIdx],
-                                    kills: (currentMembers[mIdx].kills || 0) + (aiPlayer.kills || 0),
-                                    matches_played: (currentMembers[mIdx].matches_played || 0) + 1,
-                                    wwcd: (currentMembers[mIdx].wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
-                                };
-                                seenInRoster.add(mIdx);
-                            }
-                        } else {
-                            // NO MATCH FOUND: Add this new player to the team roster!
-                            // This ensures the 2nd match will find them automatically.
-                            currentMembers.push({
-                                name: aiPlayer.name,
-                                kills: aiPlayer.kills || 0,
-                                matches_played: 1,
-                                wwcd: (parseInt(result.position) === 1 ? 1 : 0)
-                            });
-                        }
-                    }
-
-                    // For members NOT seen in this match, still increment their matches_played if that's the desired rule
-                    // or just leave them. Web client usually only increments if they participated.
-                } else {
-                    // Manual mode: If members were selected manually (future feature) or just update existing
-                    // Currently manual mode uses result.members if defined
-                    const resultMembers = result.members || [];
-                    currentMembers = currentMembers.map(m => {
-                        const rm = resultMembers.find(rpm => rpm.name === m.name);
-                        if (rm) {
-                            return {
-                                ...m,
-                                kills: (m.kills || 0) + (rm.kills || 0),
-                                matches_played: (m.matches_played || 0) + 1,
-                                wwcd: (m.wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
+                    if (pMatch) {
+                        const mIdx = currentMembers.findIndex(m => m.name === pMatch.member.name);
+                        if (mIdx !== -1 && !seenInCurrentMatch.has(mIdx)) {
+                            currentMembers[mIdx] = {
+                                ...currentMembers[mIdx],
+                                kills: (currentMembers[mIdx].kills || 0) + (parseInt(rm.kills) || 0),
+                                matches_played: (currentMembers[mIdx].matches_played || 0) + 1,
+                                wwcd: (currentMembers[mIdx].wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
                             };
+                            seenInCurrentMatch.add(mIdx);
                         }
-                        return m;
-                    });
+                    } else {
+                        // Roster learning
+                        currentMembers.push({
+                            name: rm.name,
+                            kills: parseInt(rm.kills) || 0,
+                            matches_played: 1,
+                            wwcd: (parseInt(result.position) === 1 ? 1 : 0)
+                        });
+                    }
                 }
 
                 const { error } = await supabase
@@ -317,6 +292,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
             ]);
         } catch (err) {
+            console.error('Error submitting results:', err);
             Alert.alert('Error', 'Failed to submit results');
         } finally {
             setSubmitting(false);
@@ -483,7 +459,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         />
                                     </View>
                                     <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>Tealm Kills</Text>
+                                        <Text style={styles.inputLabel}>Team Kills</Text>
                                         <TextInput
                                             style={styles.fieldInput}
                                             keyboardType="numeric"
@@ -594,7 +570,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                             style={styles.clearMappingBtn}
                             onPress={() => {
                                 const newMappings = { ...mappings };
-                                delete newMappings[selectedAiTeam.team_name];
+                                delete newMappings[selectedAiTeam?.rank];
                                 setMappings(newMappings);
                                 setMappingModalVisible(false);
                             }}

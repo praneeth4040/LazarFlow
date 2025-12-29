@@ -4,7 +4,8 @@
 
 export const normalizeName = (name) => {
     if (typeof name !== 'string') return '';
-    return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    // Remove all non-alphanumeric, convert to lowercase, trim
+    return name.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 };
 
 const levenshtein = (a, b) => {
@@ -31,10 +32,12 @@ const levenshtein = (a, b) => {
 };
 
 export const nameSimilarity = (a, b) => {
+    if (a === b) return 1;
     const an = normalizeName(a);
     const bn = normalizeName(b);
     if (!an && !bn) return 1;
     if (!an || !bn) return 0;
+    if (an === bn) return 1;
     const dist = levenshtein(an, bn);
     const maxLen = Math.max(an.length, bn.length);
     if (maxLen === 0) return 1;
@@ -55,7 +58,7 @@ export const fuzzyMatch = (name, list, threshold = 0.8) => {
     return bestScore >= threshold ? { item: best, score: bestScore } : null;
 };
 
-export const fuzzyMatchName = (name, list, threshold = 0.8) => {
+export const fuzzyMatchName = (name, list, threshold = 0.75) => {
     const target = typeof name === 'object' && name !== null ? (name.name || '') : name;
     let best = null;
     let bestScore = 0;

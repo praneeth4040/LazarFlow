@@ -1,38 +1,50 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
+import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
-const LoginScreen = ({ navigation }) => {
-    const [email, setEmail] = useState('');
+const ResetPasswordScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const handleLogin = async () => {
-        if (!email || !password) {
-            Alert.alert('Error', 'Please enter email and password');
+    const handleUpdatePassword = async () => {
+        if (!password || !confirmPassword) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            Alert.alert('Error', 'Passwords do not match');
+            return;
+        }
+
+        if (password.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters');
             return;
         }
 
         setLoading(true);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            const { error } = await supabase.auth.updateUser({
+                password: password
             });
 
             if (error) throw error;
 
-            if (data.user) {
-                if (data.session) {
-                    // The onAuthStateChange listener in AppNavigator will handle navigation
-                    console.log('✅ Login successful, session established');
-                }
-            }
+            // Log out after reset to ensure a clean session for the user
+            await supabase.auth.signOut();
+
+            Alert.alert(
+                'Success',
+                'Your password has been updated. Please login with your new password.',
+                [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+            );
         } catch (error) {
-            Alert.alert('Login Failed', error.message || 'An error occurred');
+            Alert.alert('Update Failed', error.message || 'An error occurred');
         } finally {
             setLoading(false);
         }
@@ -54,37 +66,13 @@ const LoginScreen = ({ navigation }) => {
                         style={styles.logo}
                         resizeMode="contain"
                     />
-                    <Text style={styles.title}>Welcome Back</Text>
-                    <Text style={styles.subtitle}>Sign in to continue to LazarFlow</Text>
+                    <Text style={styles.title}>New Password</Text>
+                    <Text style={styles.subtitle}>Set a secure password for your account</Text>
                 </View>
 
                 <View style={styles.form}>
                     <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email Address</Text>
-                        <View style={styles.inputWrapper}>
-                            <Mail size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="your@email.com"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
-                        </View>
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                        <View style={styles.labelRow}>
-                            <Text style={styles.label}>Password</Text>
-                            <TouchableOpacity
-                                style={styles.forgotPassword}
-                                onPress={() => navigation.navigate('ForgotPassword')}
-                            >
-                                <Text style={styles.forgotPasswordText}>Forgot?</Text>
-                            </TouchableOpacity>
-                        </View>
+                        <Text style={styles.label}>New Password</Text>
                         <View style={styles.inputWrapper}>
                             <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
                             <TextInput
@@ -93,32 +81,43 @@ const LoginScreen = ({ navigation }) => {
                                 placeholderTextColor={Theme.colors.textSecondary}
                                 value={password}
                                 onChangeText={setPassword}
-                                secureTextEntry
+                                secureTextEntry={!showPassword}
+                            />
+                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                {showPassword ? <EyeOff size={20} color={Theme.colors.textSecondary} /> : <Eye size={20} color={Theme.colors.textSecondary} />}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                        <Text style={styles.label}>Confirm Password</Text>
+                        <View style={styles.inputWrapper}>
+                            <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                            <TextInput
+                                style={styles.input}
+                                placeholder="••••••••"
+                                placeholderTextColor={Theme.colors.textSecondary}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                secureTextEntry={!showPassword}
                             />
                         </View>
                     </View>
 
                     <TouchableOpacity
-                        style={[styles.button, (loading || email === '' || password === '') && styles.buttonDisabled]}
-                        onPress={handleLogin}
-                        disabled={loading || email === '' || password === ''}
+                        style={[styles.button, (loading || password === '' || confirmPassword === '') && styles.buttonDisabled]}
+                        onPress={handleUpdatePassword}
+                        disabled={loading || password === '' || confirmPassword === ''}
                     >
                         {loading ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
                             <>
-                                <Text style={styles.buttonText}>Login</Text>
+                                <Text style={styles.buttonText}>Update Password</Text>
                                 <ArrowRight size={20} color="#fff" />
                             </>
                         )}
                     </TouchableOpacity>
-
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>Don't have an account?</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                            <Text style={styles.footerLink}>Sign up</Text>
-                        </TouchableOpacity>
-                    </View>
                 </View>
             </ScrollView>
         </KeyboardAvoidingView>
@@ -154,6 +153,7 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 16,
         color: Theme.colors.textSecondary,
+        textAlign: 'center',
     },
     form: {
         backgroundColor: Theme.colors.card,
@@ -169,13 +169,6 @@ const styles = StyleSheet.create({
     },
     inputContainer: {
         marginBottom: 20,
-    },
-    labelRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
-        paddingHorizontal: 4,
     },
     label: {
         fontSize: 14,
@@ -226,26 +219,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    forgotPasswordText: {
-        color: Theme.colors.accent,
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    footer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 40,
-        gap: 4,
-    },
-    footerText: {
-        color: Theme.colors.textSecondary,
-        fontSize: 15,
-    },
-    footerLink: {
-        color: Theme.colors.accent,
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
 });
 
-export default LoginScreen;
+export default ResetPasswordScreen;
