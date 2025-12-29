@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
+import { usePushNotifications } from './src/hooks/usePushNotifications';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -41,10 +42,12 @@ export default function App() {
       <ErrorBoundary>
         <SafeAreaProvider>
           <AppNavigator />
+          <PushNotificationHandler />
           <StatusBar style="auto" />
         </SafeAreaProvider>
       </ErrorBoundary>
     );
+    
   } catch (error) {
     console.error('❌ App.js: Fatal error in App component:', error);
     return (
@@ -55,6 +58,14 @@ export default function App() {
     );
   }
 }
+
+// Separate component to use the hook inside the context if needed, 
+// though here we just need it to run once at mount.
+// Integrating directly into App or a child component is fine.
+const PushNotificationHandler = () => {
+  usePushNotifications();
+  return null;
+};
 
 const styles = StyleSheet.create({
   errorContainer: {

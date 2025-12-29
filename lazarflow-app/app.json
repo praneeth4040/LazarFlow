@@ -24,11 +24,10 @@
         "WRITE_EXTERNAL_STORAGE",
         "INTERNET"
       ],
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/padded_icon.png",
-        "backgroundColor": "#ffffff"
-      }
+      "foregroundImage": "./assets/padded_icon.png",
+      "backgroundColor": "#ffffff"
     },
+    "googleServicesFile": "./google-services.json",
     "web": {
       "favicon": "./assets/logo.png"
     },

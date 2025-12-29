@@ -1,0 +1,29 @@
+{
+    "project_info": {
+        "project_number": "685592870580",
+        "project_id": "lazarfow",
+        "storage_bucket": "lazarfow.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:685592870580:android:9d9cede19bbbd9b701a1e1",
+                "android_client_info": {
+                    "package_name": "com.lazarflow.app"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyBH639qgQerRmHZw2KXmlEKBfyRy80Hz-g"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}
