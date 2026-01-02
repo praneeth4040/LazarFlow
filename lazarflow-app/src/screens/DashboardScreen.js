@@ -1,13 +1,82 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload } from 'lucide-react-native';
+import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
-import { getUserThemes } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, getDesignImageSource } from '../lib/dataService';
+
+const CommunityDesignCard = React.memo(({ theme, index, navigation, isRightColumn = false }) => {
+    const imageSource = getDesignImageSource(theme);
+    const height = isRightColumn ? 180 + (index % 3) * 50 : 200 + (index % 3) * 40;
+    
+    return (
+        <TouchableOpacity 
+            style={styles.pinCard}
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('DesignDetails', { theme: theme })}
+        >
+            <View style={styles.pinImageContainer}>
+                {imageSource ? (
+                    <Image 
+                        source={imageSource} 
+                        style={[styles.pinImage, { height }]} 
+                        resizeMode="cover" 
+                        fadeDuration={300}
+                    />
+                ) : (
+                    <View style={[styles.pinImage, { height, backgroundColor: Theme.colors.secondary, justifyContent: 'center', alignItems: 'center' }]}>
+                        <Palette size={32} color={Theme.colors.textSecondary} />
+                    </View>
+                )}
+            </View>
+            <View style={styles.pinContent}>
+                <Text style={styles.pinTitle} numberOfLines={2}>{theme.name || `Design #${index + 1}`}</Text>
+                <View style={styles.pinMeta}>
+                    <View style={styles.pinAuthor}>
+                        <View style={styles.pinAvatar}>
+                            <Text style={styles.pinAvatarText}>{(theme.author || 'C').charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <Text style={styles.pinAuthorName} numberOfLines={1}>{theme.author || 'Community'}</Text>
+                    </View>
+                    <TouchableOpacity>
+                        <MoreHorizontal size={16} color={Theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </TouchableOpacity>
+    );
+});
+
+const UserThemeCard = React.memo(({ theme, index }) => {
+    return (
+        <View style={styles.themeThumbCard}>
+            <Image 
+                source={getDesignImageSource(theme)} 
+                style={styles.themeThumb} 
+                fadeDuration={300}
+            />
+            <View style={styles.themeInfo}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={styles.themeName} numberOfLines={1}>{theme.name || `Theme ${index + 1}`}</Text>
+                    <View style={[styles.statusBadge, theme.status === 'pending' ? styles.statusPending : styles.statusVerified]}>
+                        <Text style={styles.statusText}>{theme.status === 'pending' ? 'Pending' : 'Verified'}</Text>
+                    </View>
+                </View>
+                <TouchableOpacity
+                    style={[styles.useThemeBtn, theme.status !== 'verified' && styles.useThemeBtnDisabled]}
+                    disabled={theme.status !== 'verified'}
+                    onPress={() => Alert.alert('Apply Design', 'Design applied to your tournaments!')}
+                >
+                    <ArrowRight size={14} color="#fff" />
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+});
 
 const DashboardScreen = ({ navigation }) => {
     const [activeTab, setActiveTab] = useState('home');
@@ -27,6 +96,8 @@ const DashboardScreen = ({ navigation }) => {
     });
     const [designTab, setDesignTab] = useState('own');
     const [userThemesList, setUserThemesList] = useState([]);
+    const [communityThemesList, setCommunityThemesList] = useState([]);
+    const [loadingCommunity, setLoadingCommunity] = useState(false);
     const [uploading, setUploading] = useState(false);
 
     const { tier, tournamentsCreated, loading: subLoading, limits } = useSubscription();
@@ -84,7 +155,7 @@ const DashboardScreen = ({ navigation }) => {
 
             const { data, error } = await supabase
                 .from('tournaments')
-                .select('*')
+                .select('id, name, game, status, created_at, points_system, kill_points')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
 
@@ -113,15 +184,39 @@ const DashboardScreen = ({ navigation }) => {
         }
     };
 
+    const fetchCommunityThemes = async () => {
+        try {
+            setLoadingCommunity(true);
+            const themes = await getCommunityDesigns();
+            setCommunityThemesList(themes);
+        } catch (error) {
+            console.error('Error fetching community themes:', error);
+            Alert.alert('Error', 'Failed to load community designs');
+        } finally {
+            setLoadingCommunity(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'design') {
-            fetchUserThemes();
+            if (designTab === 'own') {
+                fetchUserThemes();
+            } else {
+                fetchCommunityThemes();
+            }
         }
-    }, [activeTab]);
+    }, [activeTab, designTab]);
 
     const onRefresh = () => {
         setRefreshing(true);
-        fetchTournaments();
+        // Force refresh all data on pull-to-refresh
+        Promise.all([
+            fetchTournaments(),
+            getUserThemes(true),
+            getCommunityDesigns(true)
+        ]).finally(() => {
+            setRefreshing(false);
+        });
     };
 
     const handleLogout = async () => {
@@ -370,6 +465,7 @@ const DashboardScreen = ({ navigation }) => {
         </ScrollView>
     );
 
+
     const renderDesign = () => (
         <ScrollView style={styles.content}>
             <View style={styles.designTabNav}>
@@ -403,34 +499,47 @@ const DashboardScreen = ({ navigation }) => {
 
                     <View style={styles.themesGrid}>
                         {userThemesList.map((theme, index) => (
-                            <View key={theme.id || index} style={styles.themeThumbCard}>
-                                <Image source={{ uri: theme.url }} style={styles.themeThumb} />
-                                <View style={styles.themeInfo}>
-                                    <View style={{ flex: 1, marginRight: 8 }}>
-                                        <Text style={styles.themeName} numberOfLines={1}>{theme.name || `Theme ${index + 1}`}</Text>
-                                        <View style={[styles.statusBadge, theme.status === 'pending' ? styles.statusPending : styles.statusVerified]}>
-                                            <Text style={styles.statusText}>{theme.status === 'pending' ? 'Pending' : 'Verified'}</Text>
-                                        </View>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={[styles.useThemeBtn, theme.status !== 'verified' && styles.useThemeBtnDisabled]}
-                                        disabled={theme.status !== 'verified'}
-                                        onPress={() => Alert.alert('Apply Design', 'Design applied to your tournaments!')}
-                                    >
-                                        <ArrowRight size={14} color="#fff" />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                            <UserThemeCard key={theme.id || index} theme={theme} index={index} />
                         ))}
                     </View>
                 </View>
             )}
 
             {designTab === 'community' && (
-                <View style={[styles.emptyState, { marginTop: 40 }]}>
-                    <Sparkles size={48} color={Theme.colors.border} />
-                    <Text style={styles.emptyText}>Community Designs</Text>
-                    <Text style={styles.emptySubText}>Coming soon! Browse designs from other creators.</Text>
+                <View style={styles.designSection}>
+                    {loadingCommunity ? (
+                        <ActivityIndicator size="large" color={Theme.colors.accent} style={{ marginTop: 40 }} />
+                    ) : communityThemesList.length === 0 ? (
+                        <View style={[styles.emptyState, { marginTop: 40 }]}>
+                            <Sparkles size={48} color={Theme.colors.border} />
+                            <Text style={styles.emptyText}>No Community Designs Found</Text>
+                            <Text style={styles.emptySubText}>Check back later for new designs!</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.pinterestGrid}>
+                            <View style={styles.masonryColumn}>
+                                {communityThemesList.filter((_, i) => i % 2 === 0).map((themes, index) => (
+                                    <CommunityDesignCard 
+                                        key={themes.id || `left-${index}`} 
+                                        theme={themes} 
+                                        index={index} 
+                                        navigation={navigation} 
+                                    />
+                                ))}
+                            </View>
+                            <View style={styles.masonryColumn}>
+                                {communityThemesList.filter((_, i) => i % 2 !== 0).map((themes, index) => (
+                                    <CommunityDesignCard 
+                                        key={themes.id || `right-${index}`} 
+                                        theme={themes} 
+                                        index={index} 
+                                        navigation={navigation} 
+                                        isRightColumn={true}
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    )}
                 </View>
             )}
         </ScrollView>
@@ -1349,6 +1458,71 @@ const styles = StyleSheet.create({
     useThemeBtnDisabled: {
         opacity: 0.5,
         backgroundColor: Theme.colors.border,
+    },
+    // Pinterest Style Grid
+    pinterestGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingBottom: 20,
+    },
+    masonryColumn: {
+        width: '48%',
+    },
+    pinCard: {
+        marginBottom: 16,
+        backgroundColor: 'transparent',
+    },
+    pinImageContainer: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        position: 'relative',
+        backgroundColor: Theme.colors.card,
+        marginBottom: 8,
+    },
+    pinImage: {
+        width: '100%',
+        height: 220, // Taller aspect ratio for "Pin" look
+        backgroundColor: Theme.colors.secondary,
+    },
+    pinContent: {
+        paddingHorizontal: 4,
+    },
+    pinTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Theme.colors.textPrimary,
+        marginBottom: 6,
+        lineHeight: 20,
+    },
+    pinMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    pinAuthor: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        marginRight: 8,
+    },
+    pinAvatar: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: Theme.colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 6,
+    },
+    pinAvatarText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: Theme.colors.textSecondary,
+    },
+    pinAuthorName: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        flex: 1,
     },
 });
 

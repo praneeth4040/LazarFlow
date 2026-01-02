@@ -84,7 +84,7 @@ const CreateTournamentScreen = ({ navigation }) => {
                         status: 'active'
                     }
                 ])
-                .select()
+                .select('id, name')
                 .single();
 
             if (error) throw error;

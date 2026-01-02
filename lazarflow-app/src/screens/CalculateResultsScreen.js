@@ -26,16 +26,25 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
     useEffect(() => {
         if (tournament?.id) {
-            fetchTeams();
+            fetchTournamentData();
         }
     }, [tournament?.id]);
 
-    const fetchTeams = async () => {
+    const fetchTournamentData = async () => {
         setLoading(true);
         try {
+            const { data: tData, error: tError } = await supabase
+                .from('tournaments')
+                .select('id, name, game, points_system, kill_points')
+                .eq('id', tournament?.id)
+                .single();
+
+            if (tError) throw tError;
+            setTournament(tData);
+
             const { data, error } = await supabase
                 .from('tournament_teams')
-                .select('*')
+                .select('id, team_name, members, total_points')
                 .eq('tournament_id', tournament.id);
             if (error) throw error;
             setTeams(data || []);

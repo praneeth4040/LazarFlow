@@ -25,11 +25,16 @@ const ManageTeamsScreen = ({ route, navigation }) => {
         try {
             const { data, error } = await supabase
                 .from('tournament_teams')
-                .select('*')
+                .select('id, team_name, members, total_points')
                 .eq('tournament_id', tournamentId);
 
             if (error) throw error;
-            setTeams(data.map(t => ({ id: t.id, name: t.team_name, members: t.members || [] })));
+            setTeams(data.map(t => ({ 
+                id: t.id, 
+                name: t.team_name, 
+                members: t.members || [], 
+                total_points: t.total_points 
+            })));
         } catch (error) {
             console.error('Error fetching teams:', error);
         }

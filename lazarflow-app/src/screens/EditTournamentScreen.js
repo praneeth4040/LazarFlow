@@ -25,7 +25,7 @@ const EditTournamentScreen = ({ route, navigation }) => {
         try {
             const { data, error } = await supabase
                 .from('tournaments')
-                .select('*')
+                .select('id, name, game, points_system, kill_points, status')
                 .eq('id', tournamentId)
                 .single();
 

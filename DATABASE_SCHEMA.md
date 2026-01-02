@@ -87,12 +87,35 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 
 ---
 
+### 4. `public.themes`
+**Purpose**: Stores custom design themes uploaded by users or provided by the system.
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `uuid` | **Primary Key**. Unique identifier for the theme. Default: `gen_random_uuid()`. |
+| `user_id` | `uuid` | **Foreign Key** to `auth.users`. The creator of the theme. On Delete: `CASCADE`. |
+| `name` | `text` | Name of the theme. |
+| `url` | `text` | URL to the theme image/resource (can be relative path in storage). |
+| `status` | `text` | Verification status: `'pending'`, `'verified'`, or `'rejected'`. Default: `'pending'`. |
+| `created_at` | `timestamptz` | Creation timestamp. Default: `now()`. |
+| `updated_at` | `timestamptz` | Last update timestamp. Default: `now()`. |
+| `mapping_config` | `jsonb` | Configuration for mapping data to the theme visual. Default: `{}`. |
+
+**Constraints**:
+- `status` must be one of: `'pending'`, `'verified'`, `'rejected'`.
+
+**Relationships**:
+- **Many-to-One** with `auth.users` (via `user_id`).
+
+---
+
 ## Entity Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
     USERS ||--|{ PROFILES : "has"
     USERS ||--o{ TOURNAMENTS : "creates"
+    USERS ||--o{ THEMES : "uploads"
 
     TOURNAMENTS ||--|{ TOURNAMENT_TEAMS : "contains"
 
@@ -137,5 +160,16 @@ erDiagram
         timestamptz updated_at
         jsonb total_points
         jsonb members
+    }
+
+    THEMES {
+        uuid id PK
+        uuid user_id FK
+        text name
+        text url
+        text status
+        timestamptz created_at
+        timestamptz updated_at
+        jsonb mapping_config
     }
 ```

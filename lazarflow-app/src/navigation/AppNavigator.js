@@ -7,16 +7,15 @@ import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import LiveTournamentScreen from '../screens/LiveTournamentScreen';
-import EditLayoutScreen from '../screens/EditLayoutScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
 import CreateTournamentScreen from '../screens/CreateTournamentScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
-import AdvancedLayoutScreen from '../screens/AdvancedLayoutScreen';
 import CalculateResultsScreen from '../screens/CalculateResultsScreen';
 import EditTournamentScreen from '../screens/EditTournamentScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import DesignDetailsScreen from '../screens/DesignDetailsScreen';
 import * as Linking from 'expo-linking';
 import { Theme } from '../styles/theme';
 import { supabase } from '../lib/supabaseClient';
@@ -105,11 +104,6 @@ export default function AppNavigator() {
                             options={{ headerShown: true, title: 'Live Standings', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
                         />
                         <Stack.Screen
-                            name="EditLayout"
-                            component={EditLayoutScreen}
-                            options={{ headerShown: true, title: 'Edit Layout', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
-                        />
-                        <Stack.Screen
                             name="PrivacyPolicy"
                             component={PrivacyPolicyScreen}
                             options={{ headerShown: true, title: 'Privacy Policy', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
@@ -140,8 +134,8 @@ export default function AppNavigator() {
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
-                            name="AdvancedLayout"
-                            component={AdvancedLayoutScreen}
+                            name="DesignDetails"
+                            component={DesignDetailsScreen}
                             options={{ headerShown: false }}
                         />
                     </>
