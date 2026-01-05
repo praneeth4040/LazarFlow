@@ -23,9 +23,9 @@ const PointsTableModal = ({ isOpen, tournament, onClose }) => {
 
         // Fetch tournament teams
         const { data: teamsData, error: teamsError } = await supabase
-          .from('tournament_teams')
+          .from('lobby_teams')
           .select('*')
-          .eq('tournament_id', tournament.id)
+          .eq('lobby_id', tournament.id)
           .order('created_at', { ascending: false })
 
         if (teamsError) throw teamsError

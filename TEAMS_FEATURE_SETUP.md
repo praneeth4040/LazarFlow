@@ -4,12 +4,12 @@
 The team management system has been implemented with:
 - ✅ **AddTeamsModal component** - Dual-mode team input (manual entry + AI extraction)
 - ✅ **"Add Teams" button** on tournament cards
-- ✅ **Database schema** - New `tournament_teams` table with RLS policies
+- ✅ **Database schema** - New `lobby_teams` table with RLS policies
 - ✅ **Backend integration** - `handleAddTeams` function saves to Supabase
 
 ## Database Setup
 
-### 1. Create the tournament_teams table
+### 1. Create the lobby_teams table
 You need to run the updated `database-setup.sql` in your Supabase SQL editor:
 
 **Steps:**
@@ -19,13 +19,13 @@ You need to run the updated `database-setup.sql` in your Supabase SQL editor:
 4. Copy the contents of `/database-setup.sql` from this project
 5. Click **Run**
 
-**OR** execute only the tournament_teams table creation:
+**OR** execute only the lobby_teams table creation:
 
 ```sql
--- Create tournament_teams table
-CREATE TABLE tournament_teams (
+-- Create lobby_teams table
+CREATE TABLE lobby_teams (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tournament_id UUID NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+  lobby_id UUID NOT NULL REFERENCES lobbies(id) ON DELETE CASCADE,
   team_name VARCHAR(255) NOT NULL,
   members TEXT[] DEFAULT '{}',
   total_points JSONB DEFAULT '{"matches_played": 0, "wins": 0, "kill_points": 0, "placement_points": 0}',
@@ -33,44 +33,44 @@ CREATE TABLE tournament_teams (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_tournament_teams_tournament_id ON tournament_teams(tournament_id);
+CREATE INDEX idx_tournament_teams_tournament_id ON lobby_teams(lobby_id);
 
-ALTER TABLE tournament_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lobby_teams ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "Users can insert teams to their tournaments" ON tournament_teams FOR INSERT
+CREATE POLICY "Users can insert teams to their tournaments" ON lobby_teams FOR INSERT
   WITH CHECK (
     EXISTS (
-      SELECT 1 FROM tournaments 
-      WHERE tournaments.id = tournament_teams.tournament_id 
-      AND tournaments.user_id = auth.uid()
+      SELECT 1 FROM lobbies 
+      WHERE lobbies.id = lobby_teams.lobby_id 
+      AND lobbies.user_id = auth.uid()
     )
   );
 
-CREATE POLICY "Users can read teams of their tournaments" ON tournament_teams FOR SELECT
+CREATE POLICY "Users can read teams of their tournaments" ON lobby_teams FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM tournaments 
-      WHERE tournaments.id = tournament_teams.tournament_id 
-      AND tournaments.user_id = auth.uid()
+      SELECT 1 FROM lobbies 
+      WHERE lobbies.id = lobby_teams.lobby_id 
+      AND lobbies.user_id = auth.uid()
     )
   );
 
-CREATE POLICY "Users can update teams of their tournaments" ON tournament_teams FOR UPDATE
+CREATE POLICY "Users can update teams of their tournaments" ON lobby_teams FOR UPDATE
   USING (
     EXISTS (
-      SELECT 1 FROM tournaments 
-      WHERE tournaments.id = tournament_teams.tournament_id 
-      AND tournaments.user_id = auth.uid()
+      SELECT 1 FROM lobbies 
+      WHERE lobbies.id = lobby_teams.lobby_id 
+      AND lobbies.user_id = auth.uid()
     )
   );
 
-CREATE POLICY "Users can delete teams from their tournaments" ON tournament_teams FOR DELETE
+CREATE POLICY "Users can delete teams from their tournaments" ON lobby_teams FOR DELETE
   USING (
     EXISTS (
-      SELECT 1 FROM tournaments 
-      WHERE tournaments.id = tournament_teams.tournament_id 
-      AND tournaments.user_id = auth.uid()
+      SELECT 1 FROM lobbies 
+      WHERE lobbies.id = lobby_teams.lobby_id 
+      AND lobbies.user_id = auth.uid()
     )
   );
 ```
@@ -114,7 +114,7 @@ Click "Submit"
     ↓
 handleAddTeams() function called
     ↓
-Teams saved to tournament_teams table via Supabase
+Teams saved to lobby_teams table via Supabase
     ↓
 Success alert + modal closes
 ```
@@ -127,7 +127,7 @@ Success alert + modal closes
 | `Client/src/components/AddTeamsModal.css` | NEW - Comprehensive styling | ✅ Created |
 | `Client/src/components/HomeContent.jsx` | UPDATED - Added modal state & handlers | ✅ Complete |
 | `Client/src/components/TabContent.css` | UPDATED - Added `.teams-btn` styling | ✅ Complete |
-| `database-setup.sql` | UPDATED - Added tournament_teams table | ✅ Updated |
+| `database-setup.sql` | UPDATED - Added lobby_teams table | ✅ Updated |
 
 ## Testing Checklist
 
@@ -145,7 +145,7 @@ Success alert + modal closes
 ## Next Steps
 
 1. **Run Database Setup**
-   - Execute the tournament_teams table creation SQL in Supabase
+   - Execute the lobby_teams table creation SQL in Supabase
 
 2. **Test the Feature**
    - Create a tournament
@@ -162,9 +162,9 @@ Success alert + modal closes
 ## Database Schema
 
 ```sql
-tournament_teams {
+lobby_teams {
   id: UUID (PK)
-  tournament_id: UUID (FK → tournaments.id)
+  lobby_id: UUID (FK → lobbies.id)
   team_name: VARCHAR(255) [NOT NULL]
   members: TEXT[] [default: {}]
   total_points: JSONB [default: {...}]

@@ -74,7 +74,7 @@ URL: data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTIwMCA4MDAwIiB4...
 
 ## System Flow Now
 1. **User opens Points Table Modal** → PointsTableModal component mounts
-2. **Fetches teams** from `tournament_teams` table ✅
+2. **Fetches teams** from `lobby_teams` table ✅
 3. **Fetches templates** from `templates` table ✅
 4. **Auto-selects first template** ✅
 5. **TemplateRenderer processes:**

@@ -47,7 +47,7 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
       console.log('📝 Updating tournament...')
 
       const { error } = await supabase
-        .from('tournaments')
+        .from('lobbies')
         .update({
           name: formData.name,
           game: formData.game,
@@ -88,7 +88,7 @@ function EditTournamentModal({ isOpen, onClose, tournament, onUpdate }) {
       console.log('🗑️ Deleting tournament...')
 
       const { error } = await supabase
-        .from('tournaments')
+        .from('lobbies')
         .delete()
         .eq('id', tournament.id)
 
