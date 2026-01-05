@@ -165,7 +165,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
       }
 
       const { data, error: fetchError } = await supabase
-        .from('tournaments')
+        .from('lobbies')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -191,9 +191,9 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
       const counts = {}
       for (const tournament of allTournaments) {
         const { count, error: countError } = await supabase
-          .from('tournament_teams')
+          .from('lobby_teams')
           .select('*', { count: 'exact' })
-          .eq('tournament_id', tournament.id)
+          .eq('lobby_id', tournament.id)
 
         if (!countError) {
           counts[tournament.id] = count || 0
@@ -289,7 +289,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
       }
 
       const { data, error } = await supabase
-        .from('tournaments')
+        .from('lobbies')
         .insert([
           {
             name: tournamentData.name,
@@ -344,7 +344,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
 
       // Save to database
       const { data, error } = await supabase
-        .from('tournament_teams')
+        .from('lobby_teams')
         .insert(teamsData)
 
       if (error) {
@@ -407,7 +407,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
       console.log('🗑️ Deleting tournament:', tournamentId)
 
       const { error } = await supabase
-        .from('tournaments')
+        .from('lobbies')
         .delete()
         .eq('id', tournamentId)
 
@@ -464,9 +464,9 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
 
       // Fetch current teams and calculate final standings
       const { data: teamsData, error: teamsError } = await supabase
-        .from('tournament_teams')
+        .from('lobby_teams')
         .select('*')
-        .eq('tournament_id', tournamentId)
+        .eq('lobby_id', tournamentId)
 
       if (teamsError) throw teamsError
 
@@ -500,7 +500,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
       // Update tournament with final standings and status
       // Try to update with final_standings, if column doesn't exist, just update status
       const { error } = await supabase
-        .from('tournaments')
+        .from('lobbies')
         .update({
           status: 'completed',
           final_standings: finalStandings
@@ -512,7 +512,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
         if (error.message && error.message.includes('final_standings')) {
           console.warn('⚠️ final_standings column not found, updating status only')
           const { error: statusError } = await supabase
-            .from('tournaments')
+            .from('lobbies')
             .update({ status: 'completed' })
             .eq('id', tournamentId)
 

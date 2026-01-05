@@ -15,9 +15,9 @@ const MVPsModal = ({ isOpen, onClose, tournament }) => {
 
             // Fetch all teams for this tournament
             const { data: teams, error: teamsError } = await supabase
-                .from('tournament_teams')
+                .from('lobby_teams')
                 .select('*')
-                .eq('tournament_id', tournament.id)
+                .eq('lobby_id', tournament.id)
 
             if (teamsError) throw teamsError
 

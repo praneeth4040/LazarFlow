@@ -14,12 +14,12 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to run after a new tournament is created
-DROP TRIGGER IF EXISTS on_tournament_created ON public.tournaments;
+DROP TRIGGER IF EXISTS on_tournament_created ON public.lobbies;
 CREATE TRIGGER on_tournament_created
-AFTER INSERT ON public.tournaments
+AFTER INSERT ON public.lobbies
 FOR EACH ROW
 EXECUTE FUNCTION public.increment_tournament_count();
 
 -- Optional: Backfill existing counts for current users
 -- Uncomment the following line if you want to initialize counts based on current data
--- UPDATE public.profiles p SET tournaments_created_count = (SELECT count(*) FROM public.tournaments t WHERE t.user_id = p.id);
+-- UPDATE public.profiles p SET tournaments_created_count = (SELECT count(*) FROM public.lobbies t WHERE t.user_id = p.id);

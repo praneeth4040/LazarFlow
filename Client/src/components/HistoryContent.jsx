@@ -75,7 +75,7 @@ function HistoryContent() {
       }
 
       const { data, error: fetchError } = await supabase
-        .from('tournaments')
+        .from('lobbies')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -100,9 +100,9 @@ function HistoryContent() {
       const counts = {}
       for (const tournament of historyTournaments) {
         const { count, error: countError } = await supabase
-          .from('tournament_teams')
+          .from('lobby_teams')
           .select('*', { count: 'exact' })
-          .eq('tournament_id', tournament.id)
+          .eq('lobby_id', tournament.id)
 
         if (!countError) {
           counts[tournament.id] = count || 0
@@ -128,9 +128,9 @@ function HistoryContent() {
       setLoadingTeams(prev => ({ ...prev, [tournamentId]: true }))
 
       const { data, error } = await supabase
-        .from('tournament_teams')
+        .from('lobby_teams')
         .select('*')
-        .eq('tournament_id', tournamentId)
+        .eq('lobby_id', tournamentId)
 
       if (error) throw error
 

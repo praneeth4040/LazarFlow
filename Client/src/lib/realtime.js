@@ -6,7 +6,7 @@ import { supabase } from './supabaseClient'
  */
 
 /**
- * Subscribe to tournaments for a specific user.
+ * Subscribe to lobbies for a specific user.
  * Triggers callback on INSERT / UPDATE / DELETE.
  */
 export const subscribeToUserTournaments = (userId, callback) => {
@@ -19,7 +19,7 @@ export const subscribeToUserTournaments = (userId, callback) => {
       {
         event: '*',
         schema: 'public',
-        table: 'tournaments',
+        table: 'lobbies',
         filter: `user_id=eq.${userId}`,
       },
       (payload) => {
@@ -34,13 +34,13 @@ export const subscribeToUserTournaments = (userId, callback) => {
 }
 
 /**
- * Subscribe to teams for a specific tournament.
+ * Subscribe to teams for a specific lobby/tournament.
  * Triggers callback on INSERT / UPDATE / DELETE.
  */
 export const subscribeToTournamentTeams = (tournamentId, callback) => {
   if (!tournamentId) return () => {}
 
-  console.log('🛰️ Subscribing to tournament_teams realtime for tournament:', tournamentId)
+  console.log('🛰️ Subscribing to lobby_teams realtime for tournament:', tournamentId)
 
   const channel = supabase
     .channel(`tournament-teams-${tournamentId}`)
@@ -49,18 +49,18 @@ export const subscribeToTournamentTeams = (tournamentId, callback) => {
       {
         event: '*',
         schema: 'public',
-        table: 'tournament_teams',
-        filter: `tournament_id=eq.${tournamentId}`,
+        table: 'lobby_teams',
+        filter: `lobby_id=eq.${tournamentId}`,
       },
       (payload) => {
-        console.log('🔁 Realtime event on tournament_teams:', payload)
+        console.log('🔁 Realtime event on lobby_teams:', payload)
         callback?.(payload)
       },
     )
     .subscribe()
 
   return () => {
-    console.log('📡 Unsubscribing from tournament_teams realtime for tournament:', tournamentId)
+    console.log('📡 Unsubscribing from lobby_teams realtime for tournament:', tournamentId)
     supabase.removeChannel(channel)
   }
 }
