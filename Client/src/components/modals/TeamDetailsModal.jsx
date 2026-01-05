@@ -26,7 +26,7 @@ const TeamDetailsModal = ({ isOpen, onClose, tournament, teams }) => {
 
     try {
       const { error } = await supabase
-        .from('tournament_teams')
+        .from('lobby_teams')
         .update({
           team_name: editingTeam.team_name
         })

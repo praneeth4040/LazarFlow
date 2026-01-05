@@ -82,7 +82,7 @@ export const uploadAsset = async (file) => {
 
 export const getTournamentById = async (id) => {
   const { data, error } = await supabase
-    .from('tournaments')
+    .from('lobbies')
     .select('*')
     .eq('id', id)
     .single()
@@ -93,7 +93,7 @@ export const getTournamentById = async (id) => {
 export const getTournamentByLiveId = async (liveid) => {
   // Try public share_id first
   const { data: byShare, error: shareErr } = await supabase
-    .from('tournaments')
+    .from('lobbies')
     .select('*')
     .eq('share_id', liveid)
     .eq('is_public', true)
@@ -102,7 +102,7 @@ export const getTournamentByLiveId = async (liveid) => {
 
   // Fallback to direct id (for authenticated usage or legacy links)
   const { data: byId, error: idErr } = await supabase
-    .from('tournaments')
+    .from('lobbies')
     .select('*')
     .eq('id', liveid)
     .single()
@@ -112,16 +112,16 @@ export const getTournamentByLiveId = async (liveid) => {
 
 export const getTournamentTeams = async (tournamentId) => {
   const { data, error } = await supabase
-    .from('tournament_teams')
+    .from('lobby_teams')
     .select('*')
-    .eq('tournament_id', tournamentId)
+    .eq('lobby_id', tournamentId)
   if (error) throw error
   return data || []
 }
 
 export const updateTournamentTheme = async (id, theme) => {
   const { error } = await supabase
-    .from('tournaments')
+    .from('lobbies')
     .update({ theme_config: theme })
     .eq('id', id)
   if (error) throw error
@@ -131,14 +131,14 @@ export const updateTournamentTheme = async (id, theme) => {
 export const ensureTournamentPublicAndShareId = async (id, name) => {
   // Fetch current tournament to check share_id
   const { data: current } = await supabase
-    .from('tournaments')
+    .from('lobbies')
     .select('share_id,is_public')
     .eq('id', id)
     .single()
 
   const nextShareId = current?.share_id || generateShareId(name)
   const { data, error } = await supabase
-    .from('tournaments')
+    .from('lobbies')
     .update({ is_public: true, share_id: nextShareId })
     .eq('id', id)
     .select()
@@ -185,7 +185,7 @@ export const updateThemeByIndex = async (index, theme) => {
 
 export const createTournament = async (tournamentData, userId) => {
   const { data, error } = await supabase
-    .from('tournaments')
+    .from('lobbies')
     .insert([
       {
         name: tournamentData.name,

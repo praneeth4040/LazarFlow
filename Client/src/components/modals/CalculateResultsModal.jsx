@@ -31,9 +31,9 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
     try {
       setLoading(true)
       const { data, error } = await supabase
-        .from('tournament_teams')
+        .from('lobby_teams')
         .select('*')
-        .eq('tournament_id', tournament.id)
+        .eq('lobby_id', tournament.id)
 
       if (error) throw error
       setTeams(data || [])
@@ -295,7 +295,7 @@ function CalculateResultsModal({ isOpen, onClose, tournament }) {
         }
 
         const { error } = await supabase
-          .from('tournament_teams')
+          .from('lobby_teams')
           .update({
             total_points: newStats,
             members: updatedMembers,

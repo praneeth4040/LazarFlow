@@ -26,9 +26,9 @@ const TournamentStandingsModal = ({ isOpen, onClose, tournament }) => {
         setError(null)
 
         const { data: teamsData, error: teamsError } = await supabase
-          .from('tournament_teams')
+          .from('lobby_teams')
           .select('*')
-          .eq('tournament_id', tournament.id)
+          .eq('lobby_id', tournament.id)
 
         if (teamsError) throw teamsError
 

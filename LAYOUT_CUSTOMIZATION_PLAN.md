@@ -21,7 +21,7 @@ This document outlines the strategy for implementing a robust layout customizati
 
 We need to store the customization data.
 
-**Table**: `tournaments`
+**Table**: `lobbies`
 **New Column**: `theme_config` (JSONB)
 
 **Example JSON Structure**:
@@ -85,7 +85,7 @@ Modify `src/pages/LiveTournament.jsx` to accept a `customConfig` prop (optional)
 
 ### Step 4: Build the Editor UI
 -   Implement `EditorSidebar` with inputs.
--   Add "Save" button to update the `tournaments` table in Supabase.
+-   Add "Save" button to update the `lobbies` table in Supabase.
 
 ### Step 5: Update `LayoutContent.jsx`
 -   Change `onClick` behavior of cards to navigate to `/edit-layout/{layout}?tournamentId={activeTournamentId}`.

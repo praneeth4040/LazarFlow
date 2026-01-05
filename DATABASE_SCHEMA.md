@@ -12,8 +12,8 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 
 ## Tables
 
-### 1. `public.tournaments`
-**Purpose**: The core entity representing an e-sports tournament. It holds configuration details, scoring rules, and visual customization settings.
+### 1. `public.lobbies`
+**Purpose**: The core entity representing an e-sports tournament/lobby. It holds configuration details, scoring rules, and visual customization settings.
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
@@ -39,17 +39,17 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 - `idx_tournaments_share_id` on `share_id`
 
 **Relationships**:
-- **One-to-Many** with `tournament_teams` (A tournament has many teams).
+- **One-to-Many** with `lobby_teams` (A lobby has many teams).
 
 ---
 
-### 2. `public.tournament_teams`
-**Purpose**: Represents a team participating in a specific tournament. It stores roster information and current standings.
+### 2. `public.lobby_teams`
+**Purpose**: Represents a team participating in a specific lobby/tournament. It stores roster information and current standings.
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
 | `id` | `uuid` | **Primary Key**. Unique identifier for the team entry. Default: `gen_random_uuid()`. |
-| `tournament_id` | `uuid` | **Foreign Key** to `tournaments`. The tournament this team belongs to. On Delete: `CASCADE`. |
+| `lobby_id` | `uuid` | **Foreign Key** to `lobbies`. The lobby this team belongs to. On Delete: `CASCADE`. |
 | `team_name` | `varchar(255)` | Name of the team. |
 | `created_at` | `timestamptz` | Creation timestamp. Default: `CURRENT_TIMESTAMP`. |
 | `updated_at` | `timestamptz` | Last update timestamp. Default: `CURRENT_TIMESTAMP`. |
@@ -57,10 +57,10 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 | `members` | `jsonb` | JSON structure storing player details. Default: `[]`. |
 
 **Indices**:
-- `idx_tournament_teams_tournament_id` on `tournament_id`
+- `idx_tournament_teams_tournament_id` on `lobby_id`
 
 **Relationships**:
-- **Many-to-One** with `tournaments`.
+- **Many-to-One** with `lobbies`.
 
 ---
 
@@ -114,10 +114,9 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 ```mermaid
 erDiagram
     USERS ||--|{ PROFILES : "has"
-    USERS ||--o{ TOURNAMENTS : "creates"
-    USERS ||--o{ THEMES : "uploads"
+    USERS ||--o{ LOBBIES : "creates"
 
-    TOURNAMENTS ||--|{ TOURNAMENT_TEAMS : "contains"
+    LOBBIES ||--|{ LOBBY_TEAMS : "contains"
 
     PROFILES {
         uuid id PK
@@ -134,7 +133,7 @@ erDiagram
         timestamptz updated_at
     }
 
-    TOURNAMENTS {
+    LOBBIES {
         uuid id PK
         uuid user_id FK
         varchar name
@@ -152,9 +151,9 @@ erDiagram
         jsonb theme_config
     }
 
-    TOURNAMENT_TEAMS {
+    LOBBY_TEAMS {
         uuid id PK
-        uuid tournament_id FK
+        uuid lobby_id FK
         varchar team_name
         timestamptz created_at
         timestamptz updated_at

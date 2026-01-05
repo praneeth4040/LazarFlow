@@ -92,7 +92,7 @@ User enters teams (manual or AI mode) and clicks Submit
     ↓
 handleAddTeams() called with teams array
     ↓
-Teams formatted and saved to Supabase (tournament_teams table)
+Teams formatted and saved to Supabase (lobby_teams table)
     ↓
 Query Supabase to fetch saved teams
     ↓
@@ -179,8 +179,8 @@ Click Close to dismiss modal
 ## 💾 Database Operations
 
 ### Current Operations
-- ✅ INSERT: Save teams to `tournament_teams` table
-- ✅ SELECT: Fetch teams from `tournament_teams` table
+- ✅ INSERT: Save teams to `lobby_teams` table
+- ✅ SELECT: Fetch teams from `lobby_teams` table
 - 🔜 UPDATE: Edit team details (code ready, needs testing)
 - 🔜 DELETE: Remove teams (code ready, needs implementation)
 
@@ -248,4 +248,4 @@ Saving teams for Tournament Name: [...]
 **Status:** ✅ **READY FOR TESTING**
 **Last Updated:** 14 November 2025
 **Components:** HomeContent, AddTeamsModal, TeamDetailsModal
-**Database Tables:** tournaments, tournament_teams
+**Database Tables:** lobbies, lobby_teams
