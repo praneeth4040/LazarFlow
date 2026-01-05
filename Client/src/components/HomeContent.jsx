@@ -329,7 +329,7 @@ function HomeContent({ newTournament, onTournamentProcessed, onCreateClick }) {
 
       // Prepare team data - extract team name from object
       const teamsData = teams.map(team => ({
-        tournament_id: selectedTournament.id,
+        lobby_id: selectedTournament.id,
         team_name: team.name || team, // Handle both object and string formats
         members: team.members || [],
         total_points: {
