@@ -57,6 +57,50 @@ export const getCurrentUser = async () => {
     return user || null;
 };
 
+/**
+ * Fetch user profile from profiles table
+ * @returns {Promise<Object|null>} User profile data
+ */
+export const getUserProfile = async () => {
+    const user = await getCurrentUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+    if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+    }
+
+    return data;
+};
+
+/**
+ * Update user profile in profiles table
+ * @param {Object} updates - Data to update
+ * @returns {Promise<boolean>} Success status
+ */
+export const updateUserProfile = async (updates) => {
+    const user = await getCurrentUser();
+    if (!user) return false;
+
+    const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', user.id);
+
+    if (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+    }
+
+    return true;
+};
+
 export const getUserThemes = async (forceRefresh = false) => {
     const user = await getCurrentUser();
     if (!user) return [];
