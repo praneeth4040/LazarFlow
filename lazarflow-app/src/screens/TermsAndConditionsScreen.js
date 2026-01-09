@@ -28,7 +28,7 @@ const TermsAndConditionsScreen = ({ navigation }) => {
                 </Section>
 
                 <Section title="2. Services">
-                    <Text style={styles.sectionContent}>LazarFlow provides esports tournament management tools, including points table generation and live leaderboards. Many of our features utilize advanced Artificial Intelligence (AI) and Optical Character Recognition (OCR) technologies.</Text>
+                    <Text style={styles.sectionContent}>LazarFlow provides esports lobby management tools, including points table generation and live leaderboards. Many of our features utilize advanced Artificial Intelligence (AI) and Optical Character Recognition (OCR) technologies.</Text>
                 </Section>
 
                 <Section title="3. AI Model Disclaimer & Limitation of Liability" highlighted>

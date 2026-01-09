@@ -10,7 +10,7 @@ const SLIDES = [
     {
         id: '1',
         title: 'Professional Management',
-        description: 'Level up your esports tournaments with professional-grade tools.',
+        description: 'Level up your esports lobbies with professional-grade tools.',
         icon: Trophy,
         colors: ['#1E3A8A', '#3B82F6'],
     },

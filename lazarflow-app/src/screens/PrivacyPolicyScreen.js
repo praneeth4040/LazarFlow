@@ -16,7 +16,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
                 </View>
 
                 <Section title="1. Introduction">
-                    <Text style={styles.sectionContent}>At LazarFlow, we value your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our esports tournament management services. Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the site.</Text>
+                    <Text style={styles.sectionContent}>At LazarFlow, we value your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website and use our esports lobby management services. Please read this privacy policy carefully. If you do not agree with the terms of this privacy policy, please do not access the site.</Text>
                 </Section>
 
                 <Section title="2. Information We Collect">

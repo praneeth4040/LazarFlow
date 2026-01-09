@@ -7,7 +7,7 @@ import { Theme } from '../styles/theme';
 import { extractTeamsFromText } from '../lib/aiExtraction';
 
 const ManageTeamsScreen = ({ route, navigation }) => {
-    const { tournamentId, tournamentName } = route.params || {};
+    const { lobbyId, lobbyName } = route.params || {};
     const [mode, setMode] = useState('manual');
     const [teams, setTeams] = useState([]);
     const [currentTeam, setCurrentTeam] = useState('');
@@ -16,17 +16,17 @@ const ManageTeamsScreen = ({ route, navigation }) => {
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        if (tournamentId) {
+        if (lobbyId) {
             fetchExistingTeams();
         }
-    }, [tournamentId]);
+    }, [lobbyId]);
 
     const fetchExistingTeams = async () => {
         try {
             const { data, error } = await supabase
-                .from('tournament_teams')
+                .from('lobby_teams')
                 .select('id, team_name, members, total_points')
-                .eq('tournament_id', tournamentId);
+                .eq('lobby_id', lobbyId);
 
             if (error) throw error;
             setTeams(data.map(t => ({ 
@@ -118,16 +118,16 @@ const ManageTeamsScreen = ({ route, navigation }) => {
         setSubmitting(true);
         try {
             // Delete existing teams first to avoid duplicates (assuming full replacement)
-            await supabase.from('tournament_teams').delete().eq('tournament_id', tournamentId);
+            await supabase.from('lobby_teams').delete().eq('lobby_id', lobbyId);
 
             const teamsToInsert = teams.map(t => ({
-                tournament_id: tournamentId,
+                lobby_id: lobbyId,
                 team_name: t.name,
                 members: t.members,
                 total_points: t.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 }
             }));
 
-            const { error } = await supabase.from('tournament_teams').insert(teamsToInsert);
+            const { error } = await supabase.from('lobby_teams').insert(teamsToInsert);
             if (error) throw error;
 
             Alert.alert('Success', 'Teams and members saved successfully!', [
@@ -149,7 +149,7 @@ const ManageTeamsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
                 <View style={styles.headerInfo}>
                     <Text style={styles.headerTitle}>Manage Teams</Text>
-                    <Text style={styles.headerSubtitle} numberOfLines={1}>{tournamentName}</Text>
+                    <Text style={styles.headerSubtitle} numberOfLines={1}>{lobbyName}</Text>
                 </View>
                 <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={submitting}>
                     {submitting ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={styles.saveBtnText}>Save</Text>}

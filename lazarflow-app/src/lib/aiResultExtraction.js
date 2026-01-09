@@ -1,7 +1,7 @@
 import apiClient from './apiClient';
 
 /**
- * Extract tournament results from screenshots
+ * Extract lobby results from screenshots
  * @param {Array} imageFiles - Array of image objects (from expo-image-picker)
  * @param {Object} options - Extraction options
  * @returns {Promise<Array>} Extracted rank data

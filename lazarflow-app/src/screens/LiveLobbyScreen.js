@@ -27,13 +27,13 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
-import { getUserThemes, getCommunityDesigns, renderTournamentDesign, getDesignImageSource, uploadLogo } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, renderLobbyDesign, getDesignImageSource, uploadLogo } from '../lib/dataService';
 
-const LiveTournamentScreen = ({ route }) => {
+const LiveLobbyScreen = ({ route }) => {
     const { id } = route?.params || {};
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [tournament, setTournament] = useState(null);
+    const [lobby, setLobby] = useState(null);
     const [sharing, setSharing] = useState(false);
     const [themes, setThemes] = useState([]);
     const [showEditModal, setShowEditModal] = useState(false);
@@ -42,8 +42,8 @@ const LiveTournamentScreen = ({ route }) => {
     // Design Edit State
     const [designData, setDesignData] = useState({
         brandLogo: null,
-        tournamentLogo: null,
-        tournamentName: '',
+        lobbyLogo: null,
+        lobbyName: '',
         scrimsText: '',
         organiserName: '',
         instagram: '',
@@ -57,15 +57,15 @@ const LiveTournamentScreen = ({ route }) => {
     const [renderingDesigns, setRenderingDesigns] = useState({}); // Map of themeId -> boolean
     const viewShotRef = React.useRef();
 
-    // Sync designData with tournament data when it loads
+    // Sync designData with lobby data when it loads
     React.useEffect(() => {
-        if (tournament) {
+        if (lobby) {
             setDesignData(prev => ({
                 ...prev,
-                tournamentName: tournament.name || ''
+                lobbyName: lobby.name || ''
             }));
         }
-    }, [tournament]);
+    }, [lobby]);
 
     useFocusEffect(
         useCallback(() => {
@@ -75,7 +75,7 @@ const LiveTournamentScreen = ({ route }) => {
                     
                     // Parallelize data and theme loading
                     const [sortedTeams, availableThemes] = await Promise.all([
-                        fetchTournamentData(),
+                        fetchLobbyData(),
                         loadThemes()
                     ]);
                     
@@ -87,8 +87,8 @@ const LiveTournamentScreen = ({ route }) => {
                         setLoading(false);
                     }
                 } else {
-                    console.error('No tournament ID provided to LiveTournamentScreen');
-                    setError('No tournament ID provided');
+                    console.error('No lobby ID provided to LiveLobbyScreen');
+                    setError('No lobby ID provided');
                     setLoading(false);
                 }
             };
@@ -156,7 +156,7 @@ const LiveTournamentScreen = ({ route }) => {
     const handleSaveDesign = async () => {
         try {
             setSaving(true);
-            // In the future, we will save this designData to the backend (tournaments table or separate design_configs table)
+            // In the future, we will save this designData to the backend (lobbies table or separate design_configs table)
             // For now, we just close the modal and re-render everything with the new data
             setShowEditModal(false);
             
@@ -191,7 +191,7 @@ const LiveTournamentScreen = ({ route }) => {
             // If it's a base64 data URL, save to file first for expo-sharing
             if (urlToShare.startsWith('data:image')) {
                 const base64Data = urlToShare.split('base64,')[1];
-                const fileName = `tournament_standings_${Date.now()}.png`;
+                const fileName = `lobby_standings_${Date.now()}.png`;
                 shareUri = FileSystem.cacheDirectory + fileName;
                 await FileSystem.writeAsStringAsync(shareUri, base64Data, {
                     encoding: FileSystem.EncodingType.Base64,
@@ -218,7 +218,7 @@ const LiveTournamentScreen = ({ route }) => {
                 csvContent += `${index + 1},"${team.team_name}",${team.wins || 0},${team.placement_points || 0},${team.kill_points || 0},${team.total || 0}\n`;
             });
 
-            const fileName = `${tournament?.name || 'Tournament'}_Standings.csv`;
+            const fileName = `${lobby?.name || 'Lobby'}_Standings.csv`;
             const fileUri = FileSystem.cacheDirectory + fileName;
 
             await FileSystem.writeAsStringAsync(fileUri, csvContent, {
@@ -236,34 +236,34 @@ const LiveTournamentScreen = ({ route }) => {
         }
     };
 
-    const fetchTournamentData = async () => {
+    const fetchLobbyData = async () => {
         try {
             setLoading(true);
             setError(null);
-            console.log('Fetching data for tournament ID:', id);
+            console.log('Fetching data for lobby ID:', id);
 
             if (!id) {
-                console.error('No tournament ID provided');
+                console.error('No lobby ID provided');
                 setLoading(false);
                 return;
             }
 
-            // Parallelize tournament and teams fetch
-            const [tourneyResult, teamsResult] = await Promise.all([
+            // Parallelize lobby and teams fetch
+            const [lobbyResult, teamsResult] = await Promise.all([
                 supabase
-                    .from('tournaments')
+                    .from('lobbies')
                     .select('id, name, game, status, created_at, points_system, kill_points')
                     .eq('id', id)
                     .single(),
                 supabase
-                    .from('tournament_teams')
-                    .select('id, team_name, members, total_points, tournament_id')
-                    .eq('tournament_id', id)
+                    .from('lobby_teams')
+                    .select('id, team_name, members, total_points, lobby_id')
+                    .eq('lobby_id', id)
             ]);
 
-            if (tourneyResult.error) {
-                console.error('Tournament fetch error:', tourneyResult.error);
-                throw tourneyResult.error;
+            if (lobbyResult.error) {
+                console.error('Lobby fetch error:', lobbyResult.error);
+                throw lobbyResult.error;
             }
             
             if (teamsResult.error) {
@@ -271,8 +271,8 @@ const LiveTournamentScreen = ({ route }) => {
                 throw teamsResult.error;
             }
 
-            console.log('Tournament data:', tourneyResult.data);
-            setTournament(tourneyResult.data);
+            console.log('Lobby data:', lobbyResult.data);
+            setLobby(lobbyResult.data);
             console.log('Teams count:', teamsResult.data?.length || 0);
 
             // Calculate totals and sort
@@ -293,9 +293,9 @@ const LiveTournamentScreen = ({ route }) => {
             setTeams(sortedTeams);
             return sortedTeams;
         } catch (error) {
-            console.error('Error fetching tournament data:', error);
-            setError(error.message || 'Failed to load tournament data');
-            Alert.alert('Error', 'Failed to load tournament data');
+            console.error('Error fetching lobby data:', error);
+            setError(error.message || 'Failed to load lobby data');
+            Alert.alert('Error', 'Failed to load lobby data');
         } finally {
             setLoading(false);
         }
@@ -307,16 +307,16 @@ const LiveTournamentScreen = ({ route }) => {
             
             // Map designData to the payload format expected by the API
             const payload = {
-                tournament_name: designData.tournamentName,
+                lobby_name: designData.lobbyName,
                 scrims_text: designData.scrimsText,
                 organiser_name: designData.organiserName,
                 instagram: designData.instagram,
                 youtube: designData.youtube,
                 brand_logo: designData.brandLogo,
-                tournament_logo: designData.tournamentLogo
+                lobby_logo: designData.lobbyLogo
             };
 
-            const result = await renderTournamentDesign(id, themeId, payload);
+            const result = await renderLobbyDesign(id, themeId, payload);
             
             if (result) {
                 // If the result is an ArrayBuffer (binary image data), convert to base64
@@ -358,7 +358,7 @@ const LiveTournamentScreen = ({ route }) => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Theme.colors.accent} />
-                <Text style={{ color: '#fff', marginTop: 10 }}>Loading tournament data...</Text>
+                <Text style={{ color: '#fff', marginTop: 10 }}>Loading lobby data...</Text>
             </View>
         );
     }
@@ -367,14 +367,14 @@ const LiveTournamentScreen = ({ route }) => {
         return (
             <View style={styles.loadingContainer}>
                 <Text style={{ color: '#ff4444', marginBottom: 20 }}>{error}</Text>
-                <TouchableOpacity onPress={fetchTournamentData} style={styles.tab}>
+                <TouchableOpacity onPress={fetchLobbyData} style={styles.tab}>
                     <Text style={{ color: '#fff' }}>Retry</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
-    const config = tournament?.layout_config || {};
+    const config = lobby?.layout_config || {};
     const themeStyles = {
         container: { backgroundColor: '#f8fafc' }, // Light gray background for the app container
         header: { backgroundColor: '#fff' },
@@ -389,11 +389,11 @@ const LiveTournamentScreen = ({ route }) => {
             <StatusBar barStyle="dark-content" />
             
             {/* Minimal Header */}
-            <View style={styles.tourneyInfo}>
+            <View style={styles.lobbyInfo}>
                 <View style={styles.headerTop}>
                     <View style={{ flex: 1 }}>
-                        <Text style={styles.tourneyName}>{tournament?.name || 'Live Standings'}</Text>
-                        {tournament?.game && <Text style={styles.tourneyGame}>{tournament.game}</Text>}
+                        <Text style={styles.lobbyNameText}>{lobby?.name || 'Live Standings'}</Text>
+                        {lobby?.game && <Text style={styles.lobbyGameText}>{lobby.game}</Text>}
                     </View>
                     <View style={styles.actionButtons}>
                         <TouchableOpacity
@@ -460,7 +460,7 @@ const LiveTournamentScreen = ({ route }) => {
                                         <DesignRenderer
                                         theme={theme}
                                         data={teams}
-                                        tournament={tournament}
+                                        lobby={lobby}
                                         designData={designData}
                                         width={Dimensions.get('window').width - 40}
                                     />
@@ -519,13 +519,13 @@ const LiveTournamentScreen = ({ route }) => {
                                     )}
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={styles.logoPicker} onPress={() => handlePickLogo('tournamentLogo')}>
-                                    {designData.tournamentLogo ? (
-                                        <Image source={{ uri: designData.tournamentLogo }} style={styles.logoPreview} />
+                                <TouchableOpacity style={styles.logoPicker} onPress={() => handlePickLogo('lobbyLogo')}>
+                                    {designData.lobbyLogo ? (
+                                        <Image source={{ uri: designData.lobbyLogo }} style={styles.logoPreview} />
                                     ) : (
                                         <View style={styles.logoPlaceholder}>
                                             <ImageIcon size={24} color={Theme.colors.textSecondary} />
-                                            <Text style={styles.logoPickerText}>Tourney Logo</Text>
+                                            <Text style={styles.logoPickerText}>Lobby Logo</Text>
                                         </View>
                                     )}
                                 </TouchableOpacity>
@@ -535,13 +535,13 @@ const LiveTournamentScreen = ({ route }) => {
                         <View style={styles.editSection}>
                             <Text style={styles.editSectionTitle}>Text Content</Text>
                             <View style={styles.inputGroup}>
-                                <Text style={styles.inputLabel}>Tournament Name</Text>
+                                <Text style={styles.inputLabel}>Lobby Name</Text>
                                 <TextInput
                                     style={styles.textInput}
                                     placeholder="e.g. WINTER CHAMPIONSHIP"
                                     placeholderTextColor={Theme.colors.textSecondary}
-                                    value={designData.tournamentName}
-                                    onChangeText={(text) => setDesignData(prev => ({ ...prev, tournamentName: text }))}
+                                    value={designData.lobbyName}
+                                    onChangeText={(text) => setDesignData(prev => ({ ...prev, lobbyName: text }))}
                                 />
                             </View>
                             <View style={styles.inputGroup}>
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: Theme.colors.secondary,
     },
-    tourneyInfo: {
+    lobbyInfo: {
         padding: 20,
         paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 20,
         backgroundColor: Theme.colors.primary,
@@ -634,12 +634,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0,0,0,0.03)',
         borderRadius: 8,
     },
-    tourneyName: {
+    lobbyNameText: {
         fontSize: 24,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
     },
-    tourneyGame: {
+    lobbyGameText: {
         fontSize: 14,
         color: Theme.colors.accent,
         marginTop: 4,
@@ -1204,4 +1204,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default LiveTournamentScreen;
+export default LiveLobbyScreen;

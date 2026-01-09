@@ -12,13 +12,13 @@ const DesignDetailsScreen = ({ route, navigation }) => {
     const { theme } = route.params;
     const [applying, setApplying] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
-    const [tournaments, setTournaments] = useState([]);
-    const [loadingTournaments, setLoadingTournaments] = useState(false);
+    const [lobbies, setLobbies] = useState([]);
+    const [loadingLobbies, setLoadingLobbies] = useState(false);
 
     const imageSource = getDesignImageSource(theme);
 
     const handleUseDesign = () => {
-        Alert.alert('Coming Soon', 'The ability to apply designs directly to your tournaments is coming soon!');
+        Alert.alert('Coming Soon', 'The ability to apply designs directly to your lobbies is coming soon!');
     };
 
     return (
@@ -75,12 +75,12 @@ const DesignDetailsScreen = ({ route, navigation }) => {
                     <View style={styles.descriptionSection}>
                         <Text style={styles.sectionTitle}>About this Design</Text>
                         <Text style={styles.description}>
-                            {theme.description || 'A professional tournament standings layout designed for esports competitions. Features a clean look with high readability for live streams and social media posts.'}
+                            {theme.description || 'A professional lobby standings layout designed for esports competitions. Features a clean look with high readability for live streams and social media posts.'}
                         </Text>
                     </View>
 
                     <View style={styles.tagsSection}>
-                        {['Esports', 'Tournament', 'Standings', 'Clean'].map((tag, index) => (
+                        {['Esports', 'Lobby', 'Standings', 'Clean'].map((tag, index) => (
                             <View key={index} style={styles.tag}>
                                 <Text style={styles.tagText}>#{tag}</Text>
                             </View>
@@ -297,10 +297,10 @@ const styles = StyleSheet.create({
         color: Theme.colors.textSecondary,
         marginBottom: 20,
     },
-    tournamentList: {
+    lobbyList: {
         paddingBottom: 40,
     },
-    tournamentItem: {
+    lobbyItem: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Theme.colors.card,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Theme.colors.border,
     },
-    tournamentIcon: {
+    lobbyIcon: {
         width: 40,
         height: 40,
         borderRadius: 20,
@@ -319,16 +319,16 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginRight: 16,
     },
-    tournamentInfo: {
+    lobbyInfo: {
         flex: 1,
     },
-    tournamentName: {
+    lobbyName: {
         fontSize: 16,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
         marginBottom: 4,
     },
-    tournamentGame: {
+    lobbyGame: {
         fontSize: 12,
         color: Theme.colors.textSecondary,
     },

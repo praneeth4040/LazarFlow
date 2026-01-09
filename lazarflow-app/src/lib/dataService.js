@@ -240,21 +240,21 @@ export const uploadLogo = async (uri, fileName) => {
 };
 
 /**
- * Render a tournament standings image using a specific theme
- * @param {string} tournamentId - The ID of the tournament
+ * Render a lobby standings image using a specific theme
+ * @param {string} lobbyId - The ID of the lobby
  * @param {string} themeId - The ID of the theme to use
  * @param {Object} overrides - Design overrides (logos, text, etc.)
  * @returns {Promise<Object>} The rendered image data (url or base64)
  */
-export const renderTournamentDesign = async (tournamentId, themeId, overrides = null) => {
+export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
     try {
-        console.log(`🎨 Requesting render for tournament ${tournamentId} with theme ${themeId}...`);
+        console.log(`🎨 Requesting render for lobby ${lobbyId} with theme ${themeId}...`);
         if (overrides) {
             console.log('📝 Applying overrides:', JSON.stringify(overrides, null, 2));
         }
         
         // The endpoint returns a binary image (PNG)
-        const response = await apiClient.post(`/render/${tournamentId}/${themeId}`, overrides, {
+        const response = await apiClient.post(`/render/${lobbyId}/${themeId}`, overrides, {
             responseType: 'arraybuffer',
             headers: {
                 'Accept': 'image/png, application/json',

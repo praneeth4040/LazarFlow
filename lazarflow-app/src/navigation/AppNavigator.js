@@ -6,13 +6,13 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import DashboardScreen from '../screens/DashboardScreen';
-import LiveTournamentScreen from '../screens/LiveTournamentScreen';
+import LiveLobbyScreen from '../screens/LiveLobbyScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
-import CreateTournamentScreen from '../screens/CreateTournamentScreen';
+import CreateLobbyScreen from '../screens/CreateLobbyScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
 import CalculateResultsScreen from '../screens/CalculateResultsScreen';
-import EditTournamentScreen from '../screens/EditTournamentScreen';
+import EditLobbyScreen from '../screens/EditLobbyScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import DesignDetailsScreen from '../screens/DesignDetailsScreen';
@@ -99,8 +99,8 @@ export default function AppNavigator() {
                     <>
                         <Stack.Screen name="Dashboard" component={DashboardScreen} />
                         <Stack.Screen
-                            name="LiveTournament"
-                            component={LiveTournamentScreen}
+                            name="LiveLobby"
+                            component={LiveLobbyScreen}
                             options={{ headerShown: true, title: 'Live Standings', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
                         />
                         <Stack.Screen
@@ -114,8 +114,8 @@ export default function AppNavigator() {
                             options={{ headerShown: true, title: 'Terms & Conditions', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
                         />
                         <Stack.Screen
-                            name="CreateTournament"
-                            component={CreateTournamentScreen}
+                            name="CreateLobby"
+                            component={CreateLobbyScreen}
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
@@ -129,8 +129,8 @@ export default function AppNavigator() {
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
-                            name="EditTournament"
-                            component={EditTournamentScreen}
+                            name="EditLobby"
+                            component={EditLobbyScreen}
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen

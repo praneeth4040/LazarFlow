@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 export const useSubscription = () => {
     const [user, setUser] = useState(null);
     const [tier, setTier] = useState('free');
-    const [tournamentsCreated, setTournamentsCreated] = useState(0);
+    const [lobbiesCreated, setLobbiesCreated] = useState(0);
     const [loading, setLoading] = useState(true);
 
     // Feature Flags & Limits
@@ -32,17 +32,17 @@ export const useSubscription = () => {
             try {
                 const { data: profile, error } = await supabase
                     .from('profiles')
-                    .select('subscription_tier, tournaments_created_count')
+                    .select('subscription_tier, lobbies_created_count')
                     .eq('id', user.id)
                     .single();
 
                 if (error) throw error;
 
                 const currentTier = profile?.subscription_tier?.toLowerCase() || 'free';
-                const count = profile?.tournaments_created_count || 0;
+                const count = profile?.lobbies_created_count || 0;
 
                 setTier(currentTier);
-                setTournamentsCreated(count);
+                setLobbiesCreated(count);
 
                 // Define Limits based on Tier
                 let aiLimit = 2; // Default for Free
@@ -119,7 +119,7 @@ export const useSubscription = () => {
     return {
         user,
         tier,
-        tournamentsCreated,
+        lobbiesCreated,
         loading,
         limits: {
             maxAILobbies,

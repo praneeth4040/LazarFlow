@@ -70,7 +70,7 @@ const UserThemeCard = React.memo(({ theme, index }) => {
                 <TouchableOpacity
                     style={[styles.useThemeBtn, theme.status !== 'verified' && styles.useThemeBtnDisabled]}
                     disabled={theme.status !== 'verified'}
-                    onPress={() => Alert.alert('Apply Design', 'Design applied to your tournaments!')}
+                    onPress={() => Alert.alert('Apply Design', 'Design applied to your lobbies!')}
                 >
                     <ArrowRight size={14} color="#fff" />
                 </TouchableOpacity>
@@ -81,8 +81,8 @@ const UserThemeCard = React.memo(({ theme, index }) => {
 
 const DashboardScreen = ({ navigation }) => {
     const [activeTab, setActiveTab] = useState('home');
-    const [tournaments, setTournaments] = useState([]);
-    const [pastTournaments, setPastTournaments] = useState([]);
+    const [lobbies, setLobbies] = useState([]);
+    const [pastLobbies, setPastLobbies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [user, setUser] = useState(null);
@@ -108,7 +108,7 @@ const DashboardScreen = ({ navigation }) => {
     const [savingPhone, setSavingPhone] = useState(false);
     const [showWhatsappCard, setShowWhatsappCard] = useState(true);
 
-    const { tier, tournamentsCreated, loading: subLoading, limits } = useSubscription();
+    const { tier, lobbiesCreated, loading: subLoading, limits } = useSubscription();
 
     useEffect(() => {
         if (user?.id) {
@@ -126,7 +126,7 @@ const DashboardScreen = ({ navigation }) => {
         const init = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
-            fetchTournaments();
+            fetchLobbies();
 
             // Fetch user profile
             try {
@@ -137,18 +137,18 @@ const DashboardScreen = ({ navigation }) => {
             }
 
             if (user) {
-                // Subscribe to realtime updates for tournaments
+                // Subscribe to realtime updates for lobbies
                 subscription = supabase
-                    .channel(`tournaments-user-${user.id}`)
+                    .channel(`lobbies-user-${user.id}`)
                     .on(
                         'postgres_changes',
                         {
                             event: '*',
                             schema: 'public',
-                            table: 'tournaments',
+                            table: 'lobbies',
                             filter: `user_id=eq.${user.id}`,
                         },
-                        () => fetchTournaments()
+                        () => fetchLobbies()
                     )
                     .subscribe();
             }
@@ -163,14 +163,14 @@ const DashboardScreen = ({ navigation }) => {
         };
     }, []);
 
-    const fetchTournaments = async () => {
+    const fetchLobbies = async () => {
         try {
             setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
             const { data, error } = await supabase
-                .from('tournaments')
+                .from('lobbies')
                 .select('id, name, game, status, created_at, points_system, kill_points')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
@@ -180,11 +180,11 @@ const DashboardScreen = ({ navigation }) => {
             const active = data.filter(t => t.status !== 'completed');
             const past = data.filter(t => t.status === 'completed');
 
-            setTournaments(active);
-            setPastTournaments(past);
+            setLobbies(active);
+            setPastLobbies(past);
         } catch (error) {
-            console.error('Error fetching tournaments:', error);
-            Alert.alert('Error', 'Failed to load tournaments');
+            console.error('Error fetching lobbies:', error);
+            Alert.alert('Error', 'Failed to load lobbies');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -227,7 +227,7 @@ const DashboardScreen = ({ navigation }) => {
         setRefreshing(true);
         // Force refresh all data on pull-to-refresh
         Promise.all([
-            fetchTournaments(),
+            fetchLobbies(),
             getUserThemes(true),
             getCommunityDesigns(true)
         ]).finally(() => {
@@ -239,12 +239,12 @@ const DashboardScreen = ({ navigation }) => {
         await supabase.auth.signOut();
     };
 
-    const handleCreateTournament = () => {
-        navigation.navigate('CreateTournament');
+    const handleCreateLobby = () => {
+        navigation.navigate('CreateLobby');
     };
 
     const handleBannerAction = () => {
-        navigation.navigate('CreateTournament');
+        navigation.navigate('CreateLobby');
     };
 
     const handleDesignUpload = async () => {
@@ -313,10 +313,10 @@ const DashboardScreen = ({ navigation }) => {
         }
     };
 
-    const confirmEndTournament = (tournament) => {
+    const confirmEndLobby = (lobby) => {
         Alert.alert(
-            "End Tournament",
-            `Are you sure you want to end "${tournament.name}"? It will be moved to past tournaments.`,
+            "End Lobby",
+            `Are you sure you want to end "${lobby.name}"? It will be moved to past lobbies.`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -325,14 +325,14 @@ const DashboardScreen = ({ navigation }) => {
                     onPress: async () => {
                         try {
                             const { error } = await supabase
-                                .from('tournaments')
+                                .from('lobbies')
                                 .update({ status: 'completed' })
-                                .eq('id', tournament.id);
+                                .eq('id', lobby.id);
                             if (error) throw error;
                             // Realtime sub will update list, but we can also fetch manually to be sure
-                            fetchTournaments();
+                            fetchLobbies();
                         } catch (err) {
-                            Alert.alert("Error", "Failed to end tournament");
+                            Alert.alert("Error", "Failed to end lobby");
                         }
                     }
                 }
@@ -340,10 +340,10 @@ const DashboardScreen = ({ navigation }) => {
         );
     };
 
-    const confirmDeleteTournament = (tournament) => {
+    const confirmDeleteLobby = (lobby) => {
         Alert.alert(
-            "Delete Tournament",
-            `Are you sure you want to delete "${tournament.name}"? This cannot be undone.`,
+            "Delete Lobby",
+            `Are you sure you want to delete "${lobby.name}"? This cannot be undone.`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -352,13 +352,13 @@ const DashboardScreen = ({ navigation }) => {
                     onPress: async () => {
                         try {
                             const { error } = await supabase
-                                .from('tournaments')
+                                .from('lobbies')
                                 .delete()
-                                .eq('id', tournament.id);
+                                .eq('id', lobby.id);
                             if (error) throw error;
-                            fetchTournaments();
+                            fetchLobbies();
                         } catch (err) {
-                            Alert.alert("Error", "Failed to delete tournament");
+                            Alert.alert("Error", "Failed to delete lobby");
                         }
                     }
                 }
@@ -366,10 +366,10 @@ const DashboardScreen = ({ navigation }) => {
         );
     };
 
-    const handleEditTournament = (tournament) => {
+    const handleEditLobby = (lobby) => {
         // Close settings
         setActiveSettingsId(null);
-        navigation.navigate('EditTournament', { tournamentId: tournament.id });
+        navigation.navigate('EditLobby', { lobbyId: lobby.id });
     };
 
 
@@ -503,7 +503,7 @@ const DashboardScreen = ({ navigation }) => {
                             <Text style={styles.popupTitle}>WhatsApp Bot is Here!</Text>
                             
                             <Text style={styles.popupDesc}>
-                                Connect your phone number now to get instant tournament updates and manage your lobbies directly through WhatsApp.
+                                Connect your phone number now to get instant lobby updates and manage your lobbies directly through WhatsApp.
                             </Text>
 
                             <TouchableOpacity 
@@ -539,51 +539,51 @@ const DashboardScreen = ({ navigation }) => {
                 </TouchableOpacity>
             </View>
 
-            <Text style={styles.sectionTitle}>Active Tournaments</Text>
-            {tournaments.length > 0 ? (
-                tournaments.map(tournament => (
-                    <View key={tournament.id} style={[styles.card, { zIndex: activeSettingsId === tournament.id ? 10 : 1 }]}>
+            <Text style={styles.sectionTitle}>Active Lobbies</Text>
+            {lobbies.length > 0 ? (
+                lobbies.map(lobby => (
+                    <View key={lobby.id} style={[styles.card, { zIndex: activeSettingsId === lobby.id ? 10 : 1 }]}>
                         <TouchableOpacity
                             style={styles.cardMainClickArea}
-                            onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })}
+                            onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
                             activeOpacity={0.7}
                         >
                             <View style={styles.cardInfo}>
-                                <Text style={styles.cardTitle}>{tournament.name}</Text>
-                                <Text style={styles.cardMeta}>{tournament.game} • {new Date(tournament.created_at).toLocaleDateString()}</Text>
+                                <Text style={styles.cardTitle}>{lobby.name}</Text>
+                                <Text style={styles.cardMeta}>{lobby.game} • {new Date(lobby.created_at).toLocaleDateString()}</Text>
                             </View>
                         </TouchableOpacity>
 
                         <View style={styles.cardActions}>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })} title="Go Live">
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Go Live">
                                 <Radio size={18} color={Theme.colors.accent} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('CalculateResults', { tournament: tournament })} title="Calculate">
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('CalculateResults', { lobby: lobby })} title="Calculate">
                                 <Calculator size={18} color="#94a3b8" />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmEndTournament(tournament)} title="End Tournament">
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmEndLobby(lobby)} title="End Lobby">
                                 <Flag size={18} color="#ef4444" />
                             </TouchableOpacity>
 
                             {/* Settings Button & Dropdown */}
                             <View>
                                 <TouchableOpacity
-                                    style={[styles.iconBtn, activeSettingsId === tournament.id && styles.iconBtnActive]}
-                                    onPress={() => toggleSettings(tournament.id)}
+                                    style={[styles.iconBtn, activeSettingsId === lobby.id && styles.iconBtnActive]}
+                                    onPress={() => toggleSettings(lobby.id)}
                                 >
                                     <Settings size={18} color="#94a3b8" />
                                 </TouchableOpacity>
 
-                                {activeSettingsId === tournament.id && (
+                                {activeSettingsId === lobby.id && (
                                     <View style={styles.dropdownMenu}>
-                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => handleEditTournament(tournament)}>
+                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => handleEditLobby(lobby)}>
                                             <Edit size={16} color={Theme.colors.textPrimary} />
                                             <Text style={styles.dropdownText}>Edit</Text>
                                         </TouchableOpacity>
                                         <View style={styles.dropdownDivider} />
                                         <TouchableOpacity style={styles.dropdownItem} onPress={() => {
                                             setActiveSettingsId(null);
-                                            confirmDeleteTournament(tournament);
+                                            confirmDeleteLobby(lobby);
                                         }}>
                                             <Trash2 size={16} color={Theme.colors.danger} />
                                             <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>
@@ -597,7 +597,7 @@ const DashboardScreen = ({ navigation }) => {
             ) : (
                 <View style={styles.emptyState}>
                     <Trophy size={48} color="#334155" />
-                    <Text style={styles.emptyText}>No active tournaments</Text>
+                    <Text style={styles.emptyText}>No active lobbies</Text>
                 </View>
             )}
             <View style={{ height: 80 }} />
@@ -685,33 +685,33 @@ const DashboardScreen = ({ navigation }) => {
     );
 
     const renderHistoryContent = () => {
-        if (pastTournaments.length === 0) {
+        if (pastLobbies.length === 0) {
             return (
                 <View style={[styles.emptyState, { marginTop: 20 }]}>
                     <History size={40} color={Theme.colors.border} />
-                    <Text style={styles.emptyText}>No past tournaments yet</Text>
+                    <Text style={styles.emptyText}>No past lobbies yet</Text>
                 </View>
             );
         }
 
-        return pastTournaments.map(tournament => (
+        return pastLobbies.map(lobby => (
             <TouchableOpacity
-                key={tournament.id}
+                key={lobby.id}
                 style={[styles.card, { marginHorizontal: 0 }]}
-                onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })}
+                onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
             >
                 <View style={styles.cardInfo}>
-                    <Text style={styles.cardTitle}>{tournament.name}</Text>
-                    <Text style={styles.cardMeta}>{new Date(tournament.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.cardTitle}>{lobby.name}</Text>
+                    <Text style={styles.cardMeta}>{new Date(lobby.created_at).toLocaleDateString()}</Text>
                 </View>
                 <View style={styles.cardActions}>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })} title="Leaderboard">
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Leaderboard">
                         <BarChart2 size={16} color={Theme.colors.textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id, view: 'mvp' })} title="MVPs">
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id, view: 'mvp' })} title="MVPs">
                         <Award size={16} color={Theme.colors.accent} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteTournament(tournament)} title="Delete">
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteLobby(lobby)} title="Delete">
                         <Trash2 size={16} color="#ef4444" />
                     </TouchableOpacity>
                 </View>
@@ -729,7 +729,7 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const getTierDisplayName = (tierName) => {
-        const isInTrial = tierName?.toLowerCase() === 'free' && tournamentsCreated < 2;
+        const isInTrial = tierName?.toLowerCase() === 'free' && lobbiesCreated < 2;
         const tierMap = {
             'free': isInTrial ? 'Free Trial' : 'Free Tier',
             'ranked': 'Ranked Tier',
@@ -760,7 +760,7 @@ const DashboardScreen = ({ navigation }) => {
 
     const renderProfile = () => {
         const colors = getTierColors(tier);
-        const isInTrial = tier?.toLowerCase() === 'free' && tournamentsCreated < 2;
+        const isInTrial = tier?.toLowerCase() === 'free' && lobbiesCreated < 2;
         const displayName = user?.email?.split('@')[0] || 'User';
         const truncatedName = displayName.length > 7 ? displayName.substring(0, 7) + '...' : displayName;
 
@@ -804,7 +804,7 @@ const DashboardScreen = ({ navigation }) => {
                             </View>
                             <Text style={styles.trialDescription}>
                                 Enjoying full features with 3 layouts and custom social links.
-                                Use {2 - tournamentsCreated} more AI tournaments to keep these perks!
+                                Use {2 - lobbiesCreated} more AI lobbies to keep these perks!
                             </Text>
                         </View>
                     )}
@@ -903,14 +903,14 @@ const DashboardScreen = ({ navigation }) => {
                         )}
                     </View>
 
-                    {/* Tournament History */}
+                    {/* Lobby History */}
                     <View style={styles.infoGroup}>
                         <TouchableOpacity
                             style={styles.groupHeader}
                             onPress={() => toggleSection('history')}
                             activeOpacity={0.7}
                         >
-                            <Text style={styles.groupLabel}>Tournament History</Text>
+                            <Text style={styles.groupLabel}>Lobby History</Text>
                             <History size={16} color={Theme.colors.textSecondary} />
                         </TouchableOpacity>
 
@@ -937,20 +937,20 @@ const DashboardScreen = ({ navigation }) => {
                                 <View style={styles.statContainer}>
                                     <View style={styles.statHeader}>
                                         <View>
-                                            <Text style={styles.statLabel}>Tournaments Created</Text>
+                                            <Text style={styles.statLabel}>Lobbies Created</Text>
                                             <Text style={styles.statSubLabel}>
-                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxAILobbies - tournamentsCreated)} remaining`}
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxAILobbies - lobbiesCreated)} remaining`}
                                             </Text>
                                         </View>
                                         <Text style={[styles.statValue, { color: colors.color }]}>
-                                            {tournamentsCreated} / {limits.maxAILobbies === Infinity ? '∞' : limits.maxAILobbies}
+                                            {lobbiesCreated} / {limits.maxAILobbies === Infinity ? '∞' : limits.maxAILobbies}
                                         </Text>
                                     </View>
                                     <View style={styles.progressBarBg}>
                                         <View style={[
                                             styles.progressBarFill,
                                             {
-                                                width: `${limits.maxAILobbies === Infinity ? 100 : Math.min((tournamentsCreated / limits.maxAILobbies) * 100, 100)}%`,
+                                                width: `${limits.maxAILobbies === Infinity ? 100 : Math.min((lobbiesCreated / limits.maxAILobbies) * 100, 100)}%`,
                                                 backgroundColor: colors.color
                                             }
                                         ]} />
@@ -1075,7 +1075,7 @@ const DashboardScreen = ({ navigation }) => {
             <View style={{ flex: 1 }} onStartShouldSetResponder={() => activeSettingsId !== null ? setActiveSettingsId(null) : false}>
                 {renderContent()}
                 {activeTab === 'home' && (
-                    <TouchableOpacity style={styles.fabContainer} onPress={handleCreateTournament} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.fabContainer} onPress={handleCreateLobby} activeOpacity={0.8}>
                         <LinearGradient
                             colors={['#1E3A8A', '#3B82F6']}
                             style={styles.fabGradient}

@@ -4,7 +4,7 @@ import { View, Text, ImageBackground, StyleSheet, Dimensions, Platform } from 'r
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /**
- * Renders a tournament design based on a theme and its mapping configuration.
+ * Renders a lobby design based on a theme and its mapping configuration.
  * 
  * Config Structure Example:
  * {
@@ -16,7 +16,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
  *   "activeStyle": "Default" // or uses "Default" as fallback
  * }
  */
-const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
+const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
     // Detailed logging for debugging
     console.log('DesignRenderer DEBUG:', {
         themeId: theme?.id,
@@ -24,7 +24,7 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         themeUrl: theme?.url,
         hasMappingConfig: !!theme?.mapping_config,
         dataCount: data?.length,
-        tournamentName: tournament?.name
+        lobbyName: lobby?.name
     });
 
     if (!theme) {
@@ -101,10 +101,11 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
 
 
     /**
-     * Resolves the value for a specific mapping key from the tournament data.
+     * Resolves the value for a specific mapping key from the lobby data.
      * Supported formats:
      * - team_{n}_{field} (e.g. team_1_name, team_2_points)
-     * - tournament_{field} (e.g. tournament_name)
+     * - lobby_{field} (e.g. lobby_name)
+     * - tournament_{field} (legacy support)
      */
     const getMappedValue = (mappingKey, fallbackValue) => {
         if (!mappingKey) return fallbackValue || '';
@@ -112,12 +113,12 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         const key = mappingKey.toLowerCase().trim();
         console.log(`Mapping key: ${key}`);
 
-        // 1. Tournament Metadata
-        if (key.includes('tournament')) {
-            if (key.includes('name')) return tournament?.name || fallbackValue || '';
-            if (key.includes('game')) return tournament?.game || fallbackValue || '';
-            if (key.includes('date')) return tournament?.date || fallbackValue || '';
-            if (key.includes('organizer')) return tournament?.organizer || fallbackValue || '';
+        // 1. Lobby Metadata
+        if (key.includes('lobby') || key.includes('tournament')) {
+            if (key.includes('name')) return lobby?.name || fallbackValue || '';
+            if (key.includes('game')) return lobby?.game || fallbackValue || '';
+            if (key.includes('date')) return lobby?.date || fallbackValue || '';
+            if (key.includes('organizer')) return lobby?.organizer || fallbackValue || '';
         }
 
         // 2. Team Data
@@ -143,7 +144,7 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         // 3. Direct field match in team if no prefix (for some configs)
         if (data && data[0]) {
             const field = key.replace(/[_\s-]/g, '');
-            if (field === 'tournamentname') return tournament?.name || '';
+            if (field === 'lobbyname' || field === 'tournamentname') return lobby?.name || '';
             // If it's just "name", "points", etc., it might be intended for the first team or a general label
             // but usually these are prefixed.
         }
@@ -253,11 +254,11 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
                     let displayText = overlay.text || '';
                     const name = (overlay.name || '').toLowerCase();
                     
-                    // Map common overlay names to tournament data
-                    if (name.includes('event') || name.includes('tournament')) displayText = tournament?.name || displayText;
-                    else if (name.includes('organiser') || name.includes('organizer')) displayText = tournament?.organizer || displayText;
-                    else if (name.includes('game')) displayText = tournament?.game || displayText;
-                    else if (name.includes('date')) displayText = tournament?.date || displayText;
+                    // Map common overlay names to lobby data
+                    if (name.includes('event') || name.includes('lobby')) displayText = lobby?.name || displayText;
+                    else if (name.includes('organiser') || name.includes('organizer')) displayText = lobby?.organizer || displayText;
+                    else if (name.includes('game')) displayText = lobby?.game || displayText;
+                    else if (name.includes('date')) displayText = lobby?.date || displayText;
 
                     if (!displayText && !overlay.text) return null;
 

@@ -9,7 +9,7 @@ import { extractResultsFromScreenshot } from '../lib/aiResultExtraction';
 import { fuzzyMatch, fuzzyMatchName } from '../lib/aiUtils';
 
 const CalculateResultsScreen = ({ route, navigation }) => {
-    const { tournament } = route.params || {};
+    const [lobby, setLobby] = useState(route.params?.lobby || {});
     const [mode, setMode] = useState('manual');
     const [teams, setTeams] = useState([]);
     const [results, setResults] = useState([]);
@@ -25,27 +25,27 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
 
     useEffect(() => {
-        if (tournament?.id) {
-            fetchTournamentData();
+        if (lobby?.id) {
+            fetchLobbyData();
         }
-    }, [tournament?.id]);
+    }, [lobby?.id]);
 
-    const fetchTournamentData = async () => {
+    const fetchLobbyData = async () => {
         setLoading(true);
         try {
             const { data: tData, error: tError } = await supabase
-                .from('tournaments')
+                .from('lobbies')
                 .select('id, name, game, points_system, kill_points')
-                .eq('id', tournament?.id)
+                .eq('id', lobby?.id)
                 .single();
 
             if (tError) throw tError;
-            setTournament(tData);
+            setLobby(tData);
 
             const { data, error } = await supabase
-                .from('tournament_teams')
+                .from('lobby_teams')
                 .select('id, team_name, members, total_points')
-                .eq('tournament_id', tournament.id);
+                .eq('lobby_id', lobby.id);
             if (error) throw error;
             setTeams(data || []);
         } catch (err) {
@@ -85,12 +85,12 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         const val = (field === 'kills' || field === 'position') ? parseInt(value) || 0 : value;
         updatedResults[index][field] = val;
 
-        if (field === 'position' && tournament.points_system) {
-            const pointsEntry = tournament.points_system.find(p => p.placement === val);
+        if (field === 'position' && lobby.points_system) {
+            const pointsEntry = lobby.points_system.find(p => p.placement === val);
             updatedResults[index].placement_points = pointsEntry ? pointsEntry.points : 0;
         }
 
-        updatedResults[index].kill_points = updatedResults[index].kills * (tournament.kill_points || 0);
+        updatedResults[index].kill_points = updatedResults[index].kills * (lobby.kill_points || 0);
         updatedResults[index].total_points = (updatedResults[index].placement_points || 0) + (updatedResults[index].kill_points || 0);
         setResults(updatedResults);
     };
@@ -105,7 +105,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         updatedResults[resultIndex].kills = totalMemberKills;
 
         // Re-calculate points
-        updatedResults[resultIndex].kill_points = totalMemberKills * (tournament.kill_points || 0);
+        updatedResults[resultIndex].kill_points = totalMemberKills * (lobby.kill_points || 0);
         updatedResults[resultIndex].total_points = (updatedResults[resultIndex].placement_points || 0) + (updatedResults[resultIndex].kill_points || 0);
 
         setResults(updatedResults);
@@ -201,9 +201,9 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             if (!team) return null;
 
             const pos = parseInt(res.rank);
-            const pointsEntry = tournament.points_system.find(p => p.placement === pos);
+            const pointsEntry = lobby.points_system.find(p => p.placement === pos);
             const placementPoints = pointsEntry ? pointsEntry.points : 0;
-            const killPoints = (res.kills || 0) * (tournament.kill_points || 0);
+            const killPoints = (res.kills || 0) * (lobby.kill_points || 0);
 
             return {
                 team_id: team.id,
@@ -287,7 +287,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 }
 
                 const { error } = await supabase
-                    .from('tournament_teams')
+                    .from('lobby_teams')
                     .update({
                         total_points: newStats,
                         members: currentMembers
@@ -320,7 +320,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
                 <View style={styles.headerInfo}>
                     <Text style={styles.headerTitle}>Calculate Results</Text>
-                    <Text style={styles.headerSubtitle} numberOfLines={1}>{tournament?.name}</Text>
+                    <Text style={styles.headerSubtitle} numberOfLines={1}>{lobby?.name}</Text>
                 </View>
                 <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting || results.length === 0}>
                     {submitting ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={[styles.submitBtnText, results.length === 0 && { opacity: 0.5 }]}>Submit</Text>}

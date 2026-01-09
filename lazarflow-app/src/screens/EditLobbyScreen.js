@@ -4,9 +4,9 @@ import { X, Sparkles, Save, ArrowLeft, Trash2 } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
-const EditTournamentScreen = ({ route, navigation }) => {
-    const { tournamentId } = route.params || {};
-    const [tournament, setTournament] = useState(null);
+const EditLobbyScreen = ({ route, navigation }) => {
+    const { lobbyId } = route.params || {};
+    const [lobby, setLobby] = useState(null);
     const [name, setName] = useState('');
     const [game, setGame] = useState('freeFire');
     const [pointsSystem, setPointsSystem] = useState([]);
@@ -15,30 +15,30 @@ const EditTournamentScreen = ({ route, navigation }) => {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        if (tournamentId) {
-            fetchTournament();
+        if (lobbyId) {
+            fetchLobby();
         }
-    }, [tournamentId]);
+    }, [lobbyId]);
 
-    const fetchTournament = async () => {
+    const fetchLobby = async () => {
         setLoading(true);
         try {
             const { data, error } = await supabase
-                .from('tournaments')
-                .select('id, name, game, points_system, kill_points, status')
-                .eq('id', tournamentId)
+                .from('lobbies')
+                .select('*')
+                .eq('id', lobbyId)
                 .single();
 
             if (error) throw error;
 
-            setTournament(data);
+            setLobby(data);
             setName(data.name);
             setGame(data.game || 'freeFire');
             setPointsSystem(data.points_system || []);
             setKillPoints(data.kill_points || 1);
         } catch (error) {
-            console.error('Error fetching tournament:', error);
-            Alert.alert('Error', 'Failed to fetch tournament details');
+            console.error('Error fetching lobby:', error);
+            Alert.alert('Error', 'Failed to load lobby details');
             navigation.goBack();
         } finally {
             setLoading(false);
@@ -53,30 +53,30 @@ const EditTournamentScreen = ({ route, navigation }) => {
 
     const handleSave = async () => {
         if (!name.trim()) {
-            Alert.alert('Error', 'Please enter a tournament name');
+            Alert.alert('Error', 'Please enter a lobby name');
             return;
         }
 
         setSaving(true);
         try {
             const { error } = await supabase
-                .from('tournaments')
+                .from('lobbies')
                 .update({
                     name: name.trim(),
                     game: game,
                     points_system: pointsSystem,
                     kill_points: killPoints
                 })
-                .eq('id', tournamentId);
+                .eq('id', lobbyId);
 
             if (error) throw error;
 
-            Alert.alert('Success', 'Tournament updated successfully!', [
+            Alert.alert('Success', 'Lobby updated successfully!', [
                 { text: 'OK', onPress: () => navigation.goBack() }
             ]);
         } catch (error) {
-            console.error('Error updating tournament:', error);
-            Alert.alert('Error', 'Failed to update tournament');
+            console.error('Error updating lobby:', error);
+            Alert.alert('Error', 'Failed to update lobby');
         } finally {
             setSaving(false);
         }
@@ -84,7 +84,7 @@ const EditTournamentScreen = ({ route, navigation }) => {
 
     const confirmDelete = () => {
         Alert.alert(
-            "Delete Tournament",
+            "Delete Lobby",
             `Are you sure you want to delete "${name}"? This cannot be undone.`,
             [
                 { text: "Cancel", style: "cancel" },
@@ -95,13 +95,13 @@ const EditTournamentScreen = ({ route, navigation }) => {
                         try {
                             setSaving(true);
                             const { error } = await supabase
-                                .from('tournaments')
+                                .from('lobbies')
                                 .delete()
-                                .eq('id', tournamentId);
+                                .eq('id', lobbyId);
                             if (error) throw error;
                             navigation.navigate('Dashboard');
                         } catch (err) {
-                            Alert.alert("Error", "Failed to delete tournament");
+                            Alert.alert("Error", "Failed to delete lobby");
                         } finally {
                             setSaving(false);
                         }
@@ -125,7 +125,7 @@ const EditTournamentScreen = ({ route, navigation }) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={Theme.colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Edit Tournament</Text>
+                <Text style={styles.headerTitle}>Edit Lobby</Text>
                 <TouchableOpacity onPress={handleSave} disabled={saving}>
                     {saving ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={styles.saveBtnText}>Save</Text>}
                 </TouchableOpacity>
@@ -133,10 +133,10 @@ const EditTournamentScreen = ({ route, navigation }) => {
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.section}>
-                    <Text style={styles.label}>Tournament Name *</Text>
+                    <Text style={styles.label}>Lobby Name *</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Enter tournament name"
+                        placeholder="Enter lobby name"
                         value={name}
                         onChangeText={setName}
                         placeholderTextColor={Theme.colors.textSecondary}
@@ -193,7 +193,7 @@ const EditTournamentScreen = ({ route, navigation }) => {
 
                 <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
                     <Trash2 size={20} color={Theme.colors.danger} />
-                    <Text style={styles.deleteButtonText}>Delete Tournament</Text>
+                    <Text style={styles.deleteButtonText}>Delete Lobby</Text>
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
@@ -358,4 +358,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default EditTournamentScreen;
+export default EditLobbyScreen;

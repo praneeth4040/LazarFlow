@@ -1,4 +1,4 @@
-// Main screen for creating a new tournament
+// Main screen for creating a new lobby
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +6,7 @@ import { X, Sparkles, Trophy, Target, ChevronDown, Save, ArrowLeft } from 'lucid
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
-const CreateTournamentScreen = ({ navigation }) => {
+const CreateLobbyScreen = ({ navigation }) => {
     const defaultPointsSystems = {
         freeFire: [
             { placement: 1, points: 12 },
@@ -63,7 +63,7 @@ const CreateTournamentScreen = ({ navigation }) => {
 
     const handleCreate = async () => {
         if (!name.trim()) {
-            Alert.alert('Error', 'Please enter a tournament name');
+            Alert.alert('Error', 'Please enter a lobby name');
             return;
         }
 
@@ -73,7 +73,7 @@ const CreateTournamentScreen = ({ navigation }) => {
             if (!user) throw new Error('Not authenticated');
 
             const { data, error } = await supabase
-                .from('tournaments')
+                .from('lobbies')
                 .insert([
                     {
                         name: name.trim(),
@@ -89,11 +89,11 @@ const CreateTournamentScreen = ({ navigation }) => {
 
             if (error) throw error;
 
-            Alert.alert('Success', 'Tournament created successfully!');
-            navigation.navigate('ManageTeams', { tournamentId: data.id, tournamentName: data.name });
+            Alert.alert('Success', 'Lobby created successfully!');
+            navigation.navigate('ManageTeams', { lobbyId: data.id, lobbyName: data.name });
         } catch (error) {
-            console.error('Error creating tournament:', error);
-            Alert.alert('Error', error.message || 'Failed to create tournament');
+            console.error('Error creating lobby:', error);
+            Alert.alert('Error', error.message || 'Failed to create lobby');
         } finally {
             setLoading(false);
         }
@@ -105,16 +105,16 @@ const CreateTournamentScreen = ({ navigation }) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={Theme.colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Create Tournament</Text>
+                <Text style={styles.headerTitle}>Create Lobby</Text>
                 <View style={{ width: 40 }} />
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.section}>
-                    <Text style={styles.label}>Tournament Name *</Text>
+                    <Text style={styles.label}>Lobby Name *</Text>
                     <TextInput
                         style={styles.input}
-                        placeholder="Enter tournament name"
+                        placeholder="Enter lobby name"
                         value={name}
                         onChangeText={setName}
                         placeholderTextColor={Theme.colors.textSecondary}
@@ -342,4 +342,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default CreateTournamentScreen;
+export default CreateLobbyScreen;
