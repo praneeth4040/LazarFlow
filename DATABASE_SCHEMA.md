@@ -79,6 +79,10 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 | `feature_flags` | `jsonb` | Flags to enable/disable features for the user. Default: `{}`. |
 | `theme_config` | `jsonb` | User-level theme preferences. Default: `{}`. |
 | `is_admin` | `boolean` | Administrator flag. Default: `false`. |
+| `lobbies_created_count` | `integer` | Count of lobbies created. Default: `0`. |
+| `emails` | `varchar` | User email address. |
+| `expo_push_token` | `text` | Expo push notification token. |
+| `phone` | `bigint[]` | **Unique**. Array of phone numbers. |
 | `created_at` | `timestamptz` | Creation timestamp. Default: `now()`. |
 | `updated_at` | `timestamptz` | Last update timestamp. Default: `now()`. |
 

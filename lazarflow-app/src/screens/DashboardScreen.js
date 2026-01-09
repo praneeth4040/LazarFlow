@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal } from 'lucide-react-native';
+import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
-import { getUserThemes, getCommunityDesigns, getDesignImageSource } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, getDesignImageSource, getUserProfile, updateUserProfile } from '../lib/dataService';
 
 const CommunityDesignCard = React.memo(({ theme, index, navigation, isRightColumn = false }) => {
     const imageSource = getDesignImageSource(theme);
@@ -99,6 +100,13 @@ const DashboardScreen = ({ navigation }) => {
     const [communityThemesList, setCommunityThemesList] = useState([]);
     const [loadingCommunity, setLoadingCommunity] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [profile, setProfile] = useState(null);
+    const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
+    const [isAddingPhone, setIsAddingPhone] = useState(false);
+    const [isUsernameExpanded, setIsUsernameExpanded] = useState(false);
+    const [newPhoneNumber, setNewPhoneNumber] = useState('');
+    const [savingPhone, setSavingPhone] = useState(false);
+    const [showWhatsappCard, setShowWhatsappCard] = useState(true);
 
     const { tier, tournamentsCreated, loading: subLoading, limits } = useSubscription();
 
@@ -119,6 +127,14 @@ const DashboardScreen = ({ navigation }) => {
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
             fetchTournaments();
+
+            // Fetch user profile
+            try {
+                const userProfile = await getUserProfile();
+                setProfile(userProfile);
+            } catch (err) {
+                console.error('Error fetching profile in init:', err);
+            }
 
             if (user) {
                 // Subscribe to realtime updates for tournaments
@@ -357,6 +373,72 @@ const DashboardScreen = ({ navigation }) => {
     };
 
 
+    const handleAddPhone = async () => {
+        if (savingPhone) return;
+        
+        const numericPhone = newPhoneNumber.replace(/\D/g, '');
+        if (!numericPhone) {
+            Alert.alert('Invalid Input', 'Please enter a valid phone number');
+            return;
+        }
+
+        const phoneVal = parseInt(numericPhone, 10);
+        const currentPhones = Array.isArray(profile?.phone) ? profile.phone : [];
+        
+        if (currentPhones.length >= 5) {
+            Alert.alert('Limit Reached', 'You can only add up to 5 phone numbers');
+            return;
+        }
+
+        if (currentPhones.includes(phoneVal)) {
+            Alert.alert('Duplicate', 'This phone number is already added');
+            return;
+        }
+
+        try {
+            setSavingPhone(true);
+            const updatedPhones = [...currentPhones, phoneVal];
+            
+            await updateUserProfile({ phone: updatedPhones });
+            
+            setProfile(prev => ({ ...prev, phone: updatedPhones }));
+            setNewPhoneNumber('');
+            setIsAddingPhone(false);
+            Alert.alert('Success', 'Phone number added successfully');
+        } catch (error) {
+            console.error('Error adding phone:', error);
+            Alert.alert('Error', 'Failed to add phone number. Ensure it is unique across all users.');
+        } finally {
+            setSavingPhone(false);
+        }
+    };
+
+    const handleRemovePhone = async (indexToRemove) => {
+        const currentPhones = Array.isArray(profile?.phone) ? profile.phone : [];
+        const phoneToRemove = currentPhones[indexToRemove];
+
+        Alert.alert(
+            "Remove Phone Number",
+            `Are you sure you want to remove ${phoneToRemove}?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Remove",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            const updatedPhones = currentPhones.filter((_, index) => index !== indexToRemove);
+                            await updateUserProfile({ phone: updatedPhones });
+                            setProfile(prev => ({ ...prev, phone: updatedPhones }));
+                        } catch (err) {
+                            Alert.alert("Error", "Failed to remove phone number");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const renderHeader = () => {
         let title = 'Home';
         if (activeTab === 'home') {
@@ -379,6 +461,13 @@ const DashboardScreen = ({ navigation }) => {
         );
     };
 
+    const handleNavigateToPhoneSettings = () => {
+        setShowWhatsappCard(false);
+        setActiveTab('profile');
+        setExpandedSections(prev => ({ ...prev, account: true }));
+        setIsPhoneDropdownOpen(true);
+    };
+
     const renderHome = () => (
         <ScrollView
             style={styles.content}
@@ -386,6 +475,56 @@ const DashboardScreen = ({ navigation }) => {
             onScroll={() => setActiveSettingsId(null)} // Close settings on scroll
             scrollEventThrottle={16}
         >
+            {/* WhatsApp Bot Modal */}
+            <Modal
+                visible={showWhatsappCard && (!profile?.phone || profile.phone.length === 0)}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setShowWhatsappCard(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.popupContainer}>
+                        <TouchableOpacity 
+                            style={styles.closePopupBtn} 
+                            onPress={() => setShowWhatsappCard(false)}
+                        >
+                            <X size={20} color={Theme.colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        <View style={styles.popupContent}>
+                            <View style={[styles.popupIconCircle, { backgroundColor: '#25D366' }]}>
+                                <FontAwesome name="whatsapp" size={40} color="#fff" />
+                            </View>
+                            
+                            <View style={styles.popupBadge}>
+                                <Text style={styles.popupBadgeText}>NEW FEATURE</Text>
+                            </View>
+
+                            <Text style={styles.popupTitle}>WhatsApp Bot is Here!</Text>
+                            
+                            <Text style={styles.popupDesc}>
+                                Connect your phone number now to get instant tournament updates and manage your lobbies directly through WhatsApp.
+                            </Text>
+
+                            <TouchableOpacity 
+                                style={styles.popupCta} 
+                                onPress={handleNavigateToPhoneSettings}
+                            >
+                                <Text style={styles.popupCtaText}>Connect & Setup Now</Text>
+                                <ArrowRight size={18} color="#fff" />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={styles.popupSecondaryBtn} 
+                                onPress={() => setShowWhatsappCard(false)}
+                            >
+                                <Text style={styles.popupSecondaryBtnText}>Maybe Later</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             {/* Banner */}
             <View style={styles.banner}>
                 <View style={styles.bannerBadge}>
@@ -623,18 +762,34 @@ const DashboardScreen = ({ navigation }) => {
         const colors = getTierColors(tier);
         const isInTrial = tier?.toLowerCase() === 'free' && tournamentsCreated < 2;
         const displayName = user?.email?.split('@')[0] || 'User';
+        const truncatedName = displayName.length > 7 ? displayName.substring(0, 7) + '...' : displayName;
 
         return (
             <ScrollView style={styles.content}>
                 <View style={styles.profileHeaderHero}>
                     <View style={styles.heroGradient} />
-                    <View style={styles.avatarCircle}>
-                        <Text style={styles.avatarInitial}>{user?.email?.charAt(0).toUpperCase()}</Text>
+                    <View style={styles.profileHeaderMain}>
+                        <View style={styles.avatarCircle}>
+                            <Text style={styles.avatarInitial}>{user?.email?.charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <TouchableOpacity 
+                            style={styles.profileNameContainer} 
+                            onPress={() => setIsUsernameExpanded(!isUsernameExpanded)}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.profileName}>
+                                {isUsernameExpanded ? displayName : truncatedName}
+                            </Text>
+                            {displayName.length > 7 && (
+                                <Text style={styles.expandHint}>
+                                    {isUsernameExpanded ? '(tap to collapse)' : '(tap to expand)'}
+                                </Text>
+                            )}
+                        </TouchableOpacity>
                     </View>
                 </View>
 
-                <View style={[styles.profileContent, { marginTop: -40 }]}>
-                    <Text style={styles.profileName}>{displayName}</Text>
+                <View style={[styles.profileContent, { marginTop: 20 }]}>
                     <View style={styles.badgeContainer}>
                         <View style={[styles.planBadge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
                             <Text style={[styles.planBadgeText, { color: colors.color }]}>{getTierDisplayName(tier)}</Text>
@@ -675,6 +830,71 @@ const DashboardScreen = ({ navigation }) => {
                                     <Text style={styles.infoLabel}>Email</Text>
                                     <Text style={styles.infoValue}>{user?.email}</Text>
                                 </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Connected Phone Numbers</Text>
+                                    <TouchableOpacity 
+                                        style={styles.phoneDropdownBtn}
+                                        onPress={() => setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
+                                    >
+                                        {isPhoneDropdownOpen ? (
+                                            <ChevronUp size={20} color={Theme.colors.accent} />
+                                        ) : (
+                                            <ChevronDown size={20} color={Theme.colors.accent} />
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
+
+                                {isPhoneDropdownOpen && (
+                                    <View style={styles.phoneDropdownContent}>
+                                        {profile?.phone && profile.phone.map((phone, index) => (
+                                            <View key={index} style={styles.phoneItem}>
+                                                <Text style={styles.phoneItemText}>{phone}</Text>
+                                                <TouchableOpacity onPress={() => handleRemovePhone(index)}>
+                                                    <Trash2 size={16} color={Theme.colors.danger} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+
+                                        {isAddingPhone ? (
+                                            <View style={styles.addPhoneForm}>
+                                                <TextInput
+                                                    style={styles.addPhoneInput}
+                                                    value={newPhoneNumber}
+                                                    onChangeText={setNewPhoneNumber}
+                                                    placeholder="Enter phone number"
+                                                    placeholderTextColor={Theme.colors.textSecondary}
+                                                    keyboardType="phone-pad"
+                                                    autoFocus
+                                                />
+                                                <View style={styles.phoneActions}>
+                                                    <TouchableOpacity onPress={handleAddPhone} disabled={savingPhone}>
+                                                        {savingPhone ? (
+                                                            <ActivityIndicator size="small" color={Theme.colors.accent} />
+                                                        ) : (
+                                                            <Check size={20} color={Theme.colors.accent} />
+                                                        )}
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity onPress={() => {
+                                                        setIsAddingPhone(false);
+                                                        setNewPhoneNumber('');
+                                                    }}>
+                                                        <X size={20} color={Theme.colors.danger} />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ) : (
+                                            (profile?.phone?.length || 0) < 5 && (
+                                                <TouchableOpacity 
+                                                    style={styles.addPhoneBtn}
+                                                    onPress={() => setIsAddingPhone(true)}
+                                                >
+                                                    <Plus size={16} color={Theme.colors.accent} />
+                                                    <Text style={styles.addPhoneBtnText}>Add Phone Number</Text>
+                                                </TouchableOpacity>
+                                            )
+                                        )}
+                                    </View>
+                                )}
                                 <View style={styles.infoRow}>
                                     <Text style={styles.infoLabel}>Member Since</Text>
                                     <Text style={styles.infoValue}>{formatDate(user?.created_at)}</Text>
@@ -1091,11 +1311,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(26, 115, 232, 0.1)', // Subtle gradient placeholder
     },
     avatarCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         backgroundColor: Theme.colors.accent,
-        borderWidth: 4,
+        borderWidth: 3,
         borderColor: Theme.colors.secondary,
         alignItems: 'center',
         justifyContent: 'center',
@@ -1106,22 +1326,35 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
     },
     avatarInitial: {
-        fontSize: 32,
+        fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
+    },
+    profileHeaderMain: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        gap: 15,
+        zIndex: 2,
+    },
+    profileNameContainer: {
+        flex: 1,
+    },
+    profileName: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+    },
+    expandHint: {
+        fontSize: 10,
+        color: Theme.colors.textSecondary,
+        marginTop: 2,
     },
     profileContent: {
         paddingHorizontal: 20,
     },
-    profileName: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: Theme.colors.textPrimary,
-        textAlign: 'center',
-        marginBottom: 8,
-    },
     badgeContainer: {
-        alignItems: 'center',
+        alignItems: 'flex-start',
         marginBottom: 24,
     },
     planBadge: {
@@ -1191,6 +1424,75 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
+    },
+    phoneDropdownBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(56, 189, 248, 0.3)',
+        gap: 8,
+    },
+    phoneDropdownText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Theme.colors.accent,
+    },
+    phoneDropdownContent: {
+        backgroundColor: 'rgba(0,0,0,0.02)',
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+    },
+    phoneItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderBottomWidth: 0.5,
+        borderBottomColor: Theme.colors.border,
+    },
+    phoneItemText: {
+        fontSize: 14,
+        color: Theme.colors.textPrimary,
+        fontWeight: '500',
+    },
+    addPhoneForm: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingVertical: 12,
+    },
+    addPhoneInput: {
+        flex: 1,
+        fontSize: 14,
+        color: Theme.colors.textPrimary,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    addPhoneBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        marginTop: 4,
+    },
+    addPhoneBtnText: {
+        fontSize: 14,
+        color: Theme.colors.accent,
+        fontWeight: '600',
+    },
+    phoneActions: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
     },
     infoLabel: {
         fontSize: 14,
@@ -1304,6 +1606,104 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
+    },
+    // Modal & Popup Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    popupContainer: {
+        backgroundColor: Theme.colors.card,
+        borderRadius: 24,
+        width: '100%',
+        maxWidth: 340,
+        position: 'relative',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 15,
+    },
+    closePopupBtn: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        padding: 8,
+        zIndex: 10,
+    },
+    popupContent: {
+        padding: 30,
+        alignItems: 'center',
+    },
+    popupIconCircle: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+        shadowColor: '#25D366',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    popupBadge: {
+        backgroundColor: 'rgba(37, 211, 102, 0.1)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        marginBottom: 12,
+    },
+    popupBadgeText: {
+        color: '#25D366',
+        fontSize: 11,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
+    },
+    popupTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    popupDesc: {
+        fontSize: 15,
+        color: Theme.colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    popupCta: {
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+        borderRadius: 14,
+        width: '100%',
+        gap: 8,
+        marginBottom: 12,
+    },
+    popupCtaText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    popupSecondaryBtn: {
+        paddingVertical: 10,
+    },
+    popupSecondaryBtnText: {
+        color: Theme.colors.textSecondary,
+        fontSize: 14,
+        fontWeight: '600',
     },
     // Design Studio Styles
     designTabNav: {
