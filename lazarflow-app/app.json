@@ -28,6 +28,10 @@
       "backgroundColor": "#ffffff"
     },
     "googleServicesFile": "./google-services.json",
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#ffffff"
+    },
     "web": {
       "favicon": "./assets/logo.png"
     },
