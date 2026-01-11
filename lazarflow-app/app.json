@@ -16,8 +16,8 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {
-      "package": "com.lazarflow.app",
+    "android": {      "package": "com.lazarflow.app",
+
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -25,9 +25,9 @@
         "INTERNET"
       ],
       "foregroundImage": "./assets/padded_icon.png",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#ffffff",
+      "googleServicesFile": "./google-services.json"
     },
-    "googleServicesFile": "./google-services.json",
     "notification": {
       "icon": "./assets/icon.png",
       "color": "#ffffff"

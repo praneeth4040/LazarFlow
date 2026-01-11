@@ -61,6 +61,7 @@ async function registerForPushNotificationsAsync() {
 export const usePushNotifications = () => {
     const [expoPushToken, setExpoPushToken] = useState('');
     const [notification, setNotification] = useState(false);
+    const tokenRef = useRef('');
     const notificationListener = useRef();
     const responseListener = useRef();
 
@@ -72,11 +73,12 @@ export const usePushNotifications = () => {
             if (!isMounted) return;
             
             setExpoPushToken(token);
+            tokenRef.current = token;
 
             if (token) {
                 // Initial check for user
                 const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
+                if (user && isMounted) {
                     await saveTokenToSupabase(user.id, token);
                 }
             }
@@ -86,9 +88,10 @@ export const usePushNotifications = () => {
 
         // Listen for auth state changes to save token when user logs in
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' && session?.user && expoPushToken) {
+            const currentToken = tokenRef.current;
+            if (event === 'SIGNED_IN' && session?.user && currentToken) {
                 console.log('👤 User signed in, saving push token...');
-                await saveTokenToSupabase(session.user.id, expoPushToken);
+                await saveTokenToSupabase(session.user.id, currentToken);
             }
         });
 
@@ -102,30 +105,39 @@ export const usePushNotifications = () => {
 
         return () => {
             isMounted = false;
-            subscription.unsubscribe();
+            if (subscription) {
+                subscription.unsubscribe();
+            }
             if (notificationListener.current) {
-                Notifications.removeNotificationSubscription(notificationListener.current);
+                notificationListener.current.remove();
             }
             if (responseListener.current) {
-                Notifications.removeNotificationSubscription(responseListener.current);
+                responseListener.current.remove();
             }
         };
-    }, [expoPushToken]);
+    }, []);
 
     const saveTokenToSupabase = async (userId, token) => {
         try {
-            const { error } = await supabase
+            console.log('🔄 Attempting to save push token for user:', userId);
+            
+            // Use upsert to ensure the profile exists and the token is updated
+            const { data, error } = await supabase
                 .from('profiles')
-                .update({ expo_push_token: token })
-                .eq('id', userId);
+                .upsert({ 
+                    id: userId, 
+                    expo_push_token: token,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
 
             if (error) {
-                console.error('Error saving push token to Supabase:', error);
+                console.error('❌ Error saving push token to Supabase:', error.message);
+                throw error;
             } else {
                 console.log('✅ Push token successfully saved to Supabase');
             }
         } catch (err) {
-            console.error('Failed to save token:', err);
+            console.error('❌ Failed to save token:', err);
         }
     };
 
