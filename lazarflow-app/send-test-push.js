@@ -1,7 +1,7 @@
 const { Expo } = require('expo-server-sdk');
 
 // 1. PASTE YOUR TOKEN HERE
-const PUSH_TOKEN = 'ExponentPushToken[PXJHlQO_0gZF5kkYxn4CTr]';
+const PUSH_TOKEN = 'ExponentPushToken[-W0u-7JGdtDiCKbcWAGG6v]';
 
 // Create a new Expo SDK client
 let expo = new Expo();
@@ -17,7 +17,7 @@ messages.push({
   to: PUSH_TOKEN,
   sound: 'default',
   title: 'LazarFlow ',
-  body: 'welcome to Lazarflow !',
+  body: 'denge ra puka!',
   data: { test: true },
   channelId: 'default',
   priority: 'high',
