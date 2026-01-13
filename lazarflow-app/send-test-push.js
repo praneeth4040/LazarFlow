@@ -17,7 +17,7 @@ messages.push({
   to: PUSH_TOKEN,
   sound: 'default',
   title: 'LazarFlow ',
-  body: 'denge ra puka!',
+  body: 'moda guduuuu!',
   data: { test: true },
   channelId: 'default',
   priority: 'high',

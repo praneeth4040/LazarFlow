@@ -16,6 +16,7 @@ import EditLobbyScreen from '../screens/EditLobbyScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import DesignDetailsScreen from '../screens/DesignDetailsScreen';
+import SubscriptionPlansScreen from '../screens/SubscriptionPlansScreen';
 import * as Linking from 'expo-linking';
 import { Theme } from '../styles/theme';
 import { supabase } from '../lib/supabaseClient';
@@ -137,6 +138,11 @@ export default function AppNavigator() {
                             name="DesignDetails"
                             component={DesignDetailsScreen}
                             options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="SubscriptionPlans"
+                            component={SubscriptionPlansScreen}
+                            options={{ headerShown: true, title: 'Subscription Plans', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
                         />
                     </>
                 )}

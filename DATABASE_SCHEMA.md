@@ -15,33 +15,28 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 ### 1. `public.lobbies`
 **Purpose**: The core entity representing an e-sports tournament/lobby. It holds configuration details, scoring rules, and visual customization settings.
 
-| Column | Type | Description |
-| :--- | :--- | :--- |
-| `id` | `uuid` | **Primary Key**. Unique identifier for the tournament. Default: `gen_random_uuid()`. |
-| `user_id` | `uuid` | **Foreign Key** to `auth.users`. The owner/creator of the tournament. On Delete: `CASCADE`. |
-| `name` | `varchar(255)` | Name of the tournament. |
-| `game` | `varchar(50)` | The game being played (e.g., "BGMI", "Valorant"). |
-| `points_system` | `jsonb` | Flexible JSON structure defining how points are calculated (placement points, etc.). |
-| `kill_points` | `integer` | Points awarded per kill. Default: `1`. |
-| `status` | `varchar(50)` | Current state of the tournament. Default: `'active'`. |
-| `created_at` | `timestamptz` | Creation timestamp. Default: `CURRENT_TIMESTAMP`. |
-| `updated_at` | `timestamptz` | Last update timestamp. Default: `CURRENT_TIMESTAMP`. |
-| `share_id` | `text` | **Unique**. A short ID or slug for sharing the tournament publicly. |
-| `is_public` | `boolean` | Visibility flag. Default: `false`. |
-| `selected_template_id` | `uuid` | ID of the selected layout template (if applicable). |
-| `theme` | `text` | Visual theme identifier. Default: `'darkBlue'`. |
-| `final_standings` | `jsonb` | Snapshot of final results. Default: `[]`. |
-| `theme_config` | `jsonb` | Custom visual settings (colors, fonts, etc.). Default: `{}`. |
-
-**Indices**:
-- `idx_tournaments_user_id` on `user_id`
-- `idx_tournaments_status` on `status`
-- `idx_tournaments_share_id` on `share_id`
-
-**Relationships**:
-- **One-to-Many** with `lobby_teams` (A lobby has many teams).
-
----
+|create table public.profiles (
+  id uuid not null,
+  username text null,
+  display_name text null,
+  avatar_url text null,
+  subscription_tier text not null default 'free'::text,
+  subscription_status text not null default 'active'::text,
+  subscription_expires_at timestamp with time zone null,
+  feature_flags jsonb not null default '{}'::jsonb,
+  theme_config jsonb not null default '{}'::jsonb,
+  is_admin boolean not null default false,
+  created_at timestamp with time zone not null default now(),
+  updated_at timestamp with time zone not null default now(),
+  lobbies_created_count integer null default 0,
+  emails character varying null,
+  expo_push_token text null,
+  phone bigint null,
+  constraint profiles_pkey primary key (id),
+  constraint profiles_phone_key unique (phone),
+  constraint profiles_username_key unique (username),
+  constraint profiles_id_fkey foreign KEY (id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;--
 
 ### 2. `public.lobby_teams`
 **Purpose**: Represents a team participating in a specific lobby/tournament. It stores roster information and current standings.
@@ -82,7 +77,7 @@ The schema is designed to manage e-sports tournaments and participating teams. I
 | `lobbies_created_count` | `integer` | Count of lobbies created. Default: `0`. |
 | `emails` | `varchar` | User email address. |
 | `expo_push_token` | `text` | Expo push notification token. |
-| `phone` | `bigint[]` | **Unique**. Array of phone numbers. |
+| `phone` | `bigint` | **Unique**. User's phone number. |
 | `created_at` | `timestamptz` | Creation timestamp. Default: `now()`. |
 | `updated_at` | `timestamptz` | Last update timestamp. Default: `now()`. |
 

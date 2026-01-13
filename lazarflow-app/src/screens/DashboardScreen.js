@@ -373,7 +373,7 @@ const DashboardScreen = ({ navigation }) => {
     };
 
 
-    const handleAddPhone = async () => {
+    const handleUpdatePhone = async () => {
         if (savingPhone) return;
         
         const numericPhone = newPhoneNumber.replace(/\D/g, '');
@@ -383,43 +383,27 @@ const DashboardScreen = ({ navigation }) => {
         }
 
         const phoneVal = parseInt(numericPhone, 10);
-        const currentPhones = Array.isArray(profile?.phone) ? profile.phone : [];
         
-        if (currentPhones.length >= 5) {
-            Alert.alert('Limit Reached', 'You can only add up to 5 phone numbers');
-            return;
-        }
-
-        if (currentPhones.includes(phoneVal)) {
-            Alert.alert('Duplicate', 'This phone number is already added');
-            return;
-        }
-
         try {
             setSavingPhone(true);
-            const updatedPhones = [...currentPhones, phoneVal];
+            await updateUserProfile({ phone: phoneVal });
             
-            await updateUserProfile({ phone: updatedPhones });
-            
-            setProfile(prev => ({ ...prev, phone: updatedPhones }));
+            setProfile(prev => ({ ...prev, phone: phoneVal }));
             setNewPhoneNumber('');
             setIsAddingPhone(false);
-            Alert.alert('Success', 'Phone number added successfully');
+            Alert.alert('Success', 'Phone number updated successfully');
         } catch (error) {
-            console.error('Error adding phone:', error);
-            Alert.alert('Error', 'Failed to add phone number. Ensure it is unique across all users.');
+            console.error('Error updating phone:', error);
+            Alert.alert('Error', 'Failed to update phone number. Ensure it is unique across all users.');
         } finally {
             setSavingPhone(false);
         }
     };
 
-    const handleRemovePhone = async (indexToRemove) => {
-        const currentPhones = Array.isArray(profile?.phone) ? profile.phone : [];
-        const phoneToRemove = currentPhones[indexToRemove];
-
+    const handleRemovePhone = async () => {
         Alert.alert(
             "Remove Phone Number",
-            `Are you sure you want to remove ${phoneToRemove}?`,
+            `Are you sure you want to remove your phone number?`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -427,9 +411,8 @@ const DashboardScreen = ({ navigation }) => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const updatedPhones = currentPhones.filter((_, index) => index !== indexToRemove);
-                            await updateUserProfile({ phone: updatedPhones });
-                            setProfile(prev => ({ ...prev, phone: updatedPhones }));
+                            await updateUserProfile({ phone: null });
+                            setProfile(prev => ({ ...prev, phone: null }));
                         } catch (err) {
                             Alert.alert("Error", "Failed to remove phone number");
                         }
@@ -477,7 +460,7 @@ const DashboardScreen = ({ navigation }) => {
         >
             {/* WhatsApp Bot Modal */}
             <Modal
-                visible={showWhatsappCard && (!profile?.phone || profile.phone.length === 0)}
+                visible={showWhatsappCard && !profile?.phone}
                 transparent={true}
                 animationType="fade"
                 onRequestClose={() => setShowWhatsappCard(false)}
@@ -831,7 +814,7 @@ const DashboardScreen = ({ navigation }) => {
                                     <Text style={styles.infoValue}>{user?.email}</Text>
                                 </View>
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>Connected Phone Numbers</Text>
+                                    <Text style={styles.infoLabel}>Phone Number</Text>
                                     <TouchableOpacity 
                                         style={styles.phoneDropdownBtn}
                                         onPress={() => setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
@@ -846,14 +829,14 @@ const DashboardScreen = ({ navigation }) => {
 
                                 {isPhoneDropdownOpen && (
                                     <View style={styles.phoneDropdownContent}>
-                                        {profile?.phone && profile.phone.map((phone, index) => (
-                                            <View key={index} style={styles.phoneItem}>
-                                                <Text style={styles.phoneItemText}>{phone}</Text>
-                                                <TouchableOpacity onPress={() => handleRemovePhone(index)}>
+                                        {profile?.phone ? (
+                                            <View style={styles.phoneItem}>
+                                                <Text style={styles.phoneItemText}>{profile.phone}</Text>
+                                                <TouchableOpacity onPress={handleRemovePhone}>
                                                     <Trash2 size={16} color={Theme.colors.danger} />
                                                 </TouchableOpacity>
                                             </View>
-                                        ))}
+                                        ) : null}
 
                                         {isAddingPhone ? (
                                             <View style={styles.addPhoneForm}>
@@ -867,7 +850,7 @@ const DashboardScreen = ({ navigation }) => {
                                                     autoFocus
                                                 />
                                                 <View style={styles.phoneActions}>
-                                                    <TouchableOpacity onPress={handleAddPhone} disabled={savingPhone}>
+                                                    <TouchableOpacity onPress={handleUpdatePhone} disabled={savingPhone}>
                                                         {savingPhone ? (
                                                             <ActivityIndicator size="small" color={Theme.colors.accent} />
                                                         ) : (
@@ -883,7 +866,7 @@ const DashboardScreen = ({ navigation }) => {
                                                 </View>
                                             </View>
                                         ) : (
-                                            (profile?.phone?.length || 0) < 5 && (
+                                            !profile?.phone && (
                                                 <TouchableOpacity 
                                                     style={styles.addPhoneBtn}
                                                     onPress={() => setIsAddingPhone(true)}
@@ -979,6 +962,17 @@ const DashboardScreen = ({ navigation }) => {
                                         ]} />
                                     </View>
                                 </View>
+
+                                <TouchableOpacity 
+                                    style={[styles.subscriptionBtn, { backgroundColor: Theme.colors.accent + '20', borderColor: Theme.colors.accent }]}
+                                    onPress={() => navigation.navigate('SubscriptionPlans')}
+                                >
+                                    <Sparkles size={18} color={Theme.colors.accent} style={{ marginRight: 8 }} />
+                                    <Text style={[styles.subscriptionBtnText, { color: Theme.colors.accent }]}>
+                                        {tier === 'free' ? 'Get Subscription' : 'View Subscription Plan'}
+                                    </Text>
+                                    <ArrowRight size={16} color={Theme.colors.accent} style={{ marginLeft: 'auto' }} />
+                                </TouchableOpacity>
                             </View>
                         )}
                     </View>
@@ -1455,9 +1449,22 @@ const styles = StyleSheet.create({
         borderBottomColor: Theme.colors.border,
     },
     phoneItemText: {
-        fontSize: 14,
-        color: Theme.colors.textPrimary,
+        fontSize: 16,
+        color: Theme.colors.text,
         fontWeight: '500',
+    },
+    subscriptionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    subscriptionBtnText: {
+        fontSize: 15,
+        fontWeight: '600',
     },
     addPhoneForm: {
         flexDirection: 'row',
