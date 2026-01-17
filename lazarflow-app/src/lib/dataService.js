@@ -166,18 +166,23 @@ export const getCommunityDesigns = async (forceRefresh = false) => {
     }
 
     try {
-        console.log('🎨 Fetching community designs...');
-        const response = await apiClient.get('/designs');
-        let designs = [];
+        console.log('🎨 Fetching system themes (user_id IS NULL)...');
         
-        if (response.data && Array.isArray(response.data)) {
-            designs = response.data;
-        } else if (response.data && response.data.designs) {
-             designs = response.data.designs;
+        const { data: themes, error } = await supabase
+            .from('themes')
+            .select('id, name, url, mapping_config, user_id, status, created_at')
+            .is('user_id', null)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('❌ Error fetching community designs from Supabase:', error);
+            return [];
         }
         
+        const designs = themes || [];
+        
         if (designs.length > 0) {
-            console.log(`✅ Found ${designs.length} community designs`);
+            console.log(`✅ Found ${designs.length} system themes`);
             try {
                 await AsyncStorage.setItem(
                     CACHE_KEYS.COMMUNITY_DESIGNS, 
@@ -190,7 +195,7 @@ export const getCommunityDesigns = async (forceRefresh = false) => {
         
         return designs;
     } catch (error) {
-        console.error('❌ Error fetching community designs:', error);
+        console.error('❌ Error in getCommunityDesigns:', error);
         return [];
     }
 };
@@ -288,6 +293,44 @@ export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
         } else {
             console.error('❌ Error rendering design:', error);
         }
+        throw error;
+    }
+};
+
+/**
+ * Render a lobby standings results image using a specific theme (New Design System)
+ * @param {string} lobbyId - The ID of the lobby
+ * @param {string} themeId - The ID of the theme to use
+ * @returns {Promise<Object>} The rendered image data
+ */
+export const renderResults = async (lobbyId, themeId) => {
+    try {
+        console.log(`🚀 Requesting render-results for lobby ${lobbyId} with theme ${themeId}...`);
+        
+        const response = await apiClient.post(`/render-results`, {
+            lobbyId: lobbyId,
+            themesId: themeId
+        }, {
+            responseType: 'arraybuffer',
+            headers: {
+                'Accept': 'image/png, application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.data) {
+            const contentType = response.headers['content-type'] || '';
+            if (contentType.includes('application/json')) {
+                const decoder = new TextDecoder('utf-8');
+                const jsonString = decoder.decode(response.data);
+                return JSON.parse(jsonString);
+            } else {
+                return response.data;
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('❌ Error in renderResults:', error);
         throw error;
     }
 };

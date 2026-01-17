@@ -14,7 +14,8 @@ import {
     Image,
     StatusBar,
     Platform,
-    Alert
+    Alert,
+    Linking
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,13 +24,89 @@ import { supabase } from '../lib/supabaseClient';
 import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Check, X, RefreshCw, Edit, Image as ImageIcon, Camera, Instagram, Youtube } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ViewShot, { captureRef } from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
 import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
-import { getUserThemes, getCommunityDesigns, renderLobbyDesign, getDesignImageSource, uploadLogo } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, renderLobbyDesign, renderResults, getDesignImageSource, uploadLogo } from '../lib/dataService';
 
-const LiveLobbyScreen = ({ route }) => {
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const ResultsBottomSheet = ({ visible, onClose, imageUri }) => {
+    const [downloading, setDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        Alert.alert('Demo', 'Save to Gallery will be implemented soon!');
+    };
+
+    const handleShare = async () => {
+        Alert.alert('Demo', 'Share Result will be implemented soon!');
+    };
+
+    return (
+        <Modal
+            visible={visible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={onClose}
+        >
+            <View style={styles.sheetOverlay}>
+                <TouchableOpacity 
+                    style={styles.sheetDismiss} 
+                    activeOpacity={1} 
+                    onPress={onClose} 
+                />
+                <View style={styles.sheetContent}>
+                    <View style={styles.sheetHeader}>
+                        <View style={styles.sheetHandle} />
+                        <Text style={styles.sheetTitle}>Result Generated</Text>
+                        <TouchableOpacity onPress={onClose} style={styles.sheetCloseBtn}>
+                            <X size={20} color="#666" />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
+                        <View style={styles.resultPreviewContainer}>
+                            <Image 
+                                source={{ uri: imageUri }} 
+                                style={styles.resultPreviewImage} 
+                                resizeMode="contain" 
+                            />
+                        </View>
+
+                        <View style={styles.sheetActionRow}>
+                            <TouchableOpacity 
+                                style={[styles.sheetActionBtn, styles.downloadActionBtn]} 
+                                onPress={handleDownload}
+                                disabled={downloading}
+                            >
+                                {downloading ? (
+                                    <ActivityIndicator color="#1A73E8" />
+                                ) : (
+                                    <>
+                                        <Download size={20} color="#1A73E8" />
+                                        <Text style={styles.downloadActionText}>Save to Gallery</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={[styles.sheetActionBtn, styles.shareActionBtn]} 
+                                onPress={handleShare}
+                            >
+                                <Share2 size={20} color="#FFFFFF" />
+                                <Text style={styles.shareActionText}>Share Result</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
+const LiveLobbyScreen = ({ route, navigation }) => {
     const { id } = route?.params || {};
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -39,6 +116,13 @@ const LiveLobbyScreen = ({ route }) => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [saving, setSaving] = useState(false);
     
+    // Carousel State
+    const [activeThemeIndex, setActiveThemeIndex] = useState(0);
+    const carouselRef = useRef(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedResult, setGeneratedResult] = useState(null);
+    const [showResultSheet, setShowResultSheet] = useState(false);
+
     // Design Edit State
     const [designData, setDesignData] = useState({
         brandLogo: null,
@@ -51,11 +135,7 @@ const LiveLobbyScreen = ({ route }) => {
     });
 
     const [error, setError] = useState(null);
-    const [designMode, setDesignMode] = useState(false);
-    const [viewMode, setViewMode] = useState('design');
-    const [renderedImages, setRenderedImages] = useState({}); // Map of themeId -> base64Image
-    const [renderingDesigns, setRenderingDesigns] = useState({}); // Map of themeId -> boolean
-    const viewShotRef = React.useRef();
+    const [viewMode, setViewMode] = useState('carousel'); // 'carousel' or 'result'
 
     // Sync designData with lobby data when it loads
     React.useEffect(() => {
@@ -72,22 +152,12 @@ const LiveLobbyScreen = ({ route }) => {
             const initializeScreen = async () => {
                 if (id) {
                     setLoading(true);
-                    
-                    // Parallelize data and theme loading
-                    const [sortedTeams, availableThemes] = await Promise.all([
+                    await Promise.all([
                         fetchLobbyData(),
                         loadThemes()
                     ]);
-                    
-                    // After loading themes and data, trigger render for first 4 themes
-                    if (availableThemes && availableThemes.length > 0) {
-                        const themesToRender = availableThemes.slice(0, 4);
-                        handleRenderMultiple(themesToRender);
-                    } else {
-                        setLoading(false);
-                    }
+                    setLoading(false);
                 } else {
-                    console.error('No lobby ID provided to LiveLobbyScreen');
                     setError('No lobby ID provided');
                     setLoading(false);
                 }
@@ -99,7 +169,6 @@ const LiveLobbyScreen = ({ route }) => {
 
     const loadThemes = async () => {
         try {
-            console.log('Loading themes...');
             const [userThemes, communityDesigns] = await Promise.all([
                 getUserThemes(),
                 getCommunityDesigns()
@@ -108,7 +177,6 @@ const LiveLobbyScreen = ({ route }) => {
             const allAvailable = [...(userThemes || []), ...(communityDesigns || [])];
             const uniqueThemes = allAvailable.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
             setThemes(uniqueThemes);
-            
             return uniqueThemes;
         } catch (error) {
             console.error('Error loading themes:', error);
@@ -116,171 +184,49 @@ const LiveLobbyScreen = ({ route }) => {
         }
     };
 
-    const handlePickLogo = async (field) => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaType.IMAGE,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-            });
-
-            if (!result.canceled) {
-                const uri = result.assets[0].uri;
-                
-                // Show local preview immediately
-                setDesignData(prev => ({
-                    ...prev,
-                    [field]: uri
-                }));
-
-                // Upload to Supabase bucket "logos"
-                const fileName = `${field}_${Date.now()}.png`;
-                const publicUrl = await uploadLogo(uri, fileName);
-                
-                if (publicUrl) {
-                    setDesignData(prev => ({
-                        ...prev,
-                        [field]: publicUrl // Store the URL for rendering
-                    }));
-                } else {
-                    Alert.alert('Upload Failed', 'Failed to upload logo. Please try again.');
-                }
-            }
-        } catch (error) {
-            console.error('Error picking logo:', error);
-            Alert.alert('Error', 'Failed to pick image');
-        }
-    };
-
-    const handleSaveDesign = async () => {
-        try {
-            setSaving(true);
-            // In the future, we will save this designData to the backend (lobbies table or separate design_configs table)
-            // For now, we just close the modal and re-render everything with the new data
-            setShowEditModal(false);
-            
-            // Re-render the visible designs with new data
-            if (themes.length > 0) {
-                const themesToRender = themes.slice(0, 4);
-                handleRenderMultiple(themesToRender);
-            }
-            
-            Alert.alert('Success', 'Design details updated for rendering!');
-        } catch (error) {
-            console.error('Error saving design:', error);
-            Alert.alert('Error', 'Failed to save design details');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-
-    const handleShare = async (imageUrl = null) => {
-        const urlToShare = imageUrl || Object.values(renderedImages)[0];
-        if (!urlToShare) {
-            Alert.alert('No Image', 'Please wait for a design to finish rendering before sharing.');
+    const handleGenerateTable = async () => {
+        const activeTheme = themes[activeThemeIndex];
+        if (!activeTheme) {
+            Alert.alert('Error', 'Please select a theme first');
             return;
         }
 
         try {
-            setSharing(true);
+            setIsGenerating(true);
+            const result = await renderResults(id, activeTheme.id);
             
-            let shareUri = urlToShare;
-            
-            // If it's a base64 data URL, save to file first for expo-sharing
-            if (urlToShare.startsWith('data:image')) {
-                const base64Data = urlToShare.split('base64,')[1];
-                const fileName = `lobby_standings_${Date.now()}.png`;
-                shareUri = FileSystem.cacheDirectory + fileName;
-                await FileSystem.writeAsStringAsync(shareUri, base64Data, {
-                    encoding: FileSystem.EncodingType.Base64,
-                });
-            }
-
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(shareUri);
-            } else {
-                Alert.alert('Error', 'Sharing is not available on this device');
+            if (result) {
+                if (result instanceof ArrayBuffer || (result && result.constructor && result.constructor.name === 'ArrayBuffer')) {
+                    const base64 = Buffer.from(result).toString('base64');
+                    setGeneratedResult(`data:image/png;base64,${base64}`);
+                } else if (typeof result === 'string') {
+                    setGeneratedResult(result);
+                } else if (result.url) {
+                    setGeneratedResult(result.url);
+                }
+                setShowResultSheet(true);
             }
         } catch (error) {
-            console.error('Error sharing:', error);
-            Alert.alert('Error', 'Failed to share image');
+            console.error('Error generating table:', error);
+            Alert.alert('Error', 'Failed to generate results table. Please try again.');
         } finally {
-            setSharing(false);
-        }
-    };
-
-    const handleExportCSV = async () => {
-        try {
-            let csvContent = 'Rank,Team,Wins,Placement Points,Kill Points,Total Points\n';
-            teams.forEach((team, index) => {
-                csvContent += `${index + 1},"${team.team_name}",${team.wins || 0},${team.placement_points || 0},${team.kill_points || 0},${team.total || 0}\n`;
-            });
-
-            const fileName = `${lobby?.name || 'Lobby'}_Standings.csv`;
-            const fileUri = FileSystem.cacheDirectory + fileName;
-
-            await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-                encoding: 'utf8',
-            });
-
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(fileUri);
-            } else {
-                Alert.alert('Error', 'Sharing is not available on this device');
-            }
-        } catch (error) {
-            console.error('Error exporting CSV:', error);
-            Alert.alert('Error', 'Failed to export CSV');
+            setIsGenerating(false);
         }
     };
 
     const fetchLobbyData = async () => {
         try {
             setLoading(true);
-            setError(null);
-            console.log('Fetching data for lobby ID:', id);
-
-            if (!id) {
-                console.error('No lobby ID provided');
-                setLoading(false);
-                return;
-            }
-
-            // Parallelize lobby and teams fetch
             const [lobbyResult, teamsResult] = await Promise.all([
-                supabase
-                    .from('lobbies')
-                    .select('id, name, game, status, created_at, points_system, kill_points')
-                    .eq('id', id)
-                    .single(),
-                supabase
-                    .from('lobby_teams')
-                    .select('id, team_name, members, total_points, lobby_id')
-                    .eq('lobby_id', id)
+                supabase.from('lobbies').select('*').eq('id', id).single(),
+                supabase.from('lobby_teams').select('*').eq('lobby_id', id)
             ]);
 
-            if (lobbyResult.error) {
-                console.error('Lobby fetch error:', lobbyResult.error);
-                throw lobbyResult.error;
-            }
-            
-            if (teamsResult.error) {
-                console.error('Teams fetch error:', teamsResult.error);
-                throw teamsResult.error;
-            }
-
-            console.log('Lobby data:', lobbyResult.data);
+            if (lobbyResult.error) throw lobbyResult.error;
             setLobby(lobbyResult.data);
-            console.log('Teams count:', teamsResult.data?.length || 0);
 
-            // Calculate totals and sort
             const sortedTeams = (teamsResult.data || []).map(team => {
-                const points = typeof team.total_points === 'object'
-                    ? team.total_points
-                    : { kill_points: 0, placement_points: 0 };
-
+                const points = typeof team.total_points === 'object' ? team.total_points : { kill_points: 0, placement_points: 0 };
                 return {
                     ...team,
                     total: (points.kill_points || 0) + (points.placement_points || 0),
@@ -293,62 +239,8 @@ const LiveLobbyScreen = ({ route }) => {
             setTeams(sortedTeams);
             return sortedTeams;
         } catch (error) {
-            console.error('Error fetching lobby data:', error);
-            setError(error.message || 'Failed to load lobby data');
+            setError(error.message);
             Alert.alert('Error', 'Failed to load lobby data');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleRenderTheme = async (themeId) => {
-        try {
-            setRenderingDesigns(prev => ({ ...prev, [themeId]: true }));
-            
-            // Map designData to the payload format expected by the API
-            const payload = {
-                lobby_name: designData.lobbyName,
-                scrims_text: designData.scrimsText,
-                organiser_name: designData.organiserName,
-                instagram: designData.instagram,
-                youtube: designData.youtube,
-                brand_logo: designData.brandLogo,
-                lobby_logo: designData.lobbyLogo
-            };
-
-            const result = await renderLobbyDesign(id, themeId, payload);
-            
-            if (result) {
-                // If the result is an ArrayBuffer (binary image data), convert to base64
-                if (result instanceof ArrayBuffer || (result && result.constructor && result.constructor.name === 'ArrayBuffer')) {
-                    const base64 = Buffer.from(result).toString('base64');
-                    const imageUri = `data:image/png;base64,${base64}`;
-                    setRenderedImages(prev => ({ ...prev, [themeId]: imageUri }));
-                } else if (typeof result === 'string') {
-                    // If it's already a base64 string or URL
-                    setRenderedImages(prev => ({ ...prev, [themeId]: result }));
-                } else if (result.url) {
-                    setRenderedImages(prev => ({ ...prev, [themeId]: result.url }));
-                }
-            }
-        } catch (error) {
-            console.error(`Error rendering theme ${themeId}:`, error);
-        } finally {
-            setRenderingDesigns(prev => ({ ...prev, [themeId]: false }));
-        }
-    };
-
-    const handleRenderMultiple = async (themesToRender) => {
-        if (!id || !themesToRender || themesToRender.length === 0) {
-            setLoading(false);
-            return;
-        }
-        
-        try {
-            // Trigger all renders in parallel
-            await Promise.all(themesToRender.map(theme => handleRenderTheme(theme.id)));
-        } catch (error) {
-            console.error('❌ Error in handleRenderMultiple:', error);
         } finally {
             setLoading(false);
         }
@@ -358,128 +250,105 @@ const LiveLobbyScreen = ({ route }) => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Theme.colors.accent} />
-                <Text style={{ color: '#fff', marginTop: 10 }}>Loading lobby data...</Text>
+                <Text style={{ color: '#fff', marginTop: 10 }}>Loading...</Text>
             </View>
         );
     }
 
-    if (error) {
+    const renderThemeItem = ({ item, index }) => {
+        const isActive = index === activeThemeIndex;
         return (
-            <View style={styles.loadingContainer}>
-                <Text style={{ color: '#ff4444', marginBottom: 20 }}>{error}</Text>
-                <TouchableOpacity onPress={fetchLobbyData} style={styles.tab}>
-                    <Text style={{ color: '#fff' }}>Retry</Text>
-                </TouchableOpacity>
-            </View>
-        );
-    }
-
-    const config = lobby?.layout_config || {};
-    const themeStyles = {
-        container: { backgroundColor: '#f8fafc' }, // Light gray background for the app container
-        header: { backgroundColor: '#fff' },
-        headerText: { color: '#1e293b' },
-        accentText: { color: Theme.colors.accent },
-    };
-
-
-
-    return (
-        <SafeAreaView style={[styles.container, { backgroundColor: '#fff' }]}>
-            <StatusBar barStyle="dark-content" />
-            
-            {/* Minimal Header */}
-            <View style={styles.lobbyInfo}>
-                <View style={styles.headerTop}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.lobbyNameText}>{lobby?.name || 'Live Standings'}</Text>
-                        {lobby?.game && <Text style={styles.lobbyGameText}>{lobby.game}</Text>}
-                    </View>
-                    <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                            onPress={() => setShowEditModal(true)}
-                            style={styles.iconButton}
-                        >
-                            <Edit size={20} color={Theme.colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            onPress={() => handleShare()} 
-                            disabled={sharing || Object.values(renderingDesigns).some(v => v)} 
-                            style={styles.iconButton}
-                        >
-                            {sharing ? (
-                                <ActivityIndicator size="small" color={Theme.colors.accent} />
-                            ) : (
-                                <Share2 size={20} color={Theme.colors.textSecondary} />
-                            )}
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            onPress={() => {
-                                const themesToRender = themes.slice(0, 4);
-                                handleRenderMultiple(themesToRender);
-                            }} 
-                            disabled={Object.values(renderingDesigns).some(v => v)} 
-                            style={styles.iconButton}
-                        >
-                            {Object.values(renderingDesigns).some(v => v) ? (
-                                <ActivityIndicator size="small" color={Theme.colors.accent} />
-                            ) : (
-                                <RefreshCw size={20} color={Theme.colors.textSecondary} />
-                            )}
-                        </TouchableOpacity>
+            <View style={[styles.carouselItem, isActive && styles.activeCarouselItem]}>
+                <View style={styles.themeCard}>
+                    <DesignRenderer
+                        theme={item}
+                        data={teams.slice(0, 20)}
+                        lobby={lobby}
+                        width={SCREEN_WIDTH * 0.85}
+                    />
+                    <View style={styles.themeOverlay}>
+                        <View style={styles.themeBadge}>
+                            <Palette size={12} color={Theme.colors.accent} />
+                            <Text style={styles.themeBadgeText}>PREMIUM THEME</Text>
+                        </View>
+                        <Text style={styles.themeNameLabel}>{item.name || `Design #${index + 1}`}</Text>
                     </View>
                 </View>
             </View>
+        );
+    };
 
-            <ScrollView style={styles.designViewContainer} showsVerticalScrollIndicator={false}>
-                {themes.slice(0, 4).map((theme, index) => {
-                    const isRendering = renderingDesigns[theme.id];
-                    const renderedUrl = renderedImages[theme.id];
+    return (
+        <SafeAreaView style={styles.newDesignContainer}>
+            <StatusBar barStyle="dark-content" />
+            
+            <View style={styles.newHeader}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <X size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={styles.newHeaderTitle}>
+                    Select Theme
+                </Text>
+                <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.editBtn}>
+                    <Edit size={20} color="#333" />
+                </TouchableOpacity>
+            </View>
 
-                    return (
-                        <View key={theme.id} style={styles.designCardContainer}>
-                            <View style={styles.designHeader}>
-                                <Text style={styles.designTitle}>Design {index + 1}: {theme.name}</Text>
-                                {isRendering && <ActivityIndicator size="small" color={Theme.colors.accent} />}
-                            </View>
-                            
-                            <View style={styles.imageWrapper}>
-                                {isRendering && !renderedUrl ? (
-                                    <View style={styles.placeholderContainer}>
-                                        <ActivityIndicator size="large" color={Theme.colors.accent} />
-                                        <Text style={styles.placeholderText}>Rendering...</Text>
-                                    </View>
-                                ) : renderedUrl ? (
-                                    <Image 
-                                        source={{ uri: renderedUrl }} 
-                                        style={styles.renderedImage}
-                                        resizeMode="contain"
-                                    />
-                                ) : (
-                                    <View style={styles.placeholderContainer}>
-                                        <DesignRenderer
-                                        theme={theme}
-                                        data={teams}
-                                        lobby={lobby}
-                                        designData={designData}
-                                        width={Dimensions.get('window').width - 40}
-                                    />
-                                    </View>
-                                )}
-                            </View>
+            <View style={styles.carouselContent}>
+                <FlatList
+                    ref={carouselRef}
+                    data={themes}
+                    renderItem={renderThemeItem}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={(e) => {
+                        const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                        setActiveThemeIndex(index);
+                    }}
+                    keyExtractor={(item) => item.id}
+                    snapToInterval={SCREEN_WIDTH}
+                    decelerationRate="fast"
+                    contentContainerStyle={styles.carouselList}
+                />
+                
+                {/* Paging Dots */}
+                <View style={styles.pagination}>
+                    {themes.map((_, i) => (
+                        <View 
+                            key={i} 
+                            style={[
+                                styles.dot, 
+                                activeThemeIndex === i && styles.activeDot
+                            ]} 
+                        />
+                    ))}
+                </View>
+                
+                <View style={styles.bottomActionContainer}>
+                    <TouchableOpacity 
+                        style={styles.generateButton}
+                        onPress={handleGenerateTable}
+                        disabled={isGenerating}
+                    >
+                        {isGenerating ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <>
+                                <Layout size={20} color="#fff" />
+                                <Text style={styles.generateButtonText}>Generate Table</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+                </View>
+            </View>
 
-                            <TouchableOpacity 
-                                style={styles.shareDesignButton}
-                                onPress={() => handleShare(renderedUrl)}
-                                disabled={!renderedUrl}
-                            >
-                                <Share2 size={18} color="#fff" />
-                                <Text style={styles.shareDesignText}>Share Design {index + 1}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    );
-                })}
-            </ScrollView>
+            {/* Results Bottom Sheet */}
+            <ResultsBottomSheet 
+                visible={showResultSheet}
+                onClose={() => setShowResultSheet(false)}
+                imageUri={generatedResult}
+            />
 
             {/* Edit Design Modal */}
             <Modal
@@ -495,7 +364,7 @@ const LiveLobbyScreen = ({ route }) => {
                             <X size={24} color="#fff" />
                         </TouchableOpacity>
                         <Text style={styles.editModalTitle}>Edit Design Details</Text>
-                        <TouchableOpacity onPress={handleSaveDesign} style={styles.doneButton} disabled={saving}>
+                        <TouchableOpacity onPress={() => setShowEditModal(false)} style={styles.doneButton} disabled={saving}>
                             {saving ? (
                                 <ActivityIndicator size="small" color={Theme.colors.accent} />
                             ) : (
@@ -805,7 +674,7 @@ const styles = StyleSheet.create({
     // Design Selector Styles
     designSelectorContainer: {
         flex: 1,
-        backgroundColor: '#0f172a', // Dark background as in image
+        backgroundColor: Theme.colors.secondary,
     },
     designSelectorHeader: {
         flexDirection: 'row',
@@ -817,7 +686,7 @@ const styles = StyleSheet.create({
     designSelectorTitle: {
         fontSize: 22,
         fontWeight: 'bold', 
-        color: '#fff',
+        color: Theme.colors.textPrimary,
     },
     closeButton: {
         padding: 8,
@@ -833,24 +702,28 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: Theme.colors.primary,
         borderRadius: 12,
         paddingHorizontal: 15,
         height: 45,
         gap: 10,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
     },
     searchInput: {
         flex: 1,
-        color: '#fff',
+        color: Theme.colors.textPrimary,
         fontSize: 16,
     },
     infoButton: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: Theme.colors.primary,
         alignItems: 'center', 
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
     },
     infoIcon: {
         width: 20,
@@ -1201,6 +1074,270 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: Theme.colors.textSecondary,
         marginTop: 2,
+    },
+    // New Design System Styles
+    newDesignContainer: {
+        flex: 1,
+        backgroundColor: '#FFFFFF', 
+    },
+    newHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        backgroundColor: '#FFFFFF',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    newHeaderTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1A1A1A',
+        textAlign: 'center',
+        flex: 1,
+    },
+    backButton: {
+        padding: 8,
+        backgroundColor: '#F8F9FA',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    editBtn: {
+        padding: 8,
+        backgroundColor: '#F8F9FA',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+    },
+    carouselContent: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+    },
+    carouselList: {
+        paddingVertical: 30,
+    },
+    carouselItem: {
+        width: SCREEN_WIDTH,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    activeCarouselItem: {
+        // Reserved
+    },
+    themeCard: {
+        width: SCREEN_WIDTH * 0.85,
+        borderRadius: 24,
+        overflow: 'hidden',
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#EEEEEE',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    themeOverlay: {
+        paddingVertical: 15,
+        paddingHorizontal: 20,
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: '#F5F5F5',
+    },
+    themeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(26, 115, 232, 0.08)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        marginBottom: 6,
+        gap: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(26, 115, 232, 0.1)',
+    },
+    themeBadgeText: {
+        color: Theme.colors.accent,
+        fontSize: 11,
+        fontWeight: '800',
+        letterSpacing: 0.8,
+        textTransform: 'uppercase',
+    },
+    themeNameLabel: {
+        color: '#333333',
+        fontSize: 15,
+        fontWeight: '600',
+        letterSpacing: 0.3,
+    },
+    pagination: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginVertical: 15,
+        gap: 8,
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#E0E0E0',
+    },
+    activeDot: {
+        width: 24,
+        backgroundColor: Theme.colors.accent,
+    },
+    bottomActionContainer: {
+        padding: 20,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 25,
+        backgroundColor: '#FFFFFF',
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    generateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Theme.colors.accent,
+        borderRadius: 18,
+        paddingVertical: 18,
+        gap: 12,
+        shadowColor: Theme.colors.accent,
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 6,
+    },
+    generateButtonText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+        letterSpacing: 0.5,
+    },
+    resultContent: {
+        flex: 1,
+        backgroundColor: '#F8F9FA',
+    },
+    fullResultImage: {
+        flex: 1,
+        width: '100%',
+    },
+    resultActions: {
+        position: 'absolute',
+        bottom: 40,
+        left: 20,
+        right: 20,
+        flexDirection: 'row',
+        justifyContent: 'center',
+    },
+    shareFab: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.accent,
+        paddingHorizontal: 25,
+        paddingVertical: 15,
+        borderRadius: 30,
+        gap: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    shareFabText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    // Bottom Sheet Styles
+    sheetOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    sheetDismiss: {
+        flex: 1,
+    },
+    sheetContent: {
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 25,
+        maxHeight: SCREEN_HEIGHT * 0.85,
+    },
+    sheetHeader: {
+        alignItems: 'center',
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    sheetHandle: {
+        width: 40,
+        height: 5,
+        borderRadius: 3,
+        backgroundColor: '#E0E0E0',
+        marginBottom: 10,
+    },
+    sheetTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1A1A1A',
+    },
+    sheetCloseBtn: {
+        position: 'absolute',
+        right: 20,
+        top: 20,
+        padding: 5,
+    },
+    sheetScroll: {
+        padding: 20,
+    },
+    resultPreviewContainer: {
+        width: '100%',
+        aspectRatio: 0.75,
+        backgroundColor: '#F8F9FA',
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#EEEEEE',
+        marginBottom: 25,
+    },
+    resultPreviewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    sheetActionRow: {
+        flexDirection: 'row',
+        gap: 15,
+    },
+    sheetActionBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 16,
+        borderRadius: 15,
+        gap: 10,
+    },
+    downloadActionBtn: {
+        backgroundColor: '#F0F7FF',
+        borderWidth: 1,
+        borderColor: '#1A73E8',
+    },
+    downloadActionText: {
+        color: '#1A73E8',
+        fontSize: 15,
+        fontWeight: 'bold',
+    },
+    shareActionBtn: {
+        backgroundColor: '#1A73E8',
+    },
+    shareActionText: {
+        color: '#FFFFFF',
+        fontSize: 15,
+        fontWeight: 'bold',
     },
 });
 

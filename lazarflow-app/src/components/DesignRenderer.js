@@ -242,10 +242,10 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
                 {/* Add a semi-transparent overlay if image is missing/dark to ensure text is visible during debug */}
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.1)' }]} pointerEvents="none" />
 
+                {/* Remove distracting error message in preview mode */}
                 {configItems.length === 0 && rowItems.length === 0 && overlays.length === 0 && (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: '#fff' }}>No layout configuration found for this design.</Text>
-                        <Text style={{ color: '#aaa', fontSize: 12 }}>Theme ID: {theme.id}</Text>
+                        {/* Empty view instead of error text */}
                     </View>
                 )}
 
