@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:prod": "eas build --platform android --profile production"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -38,6 +39,7 @@
   },
   "private": true,
   "devDependencies": {
-    "@babel/core": "^7.28.5"
+    "@babel/core": "^7.28.5",
+    "eas-cli": "^16.28.0"
   }
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, Circle } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
@@ -9,6 +9,8 @@ const SignUpScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [agreeTerms, setAgreeTerms] = useState(false);
+    const [subscribeEmail, setSubscribeEmail] = useState(true);
 
     const handleSignUp = async () => {
         if (!email || !password) {
@@ -16,16 +18,35 @@ const SignUpScreen = ({ navigation }) => {
             return;
         }
 
+        if (!agreeTerms) {
+            Alert.alert('Terms & Conditions', 'Please agree to the Terms and Privacy Policy to continue.');
+            return;
+        }
+
         setLoading(true);
 
         try {
+            // Check if email already exists in profiles table
+            const { data: existingUser, error: checkError } = await supabase
+                .from('profiles')
+                .select('emails')
+                .eq('emails', email.toLowerCase())
+                .single();
+
+            if (existingUser) {
+                setLoading(false);
+                Alert.alert('Sign Up Failed', 'An account with this email already exists. Please sign in instead.');
+                return;
+            }
+
             const { data, error } = await supabase.auth.signUp({
-                email,
+                email: email.toLowerCase(),
                 password,
                 options: {
                     data: {
-                        username: email.split('@')[0] + '_' + Math.floor(Math.random() * 1000),
-                        display_name: email.split('@')[0]
+                        username: email.toLowerCase().split('@')[0] + '_' + Math.floor(Math.random() * 1000),
+                        display_name: email.toLowerCase().split('@')[0],
+                        marketing_opt_in: subscribeEmail
                     }
                 }
             });
@@ -37,7 +58,14 @@ const SignUpScreen = ({ navigation }) => {
             ]);
 
         } catch (error) {
-            Alert.alert('Sign Up Failed', error.message || 'An error occurred');
+            let errorMessage = error.message || 'An error occurred';
+            
+            // Handle specific Supabase Auth errors
+            if (errorMessage.includes('User already registered') || errorMessage.includes('Email already in use')) {
+                errorMessage = 'An account with this email already exists. Please sign in instead.';
+            }
+            
+            Alert.alert('Sign Up Failed', errorMessage);
         } finally {
             setLoading(false);
         }
@@ -54,6 +82,7 @@ const SignUpScreen = ({ navigation }) => {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.header}>
+                    <Text style={styles.topBadge}>SIGN UP</Text>
                     <Image
                         source={require('../../assets/logo.png')}
                         style={styles.logo}
@@ -99,10 +128,44 @@ const SignUpScreen = ({ navigation }) => {
                         <Text style={styles.hint}>Must be at least 6 characters</Text>
                     </View>
 
+                    <View style={styles.checkboxContainer}>
+                        <TouchableOpacity 
+                            style={styles.checkboxWrapper} 
+                            onPress={() => setAgreeTerms(!agreeTerms)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.checkbox}>
+                                {agreeTerms ? (
+                                    <CheckCircle size={20} color={Theme.colors.accent} fill={Theme.colors.accent + '20'} />
+                                ) : (
+                                    <Circle size={20} color={Theme.colors.border} />
+                                )}
+                            </View>
+                            <Text style={styles.checkboxLabel}>
+                                I agree to the <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/terms')}>Terms</Text> and <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/privacy')}>Privacy Policy</Text>
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={styles.checkboxWrapper} 
+                            onPress={() => setSubscribeEmail(!subscribeEmail)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.checkbox}>
+                                {subscribeEmail ? (
+                                    <CheckCircle size={20} color={Theme.colors.accent} fill={Theme.colors.accent + '20'} />
+                                ) : (
+                                    <Circle size={20} color={Theme.colors.border} />
+                                )}
+                            </View>
+                            <Text style={styles.checkboxLabel}>Subscribe to receive updates and news</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     <TouchableOpacity
-                        style={[styles.button, (loading || email === '' || password === '') && styles.buttonDisabled]}
+                        style={[styles.button, (loading || email === '' || password === '' || !agreeTerms) && styles.buttonDisabled]}
                         onPress={handleSignUp}
-                        disabled={loading || email === '' || password === ''}
+                        disabled={loading || email === '' || password === '' || !agreeTerms}
                     >
                         {loading ? (
                             <ActivityIndicator color="#fff" />
@@ -140,8 +203,20 @@ const styles = StyleSheet.create({
         backgroundColor: Theme.colors.secondary,
     },
     header: {
-        marginBottom: 40,
+        marginBottom: 30,
         alignItems: 'center',
+    },
+    topBadge: {
+        backgroundColor: Theme.colors.accent + '20',
+        color: Theme.colors.accent,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+        fontSize: 12,
+        fontWeight: '800',
+        letterSpacing: 1,
+        marginBottom: 16,
+        overflow: 'hidden',
     },
     logo: {
         width: 80,
@@ -242,6 +317,29 @@ const styles = StyleSheet.create({
         color: Theme.colors.accent,
         fontSize: 15,
         fontWeight: 'bold',
+    },
+    checkboxContainer: {
+        marginTop: 10,
+        marginBottom: 20,
+        gap: 12,
+    },
+    checkboxWrapper: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+    },
+    checkbox: {
+        marginTop: 2,
+    },
+    checkboxLabel: {
+        flex: 1,
+        fontSize: 14,
+        color: Theme.colors.textSecondary,
+        lineHeight: 20,
+    },
+    link: {
+        color: Theme.colors.accent,
+        fontWeight: '600',
     },
 });
 

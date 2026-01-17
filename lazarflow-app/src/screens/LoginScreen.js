@@ -49,6 +49,7 @@ const LoginScreen = ({ navigation }) => {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.header}>
+                    <Text style={styles.topBadge}>LOGIN</Text>
                     <Image
                         source={require('../../assets/logo.png')}
                         style={styles.logo}
@@ -137,8 +138,20 @@ const styles = StyleSheet.create({
         backgroundColor: Theme.colors.secondary,
     },
     header: {
-        marginBottom: 40,
+        marginBottom: 30,
         alignItems: 'center',
+    },
+    topBadge: {
+        backgroundColor: Theme.colors.accent + '20',
+        color: Theme.colors.accent,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+        fontSize: 12,
+        fontWeight: '800',
+        letterSpacing: 1,
+        marginBottom: 16,
+        overflow: 'hidden',
     },
     logo: {
         width: 80,

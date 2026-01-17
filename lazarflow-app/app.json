@@ -17,20 +17,24 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {      "package": "com.lazarflow.app",
-
+    "android": {
+      "package": "com.lazarflow.app",
+      "versionCode": 1,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "INTERNET"
       ],
-      "foregroundImage": "./assets/padded_icon.png",
-      "backgroundColor": "#ffffff",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/padded_icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "softwareKeyboardLayoutMode": "pan",
       "googleServicesFile": "./google-services.json"
     },
     "notification": {
-      "icon": "./assets/icon.png",
+      "icon": "./assets/padded_icon.png",
       "color": "#ffffff"
     },
     "web": {
