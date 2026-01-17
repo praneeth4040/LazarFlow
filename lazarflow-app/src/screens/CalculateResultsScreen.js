@@ -7,8 +7,10 @@ import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { extractResultsFromScreenshot } from '../lib/aiResultExtraction';
 import { fuzzyMatch, fuzzyMatchName } from '../lib/aiUtils';
+import { useSubscription } from '../hooks/useSubscription';
 
 const CalculateResultsScreen = ({ route, navigation }) => {
+    const { canUseAI, tier } = useSubscription();
     const [lobby, setLobby] = useState(route.params?.lobby || {});
     const [mode, setMode] = useState('manual');
     const [teams, setTeams] = useState([]);
@@ -116,6 +118,18 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     };
 
     const handlePickImage = async () => {
+        if (!canUseAI && tier === 'free') {
+            Alert.alert(
+                'AI Limit Reached',
+                'You have reached your free AI extraction limit for this month. Upgrade to continue using AI features!',
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') }
+                ]
+            );
+            return;
+        }
+
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,

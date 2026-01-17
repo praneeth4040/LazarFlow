@@ -300,6 +300,19 @@ const DashboardScreen = ({ navigation }) => {
             return;
         }
 
+        // Enforce Layout Limits
+        if (tier !== 'developer' && activeLayoutsCount >= limits.maxLayouts) {
+            Alert.alert(
+                'Layout Limit Reached',
+                `Your current plan allows for ${limits.maxLayouts} custom layouts. Upgrade to upload more!`,
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') }
+                ]
+            );
+            return;
+        }
+
         try {
             setUploading(true);
             const { uri } = selectedImage;

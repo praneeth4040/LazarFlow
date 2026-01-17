@@ -2,8 +2,8 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import { supabase } from './supabaseClient';
 
-// Use ngrok for development
-const BASE_URL = 'https://af54c7d3ed5b.ngrok-free.app';
+// Use production API
+const BASE_URL = 'https://api.lazarflow.app';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,

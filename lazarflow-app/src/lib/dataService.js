@@ -49,7 +49,7 @@ export const getDesignImageSource = (theme) => {
     }
     
     // Fallback for community API
-    return { uri: `https://www.api.lazarflow.app/${cleanPath}` };
+    return { uri: `https://api.lazarflow.app/${cleanPath}` };
 };
 
 export const getCurrentUser = async () => {

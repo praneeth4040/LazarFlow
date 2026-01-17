@@ -30,6 +30,7 @@ import * as Sharing from 'expo-sharing';
 import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
 import { getUserThemes, getCommunityDesigns, renderLobbyDesign, renderResults, getDesignImageSource, uploadLogo } from '../lib/dataService';
+import { useSubscription } from '../hooks/useSubscription';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -107,6 +108,7 @@ const ResultsBottomSheet = ({ visible, onClose, imageUri }) => {
 };
 
 const LiveLobbyScreen = ({ route, navigation }) => {
+    const { canCustomSocial, tier } = useSubscription();
     const { id } = route?.params || {};
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -436,8 +438,15 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                         </View>
 
                         <View style={styles.editSection}>
-                            <Text style={styles.editSectionTitle}>Social Handles</Text>
-                            <View style={styles.inputGroup}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text style={styles.editSectionTitle}>Social Handles</Text>
+                                {!canCustomSocial && (
+                                    <TouchableOpacity onPress={() => navigation.navigate('SubscriptionPlans')}>
+                                        <Text style={{ color: Theme.colors.accent, fontSize: 12, fontWeight: '600' }}>Upgrade to Unlock</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                            <View style={[styles.inputGroup, !canCustomSocial && { opacity: 0.5 }]}>
                                 <View style={styles.inputWithIcon}>
                                     <Instagram size={20} color="#E1306C" style={styles.inputIcon} />
                                     <TextInput
@@ -446,10 +455,11 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                                         placeholderTextColor={Theme.colors.textSecondary}
                                         value={designData.instagram}
                                         onChangeText={(text) => setDesignData(prev => ({ ...prev, instagram: text }))}
+                                        editable={canCustomSocial}
                                     />
                                 </View>
                             </View>
-                            <View style={styles.inputGroup}>
+                            <View style={[styles.inputGroup, !canCustomSocial && { opacity: 0.5 }]}>
                                 <View style={styles.inputWithIcon}>
                                     <Youtube size={20} color="#FF0000" style={styles.inputIcon} />
                                     <TextInput
@@ -458,6 +468,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                                         placeholderTextColor={Theme.colors.textSecondary}
                                         value={designData.youtube}
                                         onChangeText={(text) => setDesignData(prev => ({ ...prev, youtube: text }))}
+                                        editable={canCustomSocial}
                                     />
                                 </View>
                             </View>

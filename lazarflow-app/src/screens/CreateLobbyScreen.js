@@ -2,11 +2,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Sparkles, Trophy, Target, ChevronDown, Save, ArrowLeft } from 'lucide-react-native';
+import { X, Sparkles, Trophy, Target, ChevronDown, Save, ArrowLeft, Crown } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
+import { useSubscription } from '../hooks/useSubscription';
 
 const CreateLobbyScreen = ({ navigation }) => {
+    const { canUseAI, tier, limits, lobbiesCreated, loading: subLoading } = useSubscription();
     const defaultPointsSystems = {
         freeFire: [
             { placement: 1, points: 12 },
@@ -64,6 +66,18 @@ const CreateLobbyScreen = ({ navigation }) => {
     const handleCreate = async () => {
         if (!name.trim()) {
             Alert.alert('Error', 'Please enter a lobby name');
+            return;
+        }
+
+        if (!canUseAI && tier === 'free') {
+            Alert.alert(
+                'Limit Reached',
+                'You have reached your monthly limit of 2 lobbies. Upgrade to a premium plan to create more!',
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') }
+                ]
+            );
             return;
         }
 

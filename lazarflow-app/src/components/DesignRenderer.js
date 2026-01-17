@@ -185,7 +185,7 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
         }
         
         // Fallback for community API (lazarflow.app)
-        return `https://www.api.lazarflow.app/${cleanPath}`;
+        return `https://api.lazarflow.app/${cleanPath}`;
     };
 
     // Try multiple fields for the URL

@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 export const useSubscription = () => {
     const [user, setUser] = useState(null);
     const [tier, setTier] = useState('free');
+    const [status, setStatus] = useState('active');
+    const [expiresAt, setExpiresAt] = useState(null);
     const [lobbiesCreated, setLobbiesCreated] = useState(0);
     const [loading, setLoading] = useState(true);
 
@@ -32,16 +34,20 @@ export const useSubscription = () => {
             try {
                 const { data: profile, error } = await supabase
                     .from('profiles')
-                    .select('subscription_tier, lobbies_created_count')
+                    .select('subscription_tier, subscription_status, subscription_expires_at, lobbies_created_count')
                     .eq('id', user.id)
                     .single();
 
                 if (error) throw error;
 
                 const currentTier = profile?.subscription_tier?.toLowerCase() || 'free';
+                const currentStatus = profile?.subscription_status || 'active';
+                const currentExpiresAt = profile?.subscription_expires_at;
                 const count = profile?.lobbies_created_count || 0;
 
                 setTier(currentTier);
+                setStatus(currentStatus);
+                setExpiresAt(currentExpiresAt);
                 setLobbiesCreated(count);
 
                 // Define Limits based on Tier
@@ -119,6 +125,8 @@ export const useSubscription = () => {
     return {
         user,
         tier,
+        status,
+        expiresAt,
         lobbiesCreated,
         loading,
         limits: {
