@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -116,6 +116,17 @@ const DashboardScreen = ({ navigation }) => {
     const [loadingCommunity, setLoadingCommunity] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadModalVisible, setUploadModalVisible] = useState(false);
+    const [showPromoModal, setShowPromoModal] = useState(false);
+
+    useEffect(() => {
+        // Show promo modal for free users on load (once per session)
+        if (tier === 'free' && !refreshing && !loading) {
+            const timer = setTimeout(() => {
+                setShowPromoModal(true);
+            }, 1500); // Delay for better UX
+            return () => clearTimeout(timer);
+        }
+    }, [tier, loading]);
     const [selectedImage, setSelectedImage] = useState(null);
     const [designDetails, setDesignDetails] = useState({
         name: ''
@@ -499,6 +510,16 @@ const DashboardScreen = ({ navigation }) => {
                 ) : (
                     <Text style={styles.headerTitle}>{title}</Text>
                 )}
+                
+                {tier === 'free' && (
+                    <TouchableOpacity 
+                        style={styles.headerUpgradeBtn}
+                        onPress={() => navigation.navigate('SubscriptionPlans')}
+                    >
+                        <Sparkles size={14} color="#fff" />
+                        <Text style={styles.headerUpgradeText}>Go Pro</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         );
     };
@@ -567,7 +588,7 @@ const DashboardScreen = ({ navigation }) => {
                 </View>
             </Modal>
 
-            {/* Banner */}
+            {/* LexiView Banner */}
             <View style={styles.banner}>
                 <View style={styles.bannerBadge}>
                     <Sparkles size={12} color="#fff" />
@@ -580,6 +601,35 @@ const DashboardScreen = ({ navigation }) => {
                     <ArrowRight size={16} color="#1E3A8A" />
                 </TouchableOpacity>
             </View>
+
+            {/* Premium Banner for Free Users */}
+            {tier === 'free' && (
+                <TouchableOpacity 
+                    style={styles.premiumBanner} 
+                    onPress={() => navigation.navigate('SubscriptionPlans')}
+                    activeOpacity={0.9}
+                >
+                    <LinearGradient
+                        colors={['#1E3A8A', '#3B82F6']}
+                        style={styles.premiumBannerGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                    >
+                        <View style={styles.premiumBannerContent}>
+                            <View style={styles.premiumBannerTextGroup}>
+                                <View style={styles.premiumBannerHeader}>
+                                    <Sparkles size={16} color="#FFD700" />
+                                    <Text style={styles.premiumBannerTitle}>Unlock Premium Access</Text>
+                                </View>
+                                <Text style={styles.premiumBannerDesc}>Get unlimited lobbies, custom layouts & more!</Text>
+                            </View>
+                            <View style={styles.premiumBannerBadge}>
+                                <Text style={styles.premiumBannerBadgeText}>Upgrade</Text>
+                            </View>
+                        </View>
+                    </LinearGradient>
+                </TouchableOpacity>
+            )}
 
             <Text style={styles.sectionTitle}>Active Lobbies</Text>
             {lobbies.length > 0 ? (
@@ -880,12 +930,26 @@ const DashboardScreen = ({ navigation }) => {
                             onPress={() => toggleSection('account')}
                             activeOpacity={0.7}
                         >
-                            <Text style={styles.groupLabel}>Account Details</Text>
+                            <Text style={styles.groupLabel}>Account & Subscription</Text>
                             <Settings size={16} color={Theme.colors.textSecondary} />
                         </TouchableOpacity>
 
                         {expandedSections.account && (
                             <View style={styles.groupContent}>
+                                <TouchableOpacity 
+                                    style={styles.infoRow}
+                                    onPress={() => navigation.navigate('SubscriptionPlans')}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Sparkles size={16} color={Theme.colors.accent} />
+                                        <Text style={[styles.infoLabel, { color: Theme.colors.accent, fontWeight: '700' }]}>Current Plan</Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Text style={[styles.infoValue, { textTransform: 'capitalize', color: Theme.colors.accent }]}>{tier}</Text>
+                                        <ArrowRight size={14} color={Theme.colors.accent} />
+                                    </View>
+                                </TouchableOpacity>
+
                                 <View style={styles.infoRow}>
                                     <Text style={styles.infoLabel}>User ID</Text>
                                     <Text style={styles.infoValue} numberOfLines={1}>{user?.id}</Text>
@@ -1229,6 +1293,82 @@ const DashboardScreen = ({ navigation }) => {
                         </View>
                     </View>
                 </Modal>
+
+                {/* Subscription Promo Modal */}
+                <Modal
+                    visible={showPromoModal}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowPromoModal(false)}
+                >
+                    <View style={styles.promoOverlay}>
+                        <View style={styles.promoContainer}>
+                            <TouchableOpacity 
+                                style={styles.promoCloseBtn} 
+                                onPress={() => setShowPromoModal(false)}
+                            >
+                                <X size={24} color="#fff" />
+                            </TouchableOpacity>
+
+                            <LinearGradient
+                                colors={['#1e1b4b', '#312e81']}
+                                style={styles.promoHeader}
+                            >
+                                <View style={styles.promoIconCircle}>
+                                    <Crown size={40} color="#f59e0b" fill="#f59e0b" />
+                                </View>
+                                <Text style={styles.promoTitle}>Unlock Full Potential</Text>
+                                <Text style={styles.promoSubtitle}>Upgrade to Premium today</Text>
+                            </LinearGradient>
+
+                            <View style={styles.promoBody}>
+                                <View style={styles.promoFeatureRow}>
+                                    <View style={styles.promoFeatureIcon}>
+                                        <Zap size={18} color="#f59e0b" />
+                                    </View>
+                                    <Text style={styles.promoFeatureText}>Up to 150 AI Lobbies / month</Text>
+                                </View>
+                                <View style={styles.promoFeatureRow}>
+                                    <View style={styles.promoFeatureIcon}>
+                                        <Palette size={18} color="#f59e0b" />
+                                    </View>
+                                    <Text style={styles.promoFeatureText}>Unlimited Custom Layouts</Text>
+                                </View>
+                                <View style={styles.promoFeatureRow}>
+                                    <View style={styles.promoFeatureIcon}>
+                                        <ShieldCheck size={18} color="#f59e0b" />
+                                    </View>
+                                    <Text style={styles.promoFeatureText}>Ad-free experience & Priority Support</Text>
+                                </View>
+
+                                <TouchableOpacity 
+                                    style={styles.promoMainBtn}
+                                    onPress={() => {
+                                        setShowPromoModal(false);
+                                        navigation.navigate('SubscriptionPlans');
+                                    }}
+                                >
+                                    <LinearGradient
+                                        colors={['#f59e0b', '#d97706']}
+                                        style={styles.promoBtnGradient}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                    >
+                                        <Text style={styles.promoMainBtnText}>View All Plans</Text>
+                                        <ArrowRight size={18} color="#fff" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity 
+                                    style={styles.promoSecondaryBtn}
+                                    onPress={() => setShowPromoModal(false)}
+                                >
+                                    <Text style={styles.promoSecondaryBtnText}>Maybe Later</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
             </>
         );
     };
@@ -1253,6 +1393,26 @@ const DashboardScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 )}
             </View>
+
+            {/* Floating PRO Badge for Free Users */}
+            {tier === 'free' && activeTab === 'home' && (
+                <TouchableOpacity 
+                    style={styles.floatingProBadge} 
+                    onPress={() => navigation.navigate('SubscriptionPlans')}
+                    activeOpacity={0.9}
+                >
+                    <LinearGradient
+                        colors={['#f59e0b', '#d97706']}
+                        style={styles.proBadgeGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    >
+                        <Crown size={16} color="#fff" fill="#fff" />
+                        <Text style={styles.proBadgeText}>PRO</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+            )}
+
             <View style={styles.tabBar}>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('home')}>
                     <Home size={24} color={activeTab === 'home' ? Theme.colors.accent : Theme.colors.textSecondary} />
@@ -1261,6 +1421,12 @@ const DashboardScreen = ({ navigation }) => {
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('design')}>
                     <Palette size={24} color={activeTab === 'design' ? Theme.colors.accent : Theme.colors.textSecondary} />
                     <Text style={[styles.tabLabel, activeTab === 'design' && styles.tabLabelActive]}>Design</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate('SubscriptionPlans')}>
+                    <View style={styles.premiumTabItem}>
+                        <Crown size={24} color="#f59e0b" />
+                        <Text style={[styles.tabLabel, { color: '#f59e0b', fontWeight: '800' }]}>Plans</Text>
+                    </View>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('profile')}>
                     <User size={24} color={activeTab === 'profile' ? Theme.colors.accent : Theme.colors.textSecondary} />
@@ -1290,6 +1456,26 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
+    },
+    headerUpgradeBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f59e0b', // Amber/Gold color for upgrade
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 6,
+        shadowColor: '#f59e0b',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    headerUpgradeText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '800',
+        letterSpacing: 0.3,
     },
     addButton: {
         padding: 5,
@@ -1350,6 +1536,56 @@ const styles = StyleSheet.create({
         fontSize: 14,
         lineHeight: 20,
         marginBottom: 15,
+    },
+    premiumBanner: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderRadius: 16,
+        overflow: 'hidden',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    premiumBannerGradient: {
+        padding: 16,
+    },
+    premiumBannerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    premiumBannerTextGroup: {
+        flex: 1,
+        marginRight: 12,
+    },
+    premiumBannerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+        gap: 6,
+    },
+    premiumBannerTitle: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#fff',
+    },
+    premiumBannerDesc: {
+        fontSize: 12,
+        color: '#E0E7FF',
+        opacity: 0.9,
+    },
+    premiumBannerBadge: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    premiumBannerBadgeText: {
+        color: '#1E3A8A',
+        fontSize: 12,
+        fontWeight: '700',
     },
     bannerCta: {
         backgroundColor: '#fff',
@@ -1751,6 +1987,11 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    premiumTabItem: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ scale: 1.1 }],
     },
     tabLabel: {
         fontSize: 12,
@@ -2242,6 +2483,138 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: Theme.colors.textSecondary,
         flex: 1,
+    },
+    promoOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    promoContainer: {
+        width: '100%',
+        maxWidth: 360,
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 28,
+        overflow: 'hidden',
+        elevation: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 15 },
+        shadowOpacity: 0.6,
+        shadowRadius: 25,
+    },
+    promoCloseBtn: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        zIndex: 100,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: 20,
+        padding: 6,
+    },
+    promoHeader: {
+        padding: 35,
+        alignItems: 'center',
+    },
+    promoIconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+    promoTitle: {
+        fontSize: 26,
+        fontWeight: '900',
+        color: '#fff',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    promoSubtitle: {
+        fontSize: 16,
+        color: 'rgba(255, 255, 255, 0.7)',
+        textAlign: 'center',
+    },
+    promoBody: {
+        padding: 24,
+        backgroundColor: Theme.colors.primary,
+    },
+    promoFeatureRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    promoFeatureIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.secondary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
+    },
+    promoFeatureText: {
+        fontSize: 15,
+        color: Theme.colors.textPrimary,
+        fontWeight: '600',
+    },
+    promoMainBtn: {
+        marginTop: 24,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    promoBtnGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 18,
+        gap: 10,
+    },
+    promoMainBtnText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '800',
+    },
+    promoSecondaryBtn: {
+        marginTop: 15,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    promoSecondaryBtnText: {
+        color: Theme.colors.textSecondary,
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    floatingProBadge: {
+        position: 'absolute',
+        bottom: 25,
+        left: 25,
+        zIndex: 100,
+        shadowColor: '#f59e0b',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 10,
+    },
+    proBadgeGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    proBadgeText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 });
 

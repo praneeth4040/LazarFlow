@@ -142,7 +142,7 @@ export default function AppNavigator() {
                         <Stack.Screen
                             name="SubscriptionPlans"
                             component={SubscriptionPlansScreen}
-                            options={{ headerShown: true, title: 'Subscription Plans', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
+                            options={{ headerShown: false }}
                         />
                     </>
                 )}

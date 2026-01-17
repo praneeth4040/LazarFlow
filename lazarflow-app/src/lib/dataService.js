@@ -172,6 +172,7 @@ export const getCommunityDesigns = async (forceRefresh = false) => {
             .from('themes')
             .select('id, name, url, mapping_config, user_id, status, created_at')
             .is('user_id', null)
+            .eq('status', 'verified')
             .order('created_at', { ascending: false });
 
         if (error) {

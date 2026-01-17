@@ -177,7 +177,11 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             ]);
             
             const allAvailable = [...(userThemes || []), ...(communityDesigns || [])];
-            const uniqueThemes = allAvailable.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+            
+            // Show only verified designs
+            const filteredThemes = allAvailable.filter(t => t.status === 'verified');
+            
+            const uniqueThemes = filteredThemes.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
             setThemes(uniqueThemes);
             return uniqueThemes;
         } catch (error) {
