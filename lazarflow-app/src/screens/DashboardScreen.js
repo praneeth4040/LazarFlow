@@ -10,16 +10,12 @@ import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
 import { getUserThemes, getCommunityDesigns, getDesignImageSource, getUserProfile, updateUserProfile } from '../lib/dataService';
 
-const CommunityDesignCard = React.memo(({ theme, index, navigation, isRightColumn = false }) => {
+const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false }) => {
     const imageSource = getDesignImageSource(theme);
     const height = isRightColumn ? 180 + (index % 3) * 50 : 200 + (index % 3) * 40;
     
     return (
-        <TouchableOpacity 
-            style={styles.pinCard}
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate('DesignDetails', { theme: theme })}
-        >
+        <View style={styles.pinCard}>
             <View style={styles.pinImageContainer}>
                 {imageSource ? (
                     <Image 
@@ -43,37 +39,56 @@ const CommunityDesignCard = React.memo(({ theme, index, navigation, isRightColum
                         </View>
                         <Text style={styles.pinAuthorName} numberOfLines={1}>{theme.author || 'Community'}</Text>
                     </View>
-                    <TouchableOpacity>
-                        <MoreHorizontal size={16} color={Theme.colors.textSecondary} />
-                    </TouchableOpacity>
                 </View>
             </View>
-        </TouchableOpacity>
+        </View>
     );
 });
 
-const UserThemeCard = React.memo(({ theme, index }) => {
+const UserThemeCard = React.memo(({ theme, index, isRightColumn = false }) => {
+    const imageSource = getDesignImageSource(theme);
+    const height = isRightColumn ? 180 + (index % 3) * 50 : 200 + (index % 3) * 40;
+    
     return (
-        <View style={styles.themeThumbCard}>
-            <Image 
-                source={getDesignImageSource(theme)} 
-                style={styles.themeThumb} 
-                fadeDuration={300}
-            />
-            <View style={styles.themeInfo}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.themeName} numberOfLines={1}>{theme.name || `Theme ${index + 1}`}</Text>
-                    <View style={[styles.statusBadge, theme.status === 'pending' ? styles.statusPending : styles.statusVerified]}>
-                        <Text style={styles.statusText}>{theme.status === 'pending' ? 'Pending' : 'Verified'}</Text>
+        <View style={styles.pinCard}>
+            <View style={styles.pinImageContainer}>
+                {imageSource ? (
+                    <Image 
+                        source={imageSource} 
+                        style={[styles.pinImage, { height }]} 
+                        resizeMode="cover" 
+                        fadeDuration={300}
+                    />
+                ) : (
+                    <View style={[styles.pinImage, { height, backgroundColor: Theme.colors.secondary, justifyContent: 'center', alignItems: 'center' }]}>
+                        <Palette size={32} color={Theme.colors.textSecondary} />
+                    </View>
+                )}
+                
+                {/* Status Overlay */}
+                <View style={[
+                    styles.previewOverlay, 
+                    { 
+                        top: 8, 
+                        right: 8, 
+                        backgroundColor: theme.status === 'pending' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(16, 185, 129, 0.8)' 
+                    }
+                ]}>
+                    <Text style={[styles.previewTag, { fontSize: 8 }]}>
+                        {theme.status === 'pending' ? 'PENDING' : 'VERIFIED'}
+                    </Text>
+                </View>
+            </View>
+            <View style={styles.pinContent}>
+                <Text style={styles.pinTitle} numberOfLines={2}>{theme.name || `Design #${index + 1}`}</Text>
+                <View style={styles.pinMeta}>
+                    <View style={styles.pinAuthor}>
+                        <View style={[styles.pinAvatar, { backgroundColor: Theme.colors.accent }]}>
+                            <User size={10} color="#fff" />
+                        </View>
+                        <Text style={styles.pinAuthorName} numberOfLines={1}>My Design</Text>
                     </View>
                 </View>
-                <TouchableOpacity
-                    style={[styles.useThemeBtn, theme.status !== 'verified' && styles.useThemeBtnDisabled]}
-                    disabled={theme.status !== 'verified'}
-                    onPress={() => Alert.alert('Apply Design', 'Design applied to your lobbies!')}
-                >
-                    <ArrowRight size={14} color="#fff" />
-                </TouchableOpacity>
             </View>
         </View>
     );
@@ -100,6 +115,11 @@ const DashboardScreen = ({ navigation }) => {
     const [communityThemesList, setCommunityThemesList] = useState([]);
     const [loadingCommunity, setLoadingCommunity] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [uploadModalVisible, setUploadModalVisible] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [designDetails, setDesignDetails] = useState({
+        name: ''
+    });
     const [profile, setProfile] = useState(null);
     const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
     const [isAddingPhone, setIsAddingPhone] = useState(false);
@@ -193,8 +213,14 @@ const DashboardScreen = ({ navigation }) => {
 
     const fetchUserThemes = async () => {
         try {
-            const themes = await getUserThemes();
-            setUserThemesList(themes);
+            const { data, error } = await supabase
+                .from('themes')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setUserThemesList(data || []);
         } catch (error) {
             console.error('Error fetching themes:', error);
         }
@@ -257,16 +283,35 @@ const DashboardScreen = ({ navigation }) => {
 
             if (result.canceled) return;
 
+            setSelectedImage(result.assets[0]);
+            setDesignDetails({
+                name: ''
+            });
+            setUploadModalVisible(true);
+        } catch (error) {
+            console.error('Image Selection Error:', error);
+            Alert.alert('Error', 'Failed to select image');
+        }
+    };
+
+    const submitDesignUpload = async () => {
+        if (!designDetails.name.trim()) {
+            Alert.alert('Required', 'Please enter a name for your design');
+            return;
+        }
+
+        try {
             setUploading(true);
-            const { uri } = result.assets[0];
+            const { uri } = selectedImage;
             const uriParts = uri.split('.');
             const fileType = uriParts[uriParts.length - 1];
-            const fileName = `theme_${user.id}_${Date.now()}.${fileType}`;
+            // Upload to themes/<userid>/ folder
+            const fileName = `${user.id}/${Date.now()}.${fileType}`;
 
             const formData = new FormData();
             formData.append('file', {
                 uri,
-                name: fileName,
+                name: fileName.split('/').pop(), // just the filename for the form data
                 type: `image/${fileType}`,
             });
 
@@ -285,7 +330,7 @@ const DashboardScreen = ({ navigation }) => {
                 .from('themes')
                 .insert([{
                     user_id: user.id,
-                    name: `Design ${Date.now()}`,
+                    name: designDetails.name,
                     url: publicUrl,
                     status: 'pending',
                     created_at: new Date().toISOString()
@@ -294,6 +339,7 @@ const DashboardScreen = ({ navigation }) => {
             if (dbError) throw dbError;
 
             fetchUserThemes();
+            setUploadModalVisible(false);
             Alert.alert('Success', 'Your custom design has been uploaded and is currently under verification.');
         } catch (error) {
             console.error('Upload Error:', error);
@@ -619,11 +665,35 @@ const DashboardScreen = ({ navigation }) => {
                         )}
                     </TouchableOpacity>
 
-                    <View style={styles.themesGrid}>
-                        {userThemesList.map((theme, index) => (
-                            <UserThemeCard key={theme.id || index} theme={theme} index={index} />
-                        ))}
-                    </View>
+                    {userThemesList.length === 0 ? (
+                        <View style={[styles.emptyState, { marginTop: 40 }]}>
+                            <Palette size={48} color={Theme.colors.border} />
+                            <Text style={styles.emptyText}>No Custom Designs Yet</Text>
+                            <Text style={styles.emptySubText}>Upload your first design to see it here!</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.pinterestGrid}>
+                            <View style={styles.masonryColumn}>
+                                {userThemesList.filter((_, i) => i % 2 === 0).map((theme, index) => (
+                                    <UserThemeCard 
+                                        key={theme.id || `own-left-${index}`} 
+                                        theme={theme} 
+                                        index={index} 
+                                    />
+                                ))}
+                            </View>
+                            <View style={styles.masonryColumn}>
+                                {userThemesList.filter((_, i) => i % 2 !== 0).map((theme, index) => (
+                                    <UserThemeCard 
+                                        key={theme.id || `own-right-${index}`} 
+                                        theme={theme} 
+                                        index={index} 
+                                        isRightColumn={true}
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    )}
                 </View>
             )}
 
@@ -645,7 +715,6 @@ const DashboardScreen = ({ navigation }) => {
                                         key={themes.id || `left-${index}`} 
                                         theme={themes} 
                                         index={index} 
-                                        navigation={navigation} 
                                     />
                                 ))}
                             </View>
@@ -655,7 +724,6 @@ const DashboardScreen = ({ navigation }) => {
                                         key={themes.id || `right-${index}`} 
                                         theme={themes} 
                                         index={index} 
-                                        navigation={navigation} 
                                         isRightColumn={true}
                                     />
                                 ))}
@@ -1058,9 +1126,98 @@ const DashboardScreen = ({ navigation }) => {
                 </View>
             );
         }
-        if (activeTab === 'home') return renderHome();
-        if (activeTab === 'design') return renderDesign();
-        if (activeTab === 'profile') return renderProfile();
+
+        // Return content based on active tab
+        let content;
+        if (activeTab === 'home') content = renderHome();
+        else if (activeTab === 'design') content = renderDesign();
+        else if (activeTab === 'profile') content = renderProfile();
+
+        return (
+            <>
+                {content}
+                
+                {/* Design Studio Upload Form Bottom Sheet */}
+                <Modal
+                    visible={uploadModalVisible}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setUploadModalVisible(false)}
+                >
+                    <View style={styles.bottomSheetOverlay}>
+                        <TouchableOpacity 
+                            style={styles.bottomSheetBackdrop} 
+                            activeOpacity={1} 
+                            onPress={() => setUploadModalVisible(false)} 
+                        />
+                        <View style={styles.uploadBottomSheet}>
+                            <View style={styles.dragHandle} />
+                            
+                            <View style={styles.uploadModalHeader}>
+                                <Text style={styles.uploadModalTitle}>Finalize Your Design</Text>
+                                <TouchableOpacity 
+                                    style={styles.closeBtnSmall}
+                                    onPress={() => setUploadModalVisible(false)}
+                                >
+                                    <X size={20} color={Theme.colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView 
+                                style={styles.uploadModalBody} 
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{ paddingBottom: 20 }}
+                            >
+                                <View style={styles.uploadPreviewWrapper}>
+                                    {selectedImage && (
+                                        <Image 
+                                            source={{ uri: selectedImage.uri }} 
+                                            style={styles.uploadPreviewImage} 
+                                            resizeMode="cover"
+                                        />
+                                    )}
+                                    <View style={styles.previewOverlay}>
+                                        <Text style={styles.previewTag}>PREVIEW</Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.uploadInputGroup}>
+                                    <Text style={styles.uploadInputLabel}>DESIGN NAME</Text>
+                                    <View style={styles.styledInputWrapper}>
+                                        <Palette size={18} color={Theme.colors.accent} style={{ marginRight: 12 }} />
+                                        <TextInput
+                                            style={styles.styledInput}
+                                            placeholder="e.g. Minimalist Navy Standings"
+                                            placeholderTextColor={Theme.colors.textSecondary}
+                                            value={designDetails.name}
+                                            onChangeText={(text) => setDesignDetails({ name: text })}
+                                        />
+                                    </View>
+                                    <Text style={styles.inputHint}>This name will be visible in your Design Studio.</Text>
+                                </View>
+                            </ScrollView>
+
+                            <View style={styles.uploadModalFooter}>
+                                <TouchableOpacity 
+                                    style={[styles.uploadSubmitBtnFull, uploading && styles.uploadSubmitBtnDisabled]} 
+                                    onPress={submitDesignUpload}
+                                    disabled={uploading}
+                                >
+                                    {uploading ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <>
+                                            <Text style={styles.uploadSubmitBtnText}>Upload to Studio</Text>
+                                            <Upload size={18} color="#fff" />
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            </>
+        );
     };
 
     return (
@@ -1865,6 +2022,148 @@ const styles = StyleSheet.create({
     useThemeBtnDisabled: {
         opacity: 0.5,
         backgroundColor: Theme.colors.border,
+    },
+    // Upload Bottom Sheet Styles
+    bottomSheetOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'flex-end',
+    },
+    bottomSheetBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    uploadBottomSheet: {
+        backgroundColor: Theme.colors.secondary,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingTop: 12,
+        paddingHorizontal: 24,
+        paddingBottom: 40,
+        maxHeight: '90%',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 25,
+    },
+    dragHandle: {
+        width: 40,
+        height: 5,
+        backgroundColor: Theme.colors.border,
+        borderRadius: 2.5,
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
+    uploadModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    uploadModalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+        letterSpacing: -0.5,
+    },
+    closeBtnSmall: {
+        padding: 8,
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    uploadModalBody: {
+        maxHeight: 400,
+    },
+    uploadPreviewWrapper: {
+        width: '100%',
+        height: 200,
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 24,
+        backgroundColor: Theme.colors.primary,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    uploadPreviewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    previewOverlay: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    previewTag: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
+        letterSpacing: 1,
+    },
+    uploadInputGroup: {
+        marginBottom: 24,
+    },
+    uploadInputLabel: {
+        fontSize: 11,
+        fontWeight: 'bold',
+        color: Theme.colors.textSecondary,
+        marginBottom: 10,
+        letterSpacing: 1,
+    },
+    styledInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        height: 56,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    styledInput: {
+        flex: 1,
+        fontSize: 16,
+        color: Theme.colors.textPrimary,
+        fontWeight: '500',
+    },
+    inputHint: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        marginTop: 8,
+        fontStyle: 'italic',
+    },
+    uploadModalFooter: {
+        marginTop: 8,
+    },
+    uploadSubmitBtnFull: {
+        backgroundColor: Theme.colors.accent,
+        height: 56,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        shadowColor: Theme.colors.accent,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    uploadSubmitBtnDisabled: {
+        opacity: 0.6,
+        backgroundColor: Theme.colors.border,
+    },
+    uploadSubmitBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
     // Pinterest Style Grid
     pinterestGrid: {
