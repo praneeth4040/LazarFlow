@@ -510,16 +510,6 @@ const DashboardScreen = ({ navigation }) => {
                 ) : (
                     <Text style={styles.headerTitle}>{title}</Text>
                 )}
-                
-                {tier === 'free' && (
-                    <TouchableOpacity 
-                        style={styles.headerUpgradeBtn}
-                        onPress={() => navigation.navigate('SubscriptionPlans')}
-                    >
-                        <Sparkles size={14} color="#fff" />
-                        <Text style={styles.headerUpgradeText}>Go Pro</Text>
-                    </TouchableOpacity>
-                )}
             </View>
         );
     };
@@ -588,47 +578,20 @@ const DashboardScreen = ({ navigation }) => {
                 </View>
             </Modal>
 
-            {/* LexiView Banner */}
-            <View style={styles.banner}>
-                <View style={styles.bannerBadge}>
-                    <Sparkles size={12} color="#fff" />
-                    <Text style={styles.bannerBadgeText}>NEW FEATURE</Text>
-                </View>
-                <Text style={styles.bannerTitle}>Introducing LexiView</Text>
-                <Text style={styles.bannerDesc}>Extract scoreboard data with 99.9% accuracy.</Text>
-                <TouchableOpacity style={styles.bannerCta} onPress={handleBannerAction}>
-                    <Text style={styles.bannerCtaText}>Try now</Text>
-                    <ArrowRight size={16} color="#1E3A8A" />
-                </TouchableOpacity>
-            </View>
-
-            {/* Premium Banner for Free Users */}
+            {/* Premium Access Banner */}
             {tier === 'free' && (
-                <TouchableOpacity 
-                    style={styles.premiumBanner} 
-                    onPress={() => navigation.navigate('SubscriptionPlans')}
-                    activeOpacity={0.9}
-                >
-                    <LinearGradient
-                        colors={['#1E3A8A', '#3B82F6']}
-                        style={styles.premiumBannerGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                    >
-                        <View style={styles.premiumBannerContent}>
-                            <View style={styles.premiumBannerTextGroup}>
-                                <View style={styles.premiumBannerHeader}>
-                                    <Sparkles size={16} color="#FFD700" />
-                                    <Text style={styles.premiumBannerTitle}>Unlock Premium Access</Text>
-                                </View>
-                                <Text style={styles.premiumBannerDesc}>Get unlimited lobbies, custom layouts & more!</Text>
-                            </View>
-                            <View style={styles.premiumBannerBadge}>
-                                <Text style={styles.premiumBannerBadgeText}>Upgrade</Text>
-                            </View>
-                        </View>
-                    </LinearGradient>
-                </TouchableOpacity>
+                <View style={styles.banner}>
+                    <View style={styles.bannerBadge}>
+                        <Sparkles size={12} color="#fff" />
+                        <Text style={styles.bannerBadgeText}>PREMIUM</Text>
+                    </View>
+                    <Text style={styles.bannerTitle}>Unlock Premium Access</Text>
+                    <Text style={styles.bannerDesc}>Get unlimited lobbies, custom layouts, LexiView AI & more!</Text>
+                    <TouchableOpacity style={styles.bannerCta} onPress={() => navigation.navigate('SubscriptionPlans')}>
+                        <Text style={styles.bannerCtaText}>Upgrade Now</Text>
+                        <ArrowRight size={16} color="#1E3A8A" />
+                    </TouchableOpacity>
+                </View>
             )}
 
             <Text style={styles.sectionTitle}>Active Lobbies</Text>
