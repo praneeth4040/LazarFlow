@@ -56,6 +56,7 @@ export const useSubscription = () => {
                 let customSocial = false;
 
                 switch (currentTier) {
+                    case 'masters':
                     case 'developer':
                         aiLimit = Infinity;
                         layoutLimit = Infinity;
@@ -79,13 +80,9 @@ export const useSubscription = () => {
                     case 'free':
                     default:
                         aiLimit = 2;
-                        if (count < aiLimit) {
-                            layoutLimit = 3; // Trial perks
-                            customSocial = true;
-                        } else {
-                            layoutLimit = 1;
-                            customSocial = false;
-                        }
+                        // Always 1 layout for casual/free
+                        layoutLimit = 1;
+                        customSocial = false;
                         break;
                 }
 

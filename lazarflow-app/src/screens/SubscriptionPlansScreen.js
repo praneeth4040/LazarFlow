@@ -6,23 +6,51 @@ import { useSubscription } from '../hooks/useSubscription';
 import { supabase } from '../lib/supabaseClient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+    CFPaymentGatewayService,
+} from 'react-native-cashfree-pg-sdk';
 
 const SubscriptionPlansScreen = ({ navigation }) => {
     const { tier, lobbiesCreated, limits } = useSubscription();
     const insets = useSafeAreaInsets();
 
+    React.useEffect(() => {
+        const onVerify = async (orderID) => {
+            console.log('Order verified:', orderID);
+            // Poll or wait for webhook to update Supabase, then refresh user profile
+            // For better UX, we can optimistically show success
+            Alert.alert('Success', 'Payment verified! Your plan will be updated shortly.');
+            navigation.goBack();
+        };
+
+        const onError = (error, orderID) => {
+            console.error('Payment failed:', error, orderID);
+            Alert.alert('Payment Failed', error.message || 'Something went wrong');
+        };
+
+        CFPaymentGatewayService.setCallback({
+            onVerify,
+            onError,
+        });
+
+        return () => {
+            CFPaymentGatewayService.removeCallback();
+        };
+    }, []);
+
     const plans = [
         {
             id: 'free',
-            name: 'Free',
+            name: 'Casual',
             price: '₹0',
             period: 'Forever',
             icon: <Zap size={24} color={Theme.colors.textSecondary} />,
             features: [
                 '2 AI Lobbies per month',
                 '1 Active Layout slot',
-                'Standard support',
-                'Basic designs'
+                'AI Extraction (Trial)',
+                'Manual Points Table',
+                'Standard support'
             ],
             color: '#64748b',
             isCurrent: tier === 'free'
@@ -30,15 +58,16 @@ const SubscriptionPlansScreen = ({ navigation }) => {
         {
             id: 'ranked',
             name: 'Ranked',
-            price: '₹99',
+            price: '₹129',
             period: 'Monthly',
             icon: <ShieldCheck size={24} color="#3b82f6" />,
             features: [
                 '60 AI Lobbies per month',
                 '3 Active Layout slots',
-                'Custom Socials',
-                'Ad-free experience',
-                'Priority processing'
+                'AI Extraction',
+                'WhatsApp Integration',
+                'Manual Points Table',
+                'Support'
             ],
             color: '#3b82f6',
             isCurrent: tier === 'ranked'
@@ -46,15 +75,16 @@ const SubscriptionPlansScreen = ({ navigation }) => {
         {
             id: 'competitive',
             name: 'Competitive',
-            price: '₹249',
+            price: '₹229',
             period: 'Monthly',
             icon: <Award size={24} color="#f59e0b" />,
             features: [
                 '100 AI Lobbies per month',
                 '5 Active Layout slots',
-                'Custom Socials',
-                'Premium Designs',
-                'Priority support'
+                'AI Extraction',
+                'WhatsApp Integration',
+                'Manual Points Table',
+                'Support'
             ],
             color: '#f59e0b',
             isCurrent: tier === 'competitive',
@@ -63,34 +93,36 @@ const SubscriptionPlansScreen = ({ navigation }) => {
         {
             id: 'premier',
             name: 'Premier',
-            price: '₹499',
+            price: '₹329',
             period: 'Monthly',
             icon: <Crown size={24} color="#8b5cf6" />,
             features: [
                 '150 AI Lobbies per month',
                 '5 Active Layout slots',
-                'All Custom Socials',
-                'Exclusive Layouts',
-                '24/7 Support'
+                'AI Extraction',
+                'WhatsApp Integration',
+                'Manual Points Table',
+                'Support'
             ],
             color: '#8b5cf6',
             isCurrent: tier === 'premier'
         },
         {
-            id: 'developer',
-            name: 'Developer',
+            id: 'masters',
+            name: 'Masters Circuit',
             price: 'Custom',
             period: 'Yearly',
             icon: <Sparkles size={24} color="#06b6d4" />,
             features: [
                 'Unlimited AI Lobbies',
                 'Unlimited Layout slots',
-                'Full API access',
-                'Custom Integrations',
-                'Direct Developer Support'
+                'AI Extraction',
+                'WhatsApp Integration',
+                'Manual Points Table',
+                'White-glove Support'
             ],
             color: '#06b6d4',
-            isCurrent: tier === 'developer'
+            isCurrent: tier === 'masters' || tier === 'developer'
         }
     ];
 
@@ -105,25 +137,46 @@ const SubscriptionPlansScreen = ({ navigation }) => {
             `Would you like to upgrade to the ${plan.name} plan for ${plan.price}?`,
             [
                 { text: 'Cancel', style: 'cancel' },
-                { 
-                    text: 'Upgrade Now', 
+                {
+                    text: 'Pay Now',
                     onPress: async () => {
                         try {
                             const { data: { user } } = await supabase.auth.getUser();
                             if (!user) throw new Error('User not found');
 
-                            const { error } = await supabase
-                                .from('profiles')
-                                .update({ subscription_tier: plan.id })
-                                .eq('id', user.id);
+                            // 1. Create Order via Backend
+                            // Using fetch directly to hit local backend
+                            // TODO: Replace with your production URL 
+                            const response = await fetch('http://localhost:5000/create-order', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    user_id: user.id,
+                                    tier: plan.id
+                                }),
+                            });
 
-                            if (error) throw error;
+                            const data = await response.json();
 
-                            Alert.alert('Success', `You have successfully upgraded to the ${plan.name} plan!`);
-                            navigation.goBack();
+                            if (!response.ok) {
+                                throw new Error(data.message || 'Failed to create order');
+                            }
+
+                            const { payment_session_id, order_id } = data; // Assuming backend returns order_id too if needed
+
+                            // 2. Start Cashfree Checkout
+                            // Note: Environment is 'SANDBOX' or 'PRODUCTION'
+                            CFPaymentGatewayService.doPayment({
+                                environment: 'SANDBOX',
+                                payment_session_id: payment_session_id,
+                                order_id: order_id || "ORDER_ID_NOT_PROVIDED", // SDK might require order_id
+                            });
+
                         } catch (error) {
-                            console.error('Error upgrading plan:', error);
-                            Alert.alert('Error', 'Failed to upgrade plan. Please try again later.');
+                            console.error('Error initiating payment:', error);
+                            Alert.alert('Error', 'Failed to initiate payment. Please try again later.');
                         }
                     }
                 }
@@ -142,7 +195,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
                 <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView 
+            <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
@@ -157,10 +210,10 @@ const SubscriptionPlansScreen = ({ navigation }) => {
                 </View>
 
                 {plans.map((plan) => (
-                    <TouchableOpacity 
-                        key={plan.id} 
+                    <TouchableOpacity
+                        key={plan.id}
                         style={[
-                            styles.planCard, 
+                            styles.planCard,
                             plan.isPopular && styles.popularCard,
                             plan.isCurrent && { borderColor: plan.color, borderWidth: 2 }
                         ]}
@@ -235,7 +288,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
                 {/* FAQ Section */}
                 <View style={styles.faqSection}>
                     <Text style={styles.faqTitle}>Frequently Asked Questions</Text>
-                    
+
                     <View style={styles.faqItem}>
                         <Text style={styles.faqQuestion}>Can I change my plan later?</Text>
                         <Text style={styles.faqAnswer}>Yes, you can upgrade or downgrade your plan at any time from your account settings.</Text>
