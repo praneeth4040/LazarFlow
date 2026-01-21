@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap } from 'lucide-react-native';
@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
 import { getUserThemes, getCommunityDesigns, getDesignImageSource, getUserProfile, updateUserProfile } from '../lib/dataService';
+import SubscriptionPlansScreen from './SubscriptionPlansScreen';
 
 const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false }) => {
     const imageSource = getDesignImageSource(theme);
@@ -318,7 +319,7 @@ const DashboardScreen = ({ navigation }) => {
                 `Your current plan allows for ${limits.maxLayouts} custom layouts. Upgrade to upload more!`,
                 [
                     { text: 'Later', style: 'cancel' },
-                    { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') }
+                    { text: 'View Plans', onPress: () => setActiveTab('plans') }
                 ]
             );
             return;
@@ -499,6 +500,7 @@ const DashboardScreen = ({ navigation }) => {
             title = `Welcome ${username}`;
         }
         if (activeTab === 'design') title = 'Design Studio';
+        if (activeTab === 'plans') title = 'Subscription Plans';
         if (activeTab === 'profile') title = 'Account Settings';
 
         return (
@@ -587,7 +589,7 @@ const DashboardScreen = ({ navigation }) => {
                     </View>
                     <Text style={styles.bannerTitle}>Unlock Premium Access</Text>
                     <Text style={styles.bannerDesc}>Get unlimited lobbies, custom layouts, LexiView AI & more!</Text>
-                    <TouchableOpacity style={styles.bannerCta} onPress={() => navigation.navigate('SubscriptionPlans')}>
+                    <TouchableOpacity style={styles.bannerCta} onPress={() => setActiveTab('plans')}>
                         <Text style={styles.bannerCtaText}>Upgrade Now</Text>
                         <ArrowRight size={16} color="#1E3A8A" />
                     </TouchableOpacity>
@@ -901,7 +903,7 @@ const DashboardScreen = ({ navigation }) => {
                             <View style={styles.groupContent}>
                                 <TouchableOpacity 
                                     style={styles.infoRow}
-                                    onPress={() => navigation.navigate('SubscriptionPlans')}
+                                    onPress={() => setActiveTab('plans')}
                                 >
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                         <Sparkles size={16} color={Theme.colors.accent} />
@@ -1073,8 +1075,8 @@ const DashboardScreen = ({ navigation }) => {
 
                                 <TouchableOpacity 
                                     style={[styles.subscriptionBtn, { backgroundColor: Theme.colors.accent + '20', borderColor: Theme.colors.accent }]}
-                                    onPress={() => navigation.navigate('SubscriptionPlans')}
-                                >
+                                     onPress={() => setActiveTab('plans')}
+                                 >
                                     <Sparkles size={18} color={Theme.colors.accent} style={{ marginRight: 8 }} />
                                     <Text style={[styles.subscriptionBtnText, { color: Theme.colors.accent }]}>
                                         {tier === 'free' ? 'Get Subscription' : 'View Subscription Plan'}
@@ -1167,15 +1169,12 @@ const DashboardScreen = ({ navigation }) => {
             );
         }
 
-        // Return content based on active tab
-        let content;
-        if (activeTab === 'home') content = renderHome();
-        else if (activeTab === 'design') content = renderDesign();
-        else if (activeTab === 'profile') content = renderProfile();
-
         return (
-            <>
-                {content}
+            <View style={{ flex: 1 }}>
+                {activeTab === 'home' && renderHome()}
+                {activeTab === 'design' && renderDesign()}
+                {activeTab === 'plans' && <SubscriptionPlansScreen navigation={navigation} isTab={true} />}
+                {activeTab === 'profile' && renderProfile()}
                 
                 {/* Design Studio Upload Form Bottom Sheet */}
                 <Modal
@@ -1308,7 +1307,7 @@ const DashboardScreen = ({ navigation }) => {
                                     style={styles.promoMainBtn}
                                     onPress={() => {
                                         setShowPromoModal(false);
-                                        navigation.navigate('SubscriptionPlans');
+                                        setActiveTab('plans');
                                     }}
                                 >
                                     <LinearGradient
@@ -1332,7 +1331,7 @@ const DashboardScreen = ({ navigation }) => {
                         </View>
                     </View>
                 </Modal>
-            </>
+            </View>
         );
     };
 
@@ -1361,7 +1360,7 @@ const DashboardScreen = ({ navigation }) => {
             {tier === 'free' && activeTab === 'home' && (
                 <TouchableOpacity 
                     style={styles.floatingProBadge} 
-                    onPress={() => navigation.navigate('SubscriptionPlans')}
+                    onPress={() => setActiveTab('plans')}
                     activeOpacity={0.9}
                 >
                     <LinearGradient
@@ -1385,10 +1384,10 @@ const DashboardScreen = ({ navigation }) => {
                     <Palette size={24} color={activeTab === 'design' ? Theme.colors.accent : Theme.colors.textSecondary} />
                     <Text style={[styles.tabLabel, activeTab === 'design' && styles.tabLabelActive]}>Design</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate('SubscriptionPlans')}>
+                <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('plans')}>
                     <View style={styles.premiumTabItem}>
-                        <Crown size={24} color="#f59e0b" />
-                        <Text style={[styles.tabLabel, { color: '#f59e0b', fontWeight: '800' }]}>Plans</Text>
+                        <Crown size={24} color={activeTab === 'plans' ? '#f59e0b' : Theme.colors.textSecondary} />
+                        <Text style={[styles.tabLabel, { color: activeTab === 'plans' ? '#f59e0b' : Theme.colors.textSecondary, fontWeight: activeTab === 'plans' ? '800' : '400' }]}>Plans</Text>
                     </View>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('profile')}>

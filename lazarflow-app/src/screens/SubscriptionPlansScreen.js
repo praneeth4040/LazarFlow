@@ -10,7 +10,7 @@ import {
     CFPaymentGatewayService,
 } from 'react-native-cashfree-pg-sdk';
 
-const SubscriptionPlansScreen = ({ navigation }) => {
+const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     const { tier, lobbiesCreated, limits } = useSubscription();
     const insets = useSafeAreaInsets();
 
@@ -20,7 +20,9 @@ const SubscriptionPlansScreen = ({ navigation }) => {
             // Poll or wait for webhook to update Supabase, then refresh user profile
             // For better UX, we can optimistically show success
             Alert.alert('Success', 'Payment verified! Your plan will be updated shortly.');
-            navigation.goBack();
+            if (!isTab) {
+                navigation.goBack();
+            }
         };
 
         const onError = (error, orderID) => {
@@ -185,18 +187,20 @@ const SubscriptionPlansScreen = ({ navigation }) => {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={[styles.container, { paddingTop: isTab ? 0 : insets.top, paddingBottom: isTab ? 0 : insets.bottom }]}>
             <StatusBar barStyle="dark-content" />
-            <View style={styles.topHeader}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <ArrowLeft size={24} color={Theme.colors.textPrimary} />
-                </TouchableOpacity>
-                <Text style={styles.topHeaderTitle}>Premium Plans</Text>
-                <View style={{ width: 40 }} />
-            </View>
+            {!isTab && (
+                <View style={styles.topHeader}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                        <ArrowLeft size={24} color={Theme.colors.textPrimary} />
+                    </TouchableOpacity>
+                    <Text style={styles.topHeaderTitle}>Premium Plans</Text>
+                    <View style={{ width: 40 }} />
+                </View>
+            )}
 
             <ScrollView
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, isTab && { paddingBottom: 100 }]}
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.header}>

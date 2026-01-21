@@ -1,9 +1,10 @@
 const { Expo } = require('expo-server-sdk');
 
 // 1. PASTE YOUR TOKEN HERE
-const PUSH_TOKEN = 'ExponentPushToken[-W0u-7JGdtDiCKbcWAGG6v]';
+const PUSH_TOKEN = 'ExponentPushToken[PXJHlQO_0gZF5kkYxn4CTr]';
 
 // Create a new Expo SDK client
+console.log();
 let expo = new Expo();
 
 // Create the messages that you want to send to clients

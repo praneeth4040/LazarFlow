@@ -1,6 +1,43 @@
 import apiClient from './apiClient';
 
 /**
+ * Process lobby screenshots to extract teams and members
+ * @param {Array} imageFiles - Array of image objects
+ * @returns {Promise<Object>} Processed lobby data
+ */
+export const processLobbyScreenshots = async (imageFiles) => {
+    console.log(`🔍 Processing ${imageFiles.length} lobby screenshots...`);
+
+    const formData = new FormData();
+
+    imageFiles.forEach((image, index) => {
+        const uri = image.uri;
+        const uriParts = uri.split('.');
+        const fileType = uriParts[uriParts.length - 1];
+
+        formData.append('images', {
+            uri,
+            name: `lobby_${index}.${fileType}`,
+            type: `image/${fileType}`,
+        });
+    });
+
+    try {
+        const response = await apiClient.post('/process-lobby', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+
+        console.log('🔍 Lobby Processing Response:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error processing lobby:', error);
+        throw error;
+    }
+};
+
+/**
  * Extract lobby results from screenshots
  * @param {Array} imageFiles - Array of image objects (from expo-image-picker)
  * @param {Object} options - Extraction options

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check } from 'lucide-react-native';
+import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
-import { extractResultsFromScreenshot } from '../lib/aiResultExtraction';
+import { extractResultsFromScreenshot, processLobbyScreenshots } from '../lib/aiResultExtraction';
 import { fuzzyMatch, fuzzyMatchName } from '../lib/aiUtils';
 import { useSubscription } from '../hooks/useSubscription';
 
@@ -25,6 +25,13 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [mappings, setMappings] = useState({}); // { [rank]: registeredTeamId }
     const [selectedAiTeam, setSelectedAiTeam] = useState(null);
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
+    
+    // AI Workflow Steps
+    const [aiStep, setAiStep] = useState(1);
+    const [lobbyImages, setLobbyImages] = useState([]);
+    const [processingLobby, setProcessingLobby] = useState(false);
+    const [lobbyStepExpanded, setLobbyStepExpanded] = useState(true);
+    const [resultsStepExpanded, setResultsStepExpanded] = useState(false);
 
     useEffect(() => {
         if (lobby?.id) {
@@ -115,6 +122,53 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
     const handleRemoveResult = (index) => {
         setResults(results.filter((_, i) => i !== index));
+    };
+
+    const handlePickLobbyImages = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            quality: 0.8,
+        });
+
+        if (!result.canceled) {
+            setLobbyImages([...lobbyImages, ...result.assets]);
+        }
+    };
+
+    const handleRemoveLobbyImage = (index) => {
+        setLobbyImages(lobbyImages.filter((_, i) => i !== index));
+    };
+
+    const handleProcessLobby = async () => {
+        if (lobbyImages.length === 0) {
+            Alert.alert('Error', 'Please select lobby screenshots first');
+            return;
+        }
+        
+        setProcessingLobby(true);
+        try {
+            const data = await processLobbyScreenshots(lobbyImages);
+            
+            if (data.success) {
+                Alert.alert(
+                    'Lobby Processed', 
+                    `Successfully identified ${data.teams_count || 0} teams. Now proceed to Step 2 to extract match results.`,
+                    [{ text: 'Next Step', onPress: () => {
+                        setAiStep(2);
+                        setLobbyStepExpanded(false);
+                        setResultsStepExpanded(true);
+                    }}]
+                );
+            } else {
+                throw new Error(data.message || 'Failed to process lobby');
+            }
+        } catch (err) {
+            console.error('Lobby Process Error:', err);
+            Alert.alert('Error', 'Failed to process lobby screenshots. Please try again or use manual mode.');
+        } finally {
+            setProcessingLobby(false);
+        }
     };
 
     const handlePickImage = async () => {
@@ -431,25 +485,121 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                                 ]}>
                                                     {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team'}
                                                 </Text>
+                                                <ChevronDown size={16} color={Theme.colors.textSecondary} />
                                             </TouchableOpacity>
                                         </View>
                                     </View>
                                 ))}
-                                <View style={styles.mappingActions}>
-                                    <TouchableOpacity style={styles.cancelMappingBtn} onPress={() => setShowMapping(false)}>
-                                        <Text style={styles.cancelMappingText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.applyMappingBtn} onPress={handleApplyMapping}>
-                                        <Text style={styles.applyMappingText}>Apply Results</Text>
-                                    </TouchableOpacity>
-                                </View>
+
+                                <TouchableOpacity style={styles.applyBtn} onPress={handleApplyMapping}>
+                                    <Check size={20} color="#fff" />
+                                    <Text style={styles.applyBtnText}>Apply Results</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowMapping(false)}>
+                                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                                </TouchableOpacity>
                             </View>
                         ) : (
-                            <TouchableOpacity style={styles.uploadCard} onPress={handlePickImage}>
-                                <Upload size={48} color={Theme.colors.accent} />
-                                <Text style={styles.uploadTitle}>Upload Screenshot</Text>
-                                <Text style={styles.uploadSubtitle}>AI will auto-fill the standings from Free Fire / BGMI shots</Text>
-                            </TouchableOpacity>
+                            <View style={styles.workflowContainer}>
+                                <View style={styles.workflowHeader}>
+                                    <Sparkles size={24} color={Theme.colors.accent} />
+                                    <Text style={styles.workflowTitle}>LexiView AI Workflow</Text>
+                                </View>
+
+                                {/* Step 1: Process Lobby */}
+                                <View style={[styles.stepCard, aiStep === 1 && styles.activeStepCard]}>
+                                    <TouchableOpacity 
+                                        style={styles.stepHeader}
+                                        onPress={() => setLobbyStepExpanded(!lobbyStepExpanded)}
+                                    >
+                                        <View style={styles.stepHeaderLeft}>
+                                            <View style={[styles.stepBadge, aiStep >= 1 && styles.activeStepBadge]}>
+                                                <Text style={styles.stepBadgeText}>1</Text>
+                                            </View>
+                                            <View>
+                                                <Text style={styles.stepTitle}>Process Lobby</Text>
+                                                <Text style={styles.stepDescription}>Extract teams & members from lobby</Text>
+                                            </View>
+                                        </View>
+                                        {lobbyStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
+                                    </TouchableOpacity>
+
+                                    {lobbyStepExpanded && (
+                                        <View style={styles.stepContent}>
+                                            <View style={styles.imageGrid}>
+                                                {lobbyImages.map((img, idx) => (
+                                                    <View key={idx} style={styles.imagePreviewContainer}>
+                                                        <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+                                                        <TouchableOpacity 
+                                                            style={styles.removeImageBtn}
+                                                            onPress={() => handleRemoveLobbyImage(idx)}
+                                                        >
+                                                            <X size={12} color="#fff" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))}
+                                                <TouchableOpacity style={styles.addImageBtn} onPress={handlePickLobbyImages}>
+                                                    <Camera size={24} color={Theme.colors.textSecondary} />
+                                                    <Text style={styles.addImageText}>Add Lobby Screenshot</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                            
+                                            <TouchableOpacity 
+                                                style={[styles.processBtn, lobbyImages.length === 0 && styles.disabledBtn]}
+                                                onPress={handleProcessLobby}
+                                                disabled={processingLobby || lobbyImages.length === 0}
+                                            >
+                                                {processingLobby ? (
+                                                    <ActivityIndicator size="small" color="#fff" />
+                                                ) : (
+                                                    <>
+                                                        <Upload size={18} color="#fff" style={{ marginRight: 8 }} />
+                                                        <Text style={styles.processBtnText}>Process Lobby</Text>
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Step 2: Extract Results */}
+                                <View style={[styles.stepCard, aiStep === 2 && styles.activeStepCard, aiStep < 2 && styles.disabledStepCard]}>
+                                    <TouchableOpacity 
+                                        style={styles.stepHeader}
+                                        onPress={() => aiStep >= 2 && setResultsStepExpanded(!resultsStepExpanded)}
+                                        disabled={aiStep < 2}
+                                    >
+                                        <View style={styles.stepHeaderLeft}>
+                                            <View style={[styles.stepBadge, aiStep >= 2 && styles.activeStepBadge]}>
+                                                <Text style={styles.stepBadgeText}>2</Text>
+                                            </View>
+                                            <View>
+                                                <Text style={styles.stepTitle}>Extract Results</Text>
+                                                <Text style={styles.stepDescription}>Calculate points from result screens</Text>
+                                            </View>
+                                        </View>
+                                        {resultsStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
+                                    </TouchableOpacity>
+
+                                    {resultsStepExpanded && (
+                                        <View style={styles.stepContent}>
+                                            <TouchableOpacity style={styles.uploadMainBtn} onPress={handlePickImage}>
+                                                <Upload size={32} color={Theme.colors.accent} />
+                                                <Text style={styles.uploadMainTitle}>Upload Result Screenshots</Text>
+                                                <Text style={styles.uploadMainSubtitle}>Select multiple images for all ranks</Text>
+                                            </TouchableOpacity>
+                                            
+                                            <View style={styles.aiInstructions}>
+                                                <Text style={styles.instructionTitle}>Tips for better results:</Text>
+                                                <Text style={styles.instructionText}>• Ensure screenshots are clear and readable</Text>
+                                                <Text style={styles.instructionText}>• Include all ranks (1 to bottom)</Text>
+                                                <Text style={styles.instructionText}>• Avoid overlapping text or UI elements</Text>
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
                         )}
                     </View>
                 )}
@@ -726,25 +876,202 @@ const styles = StyleSheet.create({
     aiUploadSection: {
         marginBottom: 20,
     },
-    uploadCard: {
+    workflowContainer: {
+        gap: 12,
+    },
+    workflowHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 12,
+        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+        padding: 12,
+        borderRadius: 8,
+    },
+    workflowTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Theme.colors.accent,
+    },
+    stepCard: {
         backgroundColor: Theme.colors.primary,
-        borderWidth: 2,
-        borderColor: Theme.colors.accent,
-        borderStyle: 'dashed',
         borderRadius: 12,
-        padding: 30,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        overflow: 'hidden',
+    },
+    activeStepCard: {
+        borderColor: Theme.colors.accent,
+        borderWidth: 1.5,
+    },
+    disabledStepCard: {
+        opacity: 0.6,
+    },
+    stepHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+    },
+    stepHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    stepBadge: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.border,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
     },
-    uploadTitle: {
-        fontSize: 18,
+    activeStepBadge: {
+        backgroundColor: Theme.colors.accent,
+    },
+    stepBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    stepTitle: {
+        fontSize: 15,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
     },
-    uploadSubtitle: {
-        fontSize: 14,
+    stepDescription: {
+        fontSize: 12,
         color: Theme.colors.textSecondary,
+    },
+    stepContent: {
+        padding: 16,
+        paddingTop: 0,
+        borderTopWidth: 1,
+        borderTopColor: Theme.colors.border,
+        marginTop: 0,
+        paddingBottom: 20,
+    },
+    imageGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginVertical: 12,
+    },
+    imagePreviewContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 8,
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    imagePreview: {
+        width: '100%',
+        height: '100%',
+    },
+    removeImageBtn: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 10,
+        padding: 4,
+    },
+    addImageBtn: {
+        width: 80,
+        height: 80,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 4,
+    },
+    addImageText: {
+        fontSize: 10,
+        color: Theme.colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    processBtn: {
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    disabledBtn: {
+        backgroundColor: Theme.colors.border,
+    },
+    processBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    uploadMainBtn: {
+        backgroundColor: 'rgba(26, 115, 232, 0.05)',
+        borderWidth: 1,
+        borderColor: Theme.colors.accent,
+        borderStyle: 'dashed',
+        borderRadius: 12,
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: 12,
+    },
+    uploadMainTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+        marginTop: 8,
+    },
+    uploadMainSubtitle: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        marginTop: 4,
+    },
+    aiInstructions: {
+        backgroundColor: Theme.colors.secondary,
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    instructionTitle: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+        marginBottom: 4,
+    },
+    instructionText: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        marginBottom: 2,
+    },
+    applyBtn: {
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 8,
+        marginTop: 16,
+        gap: 8,
+    },
+    applyBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    cancelBtn: {
+        alignItems: 'center',
+        paddingVertical: 12,
+        marginTop: 8,
+    },
+    cancelBtnText: {
+        color: Theme.colors.textSecondary,
+        fontSize: 14,
     },
     sectionTitle: {
         fontSize: 16,
