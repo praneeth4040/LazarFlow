@@ -295,6 +295,10 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                 <Text style={styles.newHeaderTitle}>
                     Select Theme
                 </Text>
+                <View style={styles.lobbyIdContainer}>
+                    <Text style={styles.lobbyIdLabel}>ID:</Text>
+                    <Text style={styles.lobbyIdValue}>{id?.slice(0, 8)}</Text>
+                </View>
                 <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.editBtn}>
                     <Edit size={20} color="#333" />
                 </TouchableOpacity>
@@ -520,14 +524,14 @@ const styles = StyleSheet.create({
     },
     lobbyNameText: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     lobbyGameText: {
         fontSize: 14,
         color: Theme.colors.accent,
         marginTop: 4,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     designViewContainer: {
         flex: 1,
@@ -553,7 +557,7 @@ const styles = StyleSheet.create({
     },
     designTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     imageWrapper: {
@@ -589,7 +593,7 @@ const styles = StyleSheet.create({
     },
     shareDesignText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         fontSize: 14,
     },
     scrollContainer: {
@@ -607,7 +611,7 @@ const styles = StyleSheet.create({
     headerCell: {
         color: Theme.colors.textSecondary,
         fontSize: 12,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         textAlign: 'center',
     },
     row: {
@@ -627,20 +631,21 @@ const styles = StyleSheet.create({
     cell: {
         color: Theme.colors.textPrimary,
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         textAlign: 'center',
     },
     rankCell: { width: 30 },
     teamCell: { flex: 1, textAlign: 'left', paddingLeft: 10 },
     pointCell: { width: 45 },
-    totalCell: { color: Theme.colors.accent, fontWeight: 'bold' },
+    totalCell: { color: Theme.colors.accent, fontFamily: Theme.fonts.outfit.bold },
     teamName: {
         color: Theme.colors.textPrimary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
         textAlign: 'left',
     },
     topRank: {
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     tabContainer: {
         flexDirection: 'row',
@@ -663,7 +668,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
     },
     activeTabText: {
@@ -671,19 +676,20 @@ const styles = StyleSheet.create({
     },
     mvpPlayerName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         textAlign: 'left',
     },
     mvpTeamName: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textAlign: 'left',
     },
     mvpKills: {
         width: 60,
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         fontSize: 18,
     },
     // Design Selector Styles
@@ -700,7 +706,7 @@ const styles = StyleSheet.create({
     },
     designSelectorTitle: {
         fontSize: 22,
-        fontWeight: 'bold', 
+        fontFamily: Theme.fonts.outfit.bold, 
         color: Theme.colors.textPrimary,
     },
     closeButton: {
@@ -729,6 +735,7 @@ const styles = StyleSheet.create({
         flex: 1,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     infoButton: {
         width: 36,
@@ -752,7 +759,7 @@ const styles = StyleSheet.create({
     infoText: {
         color: Theme.colors.textSecondary,
         fontSize: 12,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     filterButtonsContainer: {
         flexDirection: 'row',
@@ -774,7 +781,7 @@ const styles = StyleSheet.create({
     filterButtonText: {
         color: '#fff',
         fontSize: 14,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     designCarousel: {
         paddingHorizontal: 20,
@@ -823,7 +830,7 @@ const styles = StyleSheet.create({
     selectionPillText: {
         color: '#fff',
         fontSize: 14,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     categoriesContainer: {
         flexDirection: 'row',
@@ -857,7 +864,7 @@ const styles = StyleSheet.create({
     categoryText: {
         color: 'rgba(255,255,255,0.6)',
         fontSize: 16,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     categoryTextActive: {
         color: '#fff',
@@ -874,7 +881,7 @@ const styles = StyleSheet.create({
     downloadButtonText: {
         color: '#1e1b4b', // Dark navy text
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     emptyContainer: {
         padding: 40,
@@ -911,11 +918,12 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         fontSize: 20,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     modalSubtitle: {
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginBottom: 20,
     },
@@ -952,12 +960,12 @@ const styles = StyleSheet.create({
     themePlaceholderText: {
         fontSize: 10,
         color: Theme.colors.textSecondary,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     themeOptionName: {
         fontSize: 16,
         color: Theme.colors.textPrimary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     noThemesText: {
         textAlign: 'center',
@@ -980,7 +988,7 @@ const styles = StyleSheet.create({
     },
     editModalTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     editModalContent: {
@@ -992,7 +1000,7 @@ const styles = StyleSheet.create({
     },
     editSectionTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
         marginBottom: 15,
         textTransform: 'uppercase',
@@ -1021,7 +1029,7 @@ const styles = StyleSheet.create({
     logoPickerText: {
         fontSize: 12,
         color: Theme.colors.textSecondary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     logoPreview: {
         width: '100%',
@@ -1035,7 +1043,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Theme.colors.textSecondary,
         marginBottom: 8,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     textInput: {
         backgroundColor: Theme.colors.primary,
@@ -1043,6 +1051,7 @@ const styles = StyleSheet.create({
         padding: 12,
         color: Theme.colors.textPrimary,
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
         borderWidth: 1,
         borderColor: Theme.colors.border,
     },
@@ -1063,6 +1072,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         color: Theme.colors.textPrimary,
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     doneButton: {
         padding: 4,
@@ -1082,11 +1092,12 @@ const styles = StyleSheet.create({
     },
     selectedThemeName: {
         fontSize: 15,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
     },
     changeThemeText: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginTop: 2,
     },
@@ -1107,10 +1118,33 @@ const styles = StyleSheet.create({
     },
     newHeaderTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: '#1A1A1A',
         textAlign: 'center',
         flex: 1,
+        marginLeft: 40, // Offset for lobby ID container
+    },
+    lobbyIdContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F8F9FA',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+        marginRight: 10,
+    },
+    lobbyIdLabel: {
+        fontSize: 10,
+        color: Theme.colors.textSecondary,
+        fontFamily: Theme.fonts.outfit.medium,
+        marginRight: 4,
+    },
+    lobbyIdValue: {
+        fontSize: 10,
+        color: Theme.colors.accent,
+        fontFamily: Theme.fonts.monospace,
     },
     backButton: {
         padding: 8,
@@ -1177,14 +1211,14 @@ const styles = StyleSheet.create({
     themeBadgeText: {
         color: Theme.colors.accent,
         fontSize: 11,
-        fontWeight: '800',
+        fontFamily: Theme.fonts.outfit.bold,
         letterSpacing: 0.8,
         textTransform: 'uppercase',
     },
     themeNameLabel: {
         color: '#333333',
         fontSize: 15,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         letterSpacing: 0.3,
     },
     pagination: {
@@ -1228,7 +1262,7 @@ const styles = StyleSheet.create({
     generateButtonText: {
         color: '#FFFFFF',
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         letterSpacing: 0.5,
     },
     resultContent: {
@@ -1264,7 +1298,7 @@ const styles = StyleSheet.create({
     shareFabText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     // Bottom Sheet Styles
     sheetOverlay: {
@@ -1297,7 +1331,7 @@ const styles = StyleSheet.create({
     },
     sheetTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: '#1A1A1A',
     },
     sheetCloseBtn: {
@@ -1344,7 +1378,7 @@ const styles = StyleSheet.create({
     downloadActionText: {
         color: '#1A73E8',
         fontSize: 15,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     shareActionBtn: {
         backgroundColor: '#1A73E8',
@@ -1352,7 +1386,7 @@ const styles = StyleSheet.create({
     shareActionText: {
         color: '#FFFFFF',
         fontSize: 15,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
 });
 

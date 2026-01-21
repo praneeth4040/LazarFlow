@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
         marginLeft: 4,
@@ -214,6 +214,7 @@ const styles = StyleSheet.create({
         flex: 1,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     button: {
         backgroundColor: Theme.colors.accent,
@@ -237,12 +238,12 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     forgotPasswordText: {
         color: Theme.colors.accent,
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     footer: {
         flexDirection: 'row',
@@ -253,11 +254,12 @@ const styles = StyleSheet.create({
     footerText: {
         color: Theme.colors.textSecondary,
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     footerLink: {
         color: Theme.colors.accent,
         fontSize: 15,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
 });
 

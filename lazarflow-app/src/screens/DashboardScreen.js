@@ -915,7 +915,7 @@ const DashboardScreen = ({ navigation }) => {
 
                                 <View style={styles.infoRow}>
                                     <Text style={styles.infoLabel}>User ID</Text>
-                                    <Text style={styles.infoValue} numberOfLines={1}>{user?.id}</Text>
+                                    <Text style={[styles.infoValue, { fontFamily: Theme.fonts.monospace }]} numberOfLines={1}>{user?.id}</Text>
                                 </View>
                                 <View style={styles.infoRow}>
                                     <Text style={styles.infoLabel}>Email</Text>
@@ -1417,7 +1417,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     headerUpgradeBtn: {
@@ -1531,11 +1531,12 @@ const styles = StyleSheet.create({
     },
     premiumBannerTitle: {
         fontSize: 16,
-        fontWeight: '800',
+        fontFamily: Theme.fonts.outfit.bold,
         color: '#fff',
     },
     premiumBannerDesc: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: '#E0E7FF',
         opacity: 0.9,
     },
@@ -1548,7 +1549,7 @@ const styles = StyleSheet.create({
     premiumBannerBadgeText: {
         color: '#1E3A8A',
         fontSize: 12,
-        fontWeight: '700',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     bannerCta: {
         backgroundColor: '#fff',
@@ -1563,7 +1564,7 @@ const styles = StyleSheet.create({
     },
     bannerCtaText: {
         color: '#1E3A8A',
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         fontSize: 14,
     },
     card: {
@@ -1591,12 +1592,13 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 4,
     },
     cardMeta: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     cardActions: {
@@ -2049,13 +2051,14 @@ const styles = StyleSheet.create({
     },
     popupTitle: {
         fontSize: 22,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         textAlign: 'center',
         marginBottom: 12,
     },
     popupDesc: {
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textAlign: 'center',
         lineHeight: 22,
@@ -2075,7 +2078,7 @@ const styles = StyleSheet.create({
     },
     popupCtaText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         fontSize: 16,
     },
     popupSecondaryBtn: {
@@ -2084,7 +2087,7 @@ const styles = StyleSheet.create({
     popupSecondaryBtnText: {
         color: Theme.colors.textSecondary,
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     // Design Studio Styles
     designTabNav: {
@@ -2107,7 +2110,7 @@ const styles = StyleSheet.create({
     },
     designTabLabel: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
     },
     designTabLabelActive: {
@@ -2138,12 +2141,13 @@ const styles = StyleSheet.create({
     },
     activeDesignTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 4,
     },
     activeDesignStatus: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     editDesignBtn: {
@@ -2166,7 +2170,7 @@ const styles = StyleSheet.create({
     },
     uploadTitleSmall: {
         fontSize: 15,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
     },
     themesGrid: {
@@ -2196,7 +2200,7 @@ const styles = StyleSheet.create({
     },
     themeName: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         flex: 1,
         marginRight: 8,
@@ -2208,6 +2212,7 @@ const styles = StyleSheet.create({
     },
     emptySubText: {
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textAlign: 'center',
         marginTop: 8,
@@ -2232,7 +2237,7 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textSecondary,
         textTransform: 'uppercase',
     },
@@ -2279,7 +2284,7 @@ const styles = StyleSheet.create({
     },
     uploadModalTitle: {
         fontSize: 22,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         letterSpacing: -0.5,
     },
@@ -2321,7 +2326,7 @@ const styles = StyleSheet.create({
     previewTag: {
         color: '#fff',
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         letterSpacing: 1,
     },
     uploadInputGroup: {
@@ -2329,7 +2334,7 @@ const styles = StyleSheet.create({
     },
     uploadInputLabel: {
         fontSize: 11,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textSecondary,
         marginBottom: 10,
         letterSpacing: 1,
@@ -2348,13 +2353,14 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: Theme.colors.textPrimary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     inputHint: {
         fontSize: 12,
         color: Theme.colors.textSecondary,
         marginTop: 8,
         fontStyle: 'italic',
+        fontFamily: Theme.fonts.outfit.regular,
     },
     uploadModalFooter: {
         marginTop: 8,
@@ -2380,7 +2386,7 @@ const styles = StyleSheet.create({
     uploadSubmitBtnText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     // Pinterest Style Grid
     pinterestGrid: {
@@ -2412,7 +2418,7 @@ const styles = StyleSheet.create({
     },
     pinTitle: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 6,
         lineHeight: 20,
@@ -2439,11 +2445,12 @@ const styles = StyleSheet.create({
     },
     pinAvatarText: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textSecondary,
     },
     pinAuthorName: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         flex: 1,
     },
@@ -2492,13 +2499,14 @@ const styles = StyleSheet.create({
     },
     promoTitle: {
         fontSize: 26,
-        fontWeight: '900',
+        fontFamily: Theme.fonts.outfit.bold,
         color: '#fff',
         textAlign: 'center',
         marginBottom: 8,
     },
     promoSubtitle: {
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
         color: 'rgba(255, 255, 255, 0.7)',
         textAlign: 'center',
     },
@@ -2522,8 +2530,8 @@ const styles = StyleSheet.create({
     },
     promoFeatureText: {
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
-        fontWeight: '600',
     },
     promoMainBtn: {
         marginTop: 24,
@@ -2540,7 +2548,7 @@ const styles = StyleSheet.create({
     promoMainBtnText: {
         color: '#fff',
         fontSize: 18,
-        fontWeight: '800',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     promoSecondaryBtn: {
         marginTop: 15,
@@ -2550,7 +2558,7 @@ const styles = StyleSheet.create({
     promoSecondaryBtnText: {
         color: Theme.colors.textSecondary,
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     floatingProBadge: {
         position: 'absolute',
@@ -2576,7 +2584,7 @@ const styles = StyleSheet.create({
     proBadgeText: {
         color: '#fff',
         fontSize: 14,
-        fontWeight: '900',
+        fontFamily: Theme.fonts.outfit.bold,
         letterSpacing: 1,
     },
 });

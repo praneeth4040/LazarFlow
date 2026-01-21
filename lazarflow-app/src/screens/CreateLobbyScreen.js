@@ -219,8 +219,20 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
+    },
+    sectionTitle: {
+        fontSize: 20,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        marginBottom: 8,
+    },
+    sectionSubtitle: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+        marginBottom: 24,
     },
     scrollContent: {
         padding: 20,
@@ -236,18 +248,20 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
+        marginLeft: 4,
     },
     input: {
-        backgroundColor: Theme.colors.primary,
+        backgroundColor: Theme.colors.surface,
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        borderRadius: 8,
-        padding: 12,
+        borderRadius: 12,
+        padding: 16,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     gameGrid: {
         flexDirection: 'row',
@@ -268,7 +282,7 @@ const styles = StyleSheet.create({
     },
     gameCardText: {
         color: Theme.colors.textSecondary,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     gameCardTextActive: {
         color: Theme.colors.accent,
@@ -284,14 +298,14 @@ const styles = StyleSheet.create({
     },
     killPointsLabel: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.accent,
     },
     killPointsInput: {
         width: 30,
         textAlign: 'center',
         fontSize: 14,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
         padding: 0,
     },
@@ -313,20 +327,21 @@ const styles = StyleSheet.create({
     placementText: {
         width: 40,
         fontSize: 14,
-        fontWeight: '700',
+        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.textPrimary,
     },
     pointInput: {
         flex: 1,
         textAlign: 'right',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.accent,
         paddingVertical: 0,
     },
     pointsSuffix: {
         marginLeft: 8,
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     footer: {
@@ -346,10 +361,31 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 4,
     },
-    createButtonText: {
-        color: '#fff',
+    gameCardName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        marginBottom: 4,
+    },
+    gameCardStatus: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.medium,
+    },
+    optionTitle: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textPrimary,
+    },
+    optionDescription: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+        marginTop: 2,
+    },
+    createButtonText: {
+        color: Theme.colors.background,
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
     },
     buttonDisabled: {
         opacity: 0.7,

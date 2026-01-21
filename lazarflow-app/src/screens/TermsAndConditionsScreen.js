@@ -122,16 +122,18 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 28,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.inter.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
     },
     lastUpdated: {
         fontSize: 14,
+        fontFamily: Theme.fonts.inter.regular,
         color: Theme.colors.textSecondary,
     },
     intro: {
         fontSize: 15,
+        fontFamily: Theme.fonts.inter.regular,
         color: Theme.colors.textSecondary,
         lineHeight: 22,
         marginBottom: 30,
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.inter.bold,
         color: Theme.colors.accent,
     },
     highlightTitle: {
@@ -162,6 +164,7 @@ const styles = StyleSheet.create({
     },
     sectionContent: {
         fontSize: 15,
+        fontFamily: Theme.fonts.inter.regular,
         color: Theme.colors.textPrimary,
         lineHeight: 24,
     },
@@ -180,12 +183,13 @@ const styles = StyleSheet.create({
     },
     bulletContent: {
         color: Theme.colors.textPrimary,
+        fontFamily: Theme.fonts.inter.regular,
         fontSize: 15,
         lineHeight: 24,
         flex: 1,
     },
     bold: {
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.inter.bold,
         color: Theme.colors.textPrimary,
     },
     contactCard: {
@@ -202,7 +206,7 @@ const styles = StyleSheet.create({
         marginLeft: 15,
         fontSize: 16,
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.inter.bold,
     },
     footerContent: {
         marginTop: 20,
@@ -211,6 +215,7 @@ const styles = StyleSheet.create({
     },
     footerText: {
         color: Theme.colors.textSecondary,
+        fontFamily: Theme.fonts.inter.regular,
         fontSize: 14,
     },
 });
