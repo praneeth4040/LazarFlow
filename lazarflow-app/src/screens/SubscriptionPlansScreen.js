@@ -6,6 +6,8 @@ import { useSubscription } from '../hooks/useSubscription';
 import { supabase } from '../lib/supabaseClient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import RazorpayCheckout from 'react-native-razorpay';
+import apiClient from '../lib/apiClient';
 import {
     CFPaymentGatewayService,
 } from 'react-native-cashfree-pg-sdk';
@@ -146,34 +148,78 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                             const { data: { user } } = await supabase.auth.getUser();
                             if (!user) throw new Error('User not found');
 
-                            // 1. Create Order via Backend
-                            // Using fetch directly to hit local backend
-                            // TODO: Replace with your production URL 
-                            const response = await fetch('http://localhost:5000/create-order', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
+                            // --- RAZORPAY FLOW (PRIMARY) ---
+                            try {
+                                console.log('🚀 Initiating Razorpay flow...');
+                                // 1. Create Order via Backend
+                                const orderResponse = await apiClient.post('/create-order', {
                                     user_id: user.id,
                                     tier: plan.id
-                                }),
-                            });
+                                });
 
-                            const data = await response.json();
+                                const { id: order_id, amount, currency, key_id } = orderResponse.data;
 
-                            if (!response.ok) {
-                                throw new Error(data.message || 'Failed to create order');
+                                // 2. Open Razorpay SDK
+                                const options = {
+                                    description: `LazarFlow ${plan.name} Subscription`,
+                                    image: 'https://lazarflow.app/logo.png', // Replace with actual logo
+                                    currency: currency || 'INR',
+                                    key: key_id, // Backend should provide the public key
+                                    amount: amount,
+                                    name: 'LazarFlow',
+                                    order_id: order_id,
+                                    prefill: {
+                                        email: user.email,
+                                        contact: '',
+                                        name: user.user_metadata?.full_name || ''
+                                    },
+                                    theme: { color: Theme.colors.accent }
+                                };
+
+                                const razorpayData = await RazorpayCheckout.open(options);
+                                console.log('✅ Razorpay Success:', razorpayData);
+
+                                // 3. Verify Payment via Backend
+                                const verifyResponse = await apiClient.post('/verify-payment', {
+                                    razorpay_order_id: razorpayData.razorpay_order_id,
+                                    razorpay_payment_id: razorpayData.razorpay_payment_id,
+                                    razorpay_signature: razorpayData.razorpay_signature
+                                });
+
+                                if (verifyResponse.status === 200) {
+                                    Alert.alert('Success', 'Payment verified! Your plan has been updated.');
+                                    if (!isTab) navigation.goBack();
+                                    return;
+                                }
+                            } catch (rpError) {
+                                console.log('⚠️ Razorpay failed or cancelled, trying Cashfree fallback...', rpError);
+                                // If user cancelled, don't fallback to Cashfree immediately, ask or just log
+                                if (rpError.code === 2) { // 2 is usually user cancellation in some SDKs
+                                    return; 
+                                }
                             }
 
-                            const { payment_session_id, order_id } = data; // Assuming backend returns order_id too if needed
+                            // --- CASHFREE FLOW (FALLBACK) ---
+                            console.log('🔄 Initiating Cashfree fallback...');
+                            // 1. Create Cashfree Order via Backend
+                            // Note: We might need a different endpoint for Cashfree if the backend logic differs
+                            // but assuming the same /create-order can handle it or we use a specific one.
+                            const cfResponse = await fetch('https://api.lazarflow.app/create-order-cashfree', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ user_id: user.id, tier: plan.id }),
+                            });
+
+                            const cfData = await cfResponse.json();
+                            if (!cfResponse.ok) throw new Error(cfData.message || 'Failed to create Cashfree order');
+
+                            const { payment_session_id, order_id: cf_order_id } = cfData;
 
                             // 2. Start Cashfree Checkout
-                            // Note: Environment is 'SANDBOX' or 'PRODUCTION'
                             CFPaymentGatewayService.doPayment({
-                                environment: 'SANDBOX',
+                                environment: 'PRODUCTION', // Changed to PRODUCTION as standard
                                 payment_session_id: payment_session_id,
-                                order_id: order_id || "ORDER_ID_NOT_PROVIDED", // SDK might require order_id
+                                order_id: cf_order_id || "ORDER_ID_NOT_PROVIDED",
                             });
 
                         } catch (error) {

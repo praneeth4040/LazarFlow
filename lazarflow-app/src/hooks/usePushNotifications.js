@@ -38,19 +38,13 @@ async function registerForPushNotificationsAsync() {
             return;
         }
 
-        // Learn more about projectId:
-        // https://docs.expo.dev/push-notifications/push-notifications-setup/#configure-projectid
         try {
-            const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-            if (!projectId) {
-                console.error('❌ Project ID not found in Constants. Make sure app.json is configured correctly.');
-            }
-            token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-
-            // Get native device token for internal reference if needed
-            await Notifications.getDevicePushTokenAsync();
+            // Fetch the native device token (FCM for Android, APNs for iOS)
+            // for the Direct Push method.
+            token = (await Notifications.getDevicePushTokenAsync()).data;
+            console.log('📱 Native Device Push Token:', token);
         } catch (e) {
-            console.error("❌ Error getting push token:", e);
+            console.error("❌ Error getting native push token:", e);
         }
 
     } else {
