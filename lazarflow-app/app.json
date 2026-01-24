@@ -2,7 +2,7 @@
   "expo": {
     "name": "LazarFlow",
     "slug": "lazarflow-app",
-    "owner": "dhaneshvaibhav",
+    "owner": "praneeth4400",
     "scheme": "lazarflow",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,7 +19,6 @@
     },
     "android": {
       "package": "com.lazarflow.app",
-      "versionCode": 1,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -54,7 +53,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "043f1309-531a-473c-b2a4-dfba407c27d5"
+        "projectId": "a27edfc1-6daa-41fd-9ce5-6bfcd9b1a34b"
       }
     }
   }

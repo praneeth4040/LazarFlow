@@ -38,19 +38,13 @@ async function registerForPushNotificationsAsync() {
             return;
         }
 
-        // Learn more about projectId:
-        // https://docs.expo.dev/push-notifications/push-notifications-setup/#configure-projectid
         try {
-            const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-            if (!projectId) {
-                console.error('❌ Project ID not found in Constants. Make sure app.json is configured correctly.');
-            }
-            token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-
-            // Get native device token for internal reference if needed
-            await Notifications.getDevicePushTokenAsync();
+            // Fetch the native device token (FCM for Android, APNs for iOS)
+            // for the Direct Push method.
+            token = (await Notifications.getDevicePushTokenAsync()).data;
+            console.log('📱 Native Device Push Token:', token);
         } catch (e) {
-            console.error("❌ Error getting push token:", e);
+            console.error("❌ Error getting native push token:", e);
         }
 
     } else {
@@ -127,10 +121,28 @@ export const usePushNotifications = () => {
 
     const saveTokenToSupabase = async (userId, token) => {
         try {
-            console.log('🔄 Attempting to save push token for user:', userId);
+            console.log('🔄 Checking if push token needs update for user:', userId);
             
-            // Use upsert to ensure the profile exists and the token is updated
-            const { data, error } = await supabase
+            // 1. First, fetch the current token from the profile
+            const { data: profile, error: fetchError } = await supabase
+                .from('profiles')
+                .select('expo_push_token')
+                .eq('id', userId)
+                .single();
+
+            if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows found"
+                console.error('❌ Error fetching current profile:', fetchError.message);
+            }
+
+            // 2. Only update if the token is different or doesn't exist
+            if (profile?.expo_push_token === token) {
+                console.log('✅ Push token is already up to date. Skipping update.');
+                return;
+            }
+
+            console.log('📤 Token is new or changed. Updating Supabase...');
+            
+            const { error: updateError } = await supabase
                 .from('profiles')
                 .upsert({ 
                     id: userId, 
@@ -138,11 +150,11 @@ export const usePushNotifications = () => {
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
 
-            if (error) {
-                console.error('❌ Error saving push token to Supabase:', error.message);
-                throw error;
+            if (updateError) {
+                console.error('❌ Error saving push token to Supabase:', updateError.message);
+                throw updateError;
             } else {
-                console.log('✅ Push token successfully saved to Supabase');
+                console.log('✅ Push token successfully updated in Supabase');
             }
         } catch (err) {
             console.error('❌ Failed to save token:', err);
