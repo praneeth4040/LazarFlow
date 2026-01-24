@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
 import { Theme } from '../styles/theme';
 
 const LoginScreen = ({ navigation }) => {
@@ -18,21 +18,14 @@ const LoginScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
+            const data = await authService.login(email, password);
 
-            if (error) throw error;
-
-            if (data.user) {
-                if (data.session) {
-                    // The onAuthStateChange listener in AppNavigator will handle navigation
-                    console.log('✅ Login successful, session established');
-                }
+            if (data.user || data.session) {
+                // The onAuthStateChange listener in AppNavigator will handle navigation
+                console.log('✅ Login successful, session established');
             }
         } catch (error) {
-            Alert.alert('Login Failed', error.message || 'An error occurred');
+            Alert.alert('Login Failed', error.response?.data?.error || error.response?.data?.message || error.message || 'An error occurred');
         } finally {
             setLoading(false);
         }

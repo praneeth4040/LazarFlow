@@ -138,6 +138,9 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
             if (field.includes('wins')) return (team.wins || 0).toString();
             if (field.includes('placement')) return (team.placement_points || 0).toString();
             if (field.includes('rank')) return (index + 1).toString();
+            if (field.includes('slot') || field.includes('position')) {
+                return (team.respective_slotlist_postion || (index + 1)).toString();
+            }
             
             return team[field] || team.team_name || '';
         }
@@ -167,7 +170,7 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
         // Check if it's already a Supabase storage path or relative path
         if (cleanUrl.includes('storage/v1/object/public/themes/')) {
             if (cleanUrl.startsWith('http')) return cleanUrl;
-            return `https://xsxwzwcfaflzynsyryzq.supabase.co/${cleanUrl.startsWith('/') ? cleanUrl.substring(1) : cleanUrl}`;
+            return `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanUrl.startsWith('/') ? cleanUrl.substring(1) : cleanUrl}`;
         }
 
         // If it looks like a relative path or filename
@@ -176,17 +179,17 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
         // CRITICAL FIX: If path starts with 'optimized/', it's almost certainly a Supabase asset
         // even if theme.user_id is null (e.g. Admin/Community designs)
         if (cleanPath.startsWith('optimized/')) {
-            return `https://xsxwzwcfaflzynsyryzq.supabase.co/storage/v1/object/public/themes/${cleanPath}`;
+            return `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanPath}`;
         }
 
         // Determine if it's a Supabase theme or a community API theme
         // Supabase themes typically have a user_id
         if (theme.user_id || theme.is_user_theme) {
-            return `https://xsxwzwcfaflzynsyryzq.supabase.co/storage/v1/object/public/themes/${cleanPath}`;
+            return `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanPath}`;
         }
         
         // Fallback for community API (lazarflow.app)
-        return `https://api.lazarflow.app/${cleanPath}`;
+        return `https://4a1447cb531c.ngrok-free.app/${cleanPath}`;
     };
 
     // Try multiple fields for the URL

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Plus, Bot, User, Trash2, ArrowLeft, Loader2, Sparkles, Send } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import { extractTeamsFromText } from '../lib/aiExtraction';
+import { getLobbyTeams, addLobbyTeams, deleteTeam, updateLobby } from '../lib/dataService';
 
 const ManageTeamsScreen = ({ route, navigation }) => {
     const { lobbyId, lobbyName } = route.params || {};
@@ -23,16 +23,12 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
     const fetchExistingTeams = async () => {
         try {
-            const { data, error } = await supabase
-                .from('lobby_teams')
-                .select('id, team_name, members, total_points')
-                .eq('lobby_id', lobbyId);
-
-            if (error) throw error;
+            const data = await getLobbyTeams(lobbyId);
             setTeams(data.map(t => ({ 
                 id: t.id, 
-                name: t.team_name, 
+                team_name: t.team_name, 
                 members: t.members || [], 
+                respective_slotlist_postion: t.respective_slotlist_postion || 0,
                 total_points: t.total_points 
             })));
         } catch (error) {
@@ -42,7 +38,11 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
     const handleAddTeam = () => {
         if (currentTeam.trim()) {
-            setTeams([...teams, { name: currentTeam.trim(), members: [] }]);
+            setTeams([...teams, { 
+                team_name: currentTeam.trim(), 
+                members: [], 
+                respective_slotlist_postion: teams.length + 1 
+            }]);
             setCurrentTeam('');
         }
     };
@@ -59,17 +59,23 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
         setLoading(true);
         try {
-            const extracted = await extractTeamsFromText(aiText);
+            const extractedData = await extractTeamsFromText(aiText);
 
-            if (extracted.length === 0) {
+            if (extractedData.length === 0) {
                 Alert.alert('Info', 'No team names could be identified. Try a clearer format.');
                 return;
             }
 
-            setTeams([...teams, ...extracted]);
+            const extractedTeams = extractedData.map((item, index) => ({
+                team_name: item.name || item.team_name,
+                members: item.members || [],
+                respective_slotlist_postion: teams.length + index + 1
+            }));
+
+            setTeams([...teams, ...extractedTeams]);
             setAiText('');
             setMode('manual');
-            Alert.alert('Success', `Extracted ${extracted.length} teams!`);
+            Alert.alert('Success', `Extracted ${extractedData.length} teams!`);
         } catch (error) {
             Alert.alert('Error', 'AI extraction failed');
         } finally {
@@ -117,18 +123,41 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
         setSubmitting(true);
         try {
-            // Delete existing teams first to avoid duplicates (assuming full replacement)
-            await supabase.from('lobby_teams').delete().eq('lobby_id', lobbyId);
+            console.log(`Syncing teams for lobby ${lobbyId}...`);
+            const currentServerTeams = await getLobbyTeams(lobbyId);
+            
+            if (currentServerTeams && Array.isArray(currentServerTeams) && currentServerTeams.length > 0) {
+                console.log(`Cleaning up ${currentServerTeams.length} existing teams...`);
+                const deletePromises = currentServerTeams.map(t => t && t.id ? deleteTeam(t.id) : Promise.resolve());
+                await Promise.all(deletePromises.filter(p => p !== undefined));
+            } else if (currentServerTeams && typeof currentServerTeams === 'object' && currentServerTeams.teams) {
+                // Handle wrapped response if it exists
+                const teamsToDelete = currentServerTeams.teams;
+                if (Array.isArray(teamsToDelete) && teamsToDelete.length > 0) {
+                    console.log(`Cleaning up ${teamsToDelete.length} existing teams (wrapped)...`);
+                    const deletePromises = teamsToDelete.map(t => t && t.id ? deleteTeam(t.id) : Promise.resolve());
+                    await Promise.all(deletePromises.filter(p => p !== undefined));
+                }
+            }
 
-            const teamsToInsert = teams.map(t => ({
-                lobby_id: lobbyId,
-                team_name: t.name,
-                members: t.members,
+            const teamsToInsert = teams.map((t, index) => ({
+                team_name: t.team_name,
+                // Map members to simple string array for the backend if they are objects
+                members: (t.members || []).map(m => typeof m === 'object' ? m.name : m),
+                respective_slotlist_postion: t.respective_slotlist_postion || (index + 1),
                 total_points: t.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 }
             }));
 
-            const { error } = await supabase.from('lobby_teams').insert(teamsToInsert);
-            if (error) throw error;
+            console.log('Sending teams to backend:', JSON.stringify(teamsToInsert, null, 2));
+            await addLobbyTeams(lobbyId, teamsToInsert);
+
+            // Update metadata to indicate setup is complete
+            try {
+                await updateLobby(lobbyId, { metadata: { setup_completed: true } });
+            } catch (metaError) {
+                console.warn('Failed to update lobby metadata:', metaError);
+                // Non-critical, continue
+            }
 
             Alert.alert('Success', 'Teams and members saved successfully!', [
                 { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
@@ -219,8 +248,8 @@ const ManageTeamsScreen = ({ route, navigation }) => {
                                     onPress={() => toggleExpandTeam(index)}
                                     activeOpacity={0.7}
                                 >
-                                    <Text style={styles.teamNumber}>{index + 1}</Text>
-                                    <Text style={styles.teamName}>{team.name}</Text>
+                                    <Text style={styles.teamNumber}>{team.respective_slotlist_postion || (index + 1)}</Text>
+                                    <Text style={styles.teamName}>{team.team_name}</Text>
                                     <View style={styles.teamMeta}>
                                         <Text style={styles.memberCount}>{team.members?.length || 0} members</Text>
                                         <TouchableOpacity onPress={() => handleRemoveTeam(index)} style={styles.removeBtn}>

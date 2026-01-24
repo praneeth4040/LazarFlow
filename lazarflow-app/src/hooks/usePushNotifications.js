@@ -4,7 +4,8 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
+import { getUserProfile, updateUserProfile } from '../lib/dataService';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -73,29 +74,18 @@ export const usePushNotifications = () => {
 
             if (token) {
                 // Initial check for user
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user && isMounted) {
-                    await saveTokenToSupabase(user.id, token);
+                try {
+                    const user = await authService.getMe();
+                    if (user && isMounted) {
+                        await saveTokenToProfile(user.id, token);
+                    }
+                } catch (e) {
+                    console.log('User not logged in or error checking auth for push token');
                 }
             }
         };
 
         setupNotifications();
-
-        // Listen for auth state changes to save token when user logs in or clear it on logout
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            const currentToken = tokenRef.current;
-            if (event === 'SIGNED_IN' && session?.user && currentToken) {
-                console.log('👤 User signed in, saving push token...');
-                await saveTokenToSupabase(session.user.id, currentToken);
-            } else if (event === 'SIGNED_OUT') {
-                console.log('🚪 User signed out, clearing push token from profile...');
-                // We don't have the user ID in the session anymore, but we can't easily 
-                // clear it without the ID. In a real app, you'd call a function 
-                // before signout, but for now, this logic ensures that the NEXT 
-                // person who logs in will overwrite the token anyway.
-            }
-        });
 
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             setNotification(notification);
@@ -107,9 +97,6 @@ export const usePushNotifications = () => {
 
         return () => {
             isMounted = false;
-            if (subscription) {
-                subscription.unsubscribe();
-            }
             if (notificationListener.current) {
                 notificationListener.current.remove();
             }
@@ -119,20 +106,12 @@ export const usePushNotifications = () => {
         };
     }, []);
 
-    const saveTokenToSupabase = async (userId, token) => {
+    const saveTokenToProfile = async (userId, token) => {
         try {
             console.log('🔄 Checking if push token needs update for user:', userId);
             
             // 1. First, fetch the current token from the profile
-            const { data: profile, error: fetchError } = await supabase
-                .from('profiles')
-                .select('expo_push_token')
-                .eq('id', userId)
-                .single();
-
-            if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows found"
-                console.error('❌ Error fetching current profile:', fetchError.message);
-            }
+            const profile = await getUserProfile();
 
             // 2. Only update if the token is different or doesn't exist
             if (profile?.expo_push_token === token) {
@@ -140,22 +119,14 @@ export const usePushNotifications = () => {
                 return;
             }
 
-            console.log('📤 Token is new or changed. Updating Supabase...');
+            console.log('📤 Token is new or changed. Updating Profile...');
             
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .upsert({ 
-                    id: userId, 
-                    expo_push_token: token,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
+            await updateUserProfile({ 
+                expo_push_token: token,
+                updated_at: new Date().toISOString()
+            });
 
-            if (updateError) {
-                console.error('❌ Error saving push token to Supabase:', updateError.message);
-                throw updateError;
-            } else {
-                console.log('✅ Push token successfully updated in Supabase');
-            }
+            console.log('✅ Push token successfully updated in Profile');
         } catch (err) {
             console.error('❌ Failed to save token:', err);
         }

@@ -1,6 +1,6 @@
-import { supabase } from './supabaseClient';
 import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authService } from './authService';
 
 const CACHE_KEYS = {
     COMMUNITY_DESIGNS: 'cache_community_designs',
@@ -29,76 +29,51 @@ export const getDesignImageSource = (theme) => {
     }
 
     // Check if it's already a Supabase storage path or relative path
+    // Keeping this for backward compatibility if backend returns supabase URLs
     if (url.includes('storage/v1/object/public/themes/')) {
         if (url.startsWith('http')) return { uri: url };
         const cleanStoragePath = url.startsWith('/') ? url.substring(1) : url;
         return { uri: `https://xsxwzwcfaflzynsyryzq.supabase.co/${cleanStoragePath}` };
     }
 
-    // Construct URL for relative paths
+    // Construct URL for relative paths - pointing to new backend or existing CDN logic
     const cleanPath = url.startsWith('/') ? url.substring(1) : url;
     
-    // CRITICAL FIX: Handle optimized/ paths for null user_id themes
     if (cleanPath.startsWith('optimized/')) {
-        return { uri: `https://xsxwzwcfaflzynsyryzq.supabase.co/storage/v1/object/public/themes/${cleanPath}` };
+        // Fallback to supabase for old assets if needed, or point to new API
+        // For now, assuming new API handles serving or returns full URLs
+        return { uri: `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanPath}` }; 
     }
 
-    // Determine source based on properties
     if (theme.user_id || theme.is_user_theme) {
-        return { uri: `https://xsxwzwcfaflzynsyryzq.supabase.co/storage/v1/object/public/themes/${cleanPath}` };
+         return { uri: `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanPath}` };
     }
     
-    // Fallback for community API
-    return { uri: `https://api.lazarflow.app/${cleanPath}` };
+    return { uri: `https://4a1447cb531c.ngrok-free.app/${cleanPath}` };
 };
 
 export const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user || null;
-};
-
-/**
- * Fetch user profile from profiles table
- * @returns {Promise<Object|null>} User profile data
- */
-export const getUserProfile = async () => {
-    const user = await getCurrentUser();
-    if (!user) return null;
-
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-    if (error) {
-        console.error('Error fetching profile:', error);
+    try {
+        const user = await authService.getMe();
+        return user;
+    } catch (error) {
         return null;
     }
-
-    return data;
 };
 
 /**
- * Update user profile in profiles table
+ * Update user profile
  * @param {Object} updates - Data to update
  * @returns {Promise<boolean>} Success status
  */
 export const updateUserProfile = async (updates) => {
-    const user = await getCurrentUser();
-    if (!user) return false;
-
-    const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
-
-    if (error) {
+    try {
+        await apiClient.put('/api/auth/me', updates);
+        return true;
+    } catch (error) {
         console.error('Error updating profile:', error);
         throw error;
     }
-
-    return true;
 };
 
 export const getUserThemes = async (forceRefresh = false) => {
@@ -120,29 +95,30 @@ export const getUserThemes = async (forceRefresh = false) => {
         }
     }
 
-    const { data: themes, error } = await supabase
-        .from('themes')
-        .select('id, name, url, mapping_config, user_id, status, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+    try {
+        console.log('🔍 Fetching user themes...');
+        const { data: themes } = await apiClient.get('/api/themes');
+        console.log(`📦 Fetched ${themes?.length || 0} total themes from server`);
+        
+        const userThemes = themes ? themes.filter(t => t.user_id === user.id) : [];
+        console.log(`👤 Found ${userThemes.length} themes for user ${user.id}`);
 
-    if (error) {
+        if (userThemes.length > 0) {
+            try {
+                await AsyncStorage.setItem(
+                    `${CACHE_KEYS.USER_THEMES}_${user.id}`, 
+                    JSON.stringify({ data: userThemes, timestamp: Date.now() })
+                );
+            } catch (e) {
+                console.error('Cache write error:', e);
+            }
+        }
+
+        return userThemes;
+    } catch (error) {
         console.error('Error fetching themes:', error);
         return [];
     }
-
-    if (themes) {
-        try {
-            await AsyncStorage.setItem(
-                `${CACHE_KEYS.USER_THEMES}_${user.id}`, 
-                JSON.stringify({ data: themes, timestamp: Date.now() })
-            );
-        } catch (e) {
-            console.error('Cache write error:', e);
-        }
-    }
-
-    return themes || [];
 };
 
 /**
@@ -166,21 +142,14 @@ export const getCommunityDesigns = async (forceRefresh = false) => {
     }
 
     try {
-        console.log('🎨 Fetching system themes (user_id IS NULL)...');
+        console.log('🎨 Fetching system themes from /api/themes...');
         
-        const { data: themes, error } = await supabase
-            .from('themes')
-            .select('id, name, url, mapping_config, user_id, status, created_at')
-            .is('user_id', null)
-            .eq('status', 'verified')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('❌ Error fetching community designs from Supabase:', error);
-            return [];
-        }
+        const { data: themes } = await apiClient.get('/api/themes');
+        console.log(`📦 Fetched ${themes?.length || 0} total themes for community check`);
         
-        const designs = themes || [];
+        // Filter for system themes (user_id is null)
+        const designs = themes ? themes.filter(t => !t.user_id) : [];
+        console.log(`🌐 Found ${designs.length} system themes`);
         
         if (designs.length > 0) {
             console.log(`✅ Found ${designs.length} system themes`);
@@ -202,7 +171,7 @@ export const getCommunityDesigns = async (forceRefresh = false) => {
 };
 
 /**
- * Uploads a logo to the Supabase "logos" bucket and returns its public URL.
+ * Uploads a logo to the backend
  * @param {string} uri - The local URI of the image to upload
  * @param {string} fileName - The desired file name
  * @returns {Promise<string|null>} The public URL of the uploaded image
@@ -211,55 +180,39 @@ export const uploadLogo = async (uri, fileName) => {
     try {
         console.log(`📤 Uploading logo: ${fileName}...`);
         
-        // Convert URI to Blob for upload
-        const response = await fetch(uri);
-        const blob = await response.blob();
+        const formData = new FormData();
+        formData.append('file', {
+            uri,
+            name: fileName,
+            type: 'image/png',
+        });
         
-        // Unique file name to avoid collisions
-        const timestamp = Date.now();
-        const fullPath = `${timestamp}_${fileName}`;
-        
-        const { data, error } = await supabase.storage
-            .from('logos')
-            .upload(fullPath, blob, {
-                contentType: 'image/png',
-                cacheControl: '3600',
-                upsert: false
-            });
+        const { data } = await apiClient.post('/api/storage/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
             
-        if (error) {
-            console.error('❌ Error uploading logo:', error);
-            throw error;
-        }
-        
-        // Get the public URL
-        const { data: { publicUrl } } = supabase.storage
-            .from('logos')
-            .getPublicUrl(fullPath);
-            
-        console.log(`✅ Logo uploaded successfully: ${publicUrl}`);
-        return publicUrl;
+        console.log(`✅ Logo uploaded successfully: ${data.url}`);
+        return data.url;
     } catch (error) {
         console.error('❌ Upload failed:', error);
         return null;
     }
 };
 
+export const createTheme = async (themeData) => {
+    const { data } = await apiClient.post('/api/themes', themeData);
+    return data;
+};
+
 /**
  * Render a lobby standings image using a specific theme
- * @param {string} lobbyId - The ID of the lobby
- * @param {string} themeId - The ID of the theme to use
- * @param {Object} overrides - Design overrides (logos, text, etc.)
- * @returns {Promise<Object>} The rendered image data (url or base64)
  */
 export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
     try {
         console.log(`🎨 Requesting render for lobby ${lobbyId} with theme ${themeId}...`);
-        if (overrides) {
-            console.log('📝 Applying overrides:', JSON.stringify(overrides, null, 2));
-        }
         
-        // The endpoint returns a binary image (PNG)
         const response = await apiClient.post(`/render/${lobbyId}/${themeId}`, overrides, {
             responseType: 'arraybuffer',
             headers: {
@@ -268,46 +221,29 @@ export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
             }
         });
         
-        console.log(`📡 Response Status: ${response.status}`);
-        console.log(`📡 Content-Type: ${response.headers['content-type']}`);
-        
         if (response.data) {
             const contentType = response.headers['content-type'] || '';
             if (contentType.includes('application/json')) {
-                // If it's JSON, decode the arraybuffer
                 const decoder = new TextDecoder('utf-8');
                 const jsonString = decoder.decode(response.data);
-                console.log('📄 Received JSON Response:', jsonString);
                 return JSON.parse(jsonString);
             } else {
-                console.log(`✅ Received Binary Data. Size: ${response.data.byteLength} bytes`);
                 return response.data;
             }
         }
         
         return null;
     } catch (error) {
-        if (error.response && error.response.data instanceof ArrayBuffer) {
-            const decoder = new TextDecoder('utf-8');
-            const errorString = decoder.decode(error.response.data);
-            console.error('❌ Server Error Details (JSON):', errorString);
-        } else {
-            console.error('❌ Error rendering design:', error);
-        }
+        console.error('❌ Error rendering design:', error);
         throw error;
     }
 };
 
 /**
- * Render a lobby standings results image using a specific theme (New Design System)
- * @param {string} lobbyId - The ID of the lobby
- * @param {string} themeId - The ID of the theme to use
- * @returns {Promise<Object>} The rendered image data
+ * Render a lobby standings results image using a specific theme
  */
 export const renderResults = async (lobbyId, themeId) => {
     try {
-        console.log(`🚀 Requesting render-results for lobby ${lobbyId} with theme ${themeId}...`);
-        
         const response = await apiClient.post(`/render-results`, {
             lobbyId: lobbyId,
             themesId: themeId
@@ -334,4 +270,59 @@ export const renderResults = async (lobbyId, themeId) => {
         console.error('❌ Error in renderResults:', error);
         throw error;
     }
+};
+
+// --- New Services for Lobbies and Teams ---
+
+export const getLobbies = async () => {
+    const { data } = await apiClient.get('/api/lobbies');
+    return data;
+};
+
+export const getLobby = async (id) => {
+    const { data } = await apiClient.get(`/api/lobbies/${id}`);
+    return data;
+};
+
+export const getLobbyByShareId = async (shareId) => {
+    const { data } = await apiClient.get(`/api/lobbies/public/${shareId}`);
+    return data;
+};
+
+export const createLobby = async (lobbyData) => {
+    const { data } = await apiClient.post('/api/lobbies', lobbyData);
+    return data;
+};
+
+export const updateLobby = async (id, updates) => {
+    const { data } = await apiClient.put(`/api/lobbies/${id}`, updates);
+    return data;
+};
+
+export const endLobby = async (id) => {
+    const { data } = await apiClient.put(`/api/lobbies/${id}/end`);
+    return data;
+};
+
+export const deleteLobby = async (id) => {
+    await apiClient.delete(`/api/lobbies/${id}`);
+};
+
+export const getLobbyTeams = async (lobbyId) => {
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/teams`);
+    return data;
+};
+
+export const addLobbyTeams = async (lobbyId, teams) => {
+    const { data } = await apiClient.post(`/api/lobbies/${lobbyId}/teams`, teams);
+    return data;
+};
+
+export const updateTeam = async (teamId, updates) => {
+    const { data } = await apiClient.put(`/api/teams/${teamId}`, updates);
+    return data;
+};
+
+export const deleteTeam = async (teamId) => {
+    await apiClient.delete(`/api/teams/${teamId}`);
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
 
 export const useSubscription = () => {
     const [user, setUser] = useState(null);
@@ -18,7 +18,7 @@ export const useSubscription = () => {
 
     useEffect(() => {
         const initUser = async () => {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
+            const authUser = await authService.getMe();
             setUser(authUser);
             if (!authUser) setLoading(false);
         };
@@ -32,18 +32,11 @@ export const useSubscription = () => {
 
         const fetchSubscription = async () => {
             try {
-                const { data: profile, error } = await supabase
-                    .from('profiles')
-                    .select('subscription_tier, subscription_status, subscription_expires_at, lobbies_created_count')
-                    .eq('id', user.id)
-                    .single();
-
-                if (error) throw error;
-
-                const currentTier = profile?.subscription_tier?.toLowerCase() || 'free';
-                const currentStatus = profile?.subscription_status || 'active';
-                const currentExpiresAt = profile?.subscription_expires_at;
-                const count = profile?.lobbies_created_count || 0;
+                // Use the user data directly from the state which was fetched via getMe()
+                const currentTier = user?.subscription_tier?.toLowerCase() || 'free';
+                const currentStatus = user?.subscription_status || 'active';
+                const currentExpiresAt = user?.subscription_expires_at;
+                const count = user?.lobbies_created_count || 0;
 
                 setTier(currentTier);
                 setStatus(currentStatus);
@@ -101,21 +94,9 @@ export const useSubscription = () => {
 
         fetchSubscription();
 
-        // Realtime subscription for profile updates
-        const channel = supabase
-            .channel(`profile-${user.id}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'profiles',
-                filter: `id=eq.${user.id}`
-            }, () => {
-                fetchSubscription();
-            })
-            .subscribe();
-
+        // Realtime subscription removed as part of migration
         return () => {
-            supabase.removeChannel(channel);
+            
         };
     }, [user]);
 
@@ -126,6 +107,11 @@ export const useSubscription = () => {
         expiresAt,
         lobbiesCreated,
         loading,
+        maxAILobbies,
+        maxLayouts,
+        canUseAI,
+        canCustomSocial,
+        isCasual,
         limits: {
             maxAILobbies,
             maxLayouts,

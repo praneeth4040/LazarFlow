@@ -20,8 +20,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Buffer } from 'buffer';
-import { supabase } from '../lib/supabaseClient';
-import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Check, X, RefreshCw, Edit, Image as ImageIcon, Camera, Instagram, Youtube } from 'lucide-react-native';
+import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Check, X, RefreshCw, Edit, Image as ImageIcon, Camera, Instagram, Youtube, Play, User } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
@@ -29,7 +28,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
-import { getUserThemes, getCommunityDesigns, renderLobbyDesign, renderResults, getDesignImageSource, uploadLogo } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, renderResults, uploadLogo, getLobby, getLobbyTeams } from '../lib/dataService';
 import { useSubscription } from '../hooks/useSubscription';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -137,7 +136,14 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     });
 
     const [error, setError] = useState(null);
-    const [viewMode, setViewMode] = useState('carousel'); // 'carousel' or 'result'
+    const [designTab, setDesignTab] = useState('community'); // 'community' or 'user'
+    const [selectedThemeId, setSelectedThemeId] = useState(null);
+
+    // Filter themes based on tab
+    const filteredThemes = themes.filter(theme => {
+        if (designTab === 'user') return theme.user_id !== null;
+        return theme.user_id === null;
+    });
 
     // Sync designData with lobby data when it loads
     React.useEffect(() => {
@@ -148,6 +154,13 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             }));
         }
     }, [lobby]);
+
+    // Set initial selected theme
+    React.useEffect(() => {
+        if (themes.length > 0 && !selectedThemeId) {
+            setSelectedThemeId(themes[0].id);
+        }
+    }, [themes]);
 
     useFocusEffect(
         useCallback(() => {
@@ -191,15 +204,14 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     };
 
     const handleGenerateTable = async () => {
-        const activeTheme = themes[activeThemeIndex];
-        if (!activeTheme) {
-            Alert.alert('Error', 'Please select a theme first');
+        if (!selectedThemeId) {
+            Alert.alert('Error', 'Please select a design first');
             return;
         }
 
         try {
             setIsGenerating(true);
-            const result = await renderResults(id, activeTheme.id);
+            const result = await renderResults(id, selectedThemeId);
             
             if (result) {
                 if (result instanceof ArrayBuffer || (result && result.constructor && result.constructor.name === 'ArrayBuffer')) {
@@ -223,15 +235,14 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     const fetchLobbyData = async () => {
         try {
             setLoading(true);
-            const [lobbyResult, teamsResult] = await Promise.all([
-                supabase.from('lobbies').select('*').eq('id', id).single(),
-                supabase.from('lobby_teams').select('*').eq('lobby_id', id)
+            const [lobbyData, teamsData] = await Promise.all([
+                getLobby(id),
+                getLobbyTeams(id)
             ]);
 
-            if (lobbyResult.error) throw lobbyResult.error;
-            setLobby(lobbyResult.data);
+            setLobby(lobbyData);
 
-            const sortedTeams = (teamsResult.data || []).map(team => {
+            const sortedTeams = (teamsData || []).map(team => {
                 const points = typeof team.total_points === 'object' ? team.total_points : { kill_points: 0, placement_points: 0 };
                 return {
                     ...team,
@@ -245,7 +256,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             setTeams(sortedTeams);
             return sortedTeams;
         } catch (error) {
-            setError(error.message);
+            setError(error.message || 'Failed to load lobby data');
             Alert.alert('Error', 'Failed to load lobby data');
         } finally {
             setLoading(false);
@@ -261,83 +272,138 @@ const LiveLobbyScreen = ({ route, navigation }) => {
         );
     }
 
-    const renderThemeItem = ({ item, index }) => {
-        const isActive = index === activeThemeIndex;
+    const renderThemeItem = ({ item }) => {
+        const isSelected = item.id === selectedThemeId;
+        const imageSource = item.image_url ? { uri: item.image_url } : null;
+
         return (
-            <View style={[styles.carouselItem, isActive && styles.activeCarouselItem]}>
-                <View style={styles.themeCard}>
-                    <DesignRenderer
-                        theme={item}
-                        data={teams.slice(0, 20)}
-                        lobby={lobby}
-                        width={SCREEN_WIDTH * 0.85}
-                    />
-                    <View style={styles.themeOverlay}>
-                        <View style={styles.themeBadge}>
-                            <Palette size={12} color={Theme.colors.accent} />
-                            <Text style={styles.themeBadgeText}>PREMIUM THEME</Text>
+            <TouchableOpacity 
+                style={[styles.newDesignCard, isSelected && styles.selectedDesignCard]}
+                onPress={() => setSelectedThemeId(item.id)}
+                activeOpacity={0.8}
+            >
+                <View style={styles.designImageWrapper}>
+                    {imageSource ? (
+                        <Image source={imageSource} style={styles.designImage} resizeMode="cover" />
+                    ) : (
+                        <View style={styles.designPlaceholder}>
+                            <Palette size={32} color={Theme.colors.textSecondary} />
                         </View>
-                        <Text style={styles.themeNameLabel}>{item.name || `Design #${index + 1}`}</Text>
-                    </View>
+                    )}
                 </View>
-            </View>
+                <View style={styles.designCardFooter}>
+                    <Text style={styles.designCardName} numberOfLines={1}>{item.name || 'Unnamed Design'}</Text>
+                    {isSelected && (
+                        <View style={styles.selectedCheck}>
+                            <Check size={14} color="#fff" />
+                        </View>
+                    )}
+                </View>
+            </TouchableOpacity>
         );
     };
 
+    const handlePickLogo = async (type) => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'Gallery access is required to upload logos');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled) {
+                setSaving(true);
+                const asset = result.assets[0];
+                const uploadedUrl = await uploadLogo(asset.uri);
+                if (uploadedUrl) {
+                    setDesignData(prev => ({ ...prev, [type]: uploadedUrl }));
+                }
+            }
+        } catch (error) {
+            console.error('Logo upload error:', error);
+            Alert.alert('Error', 'Failed to upload logo');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const selectedThemeName = themes.find(t => t.id === selectedThemeId)?.name || 'None';
+
     return (
-        <SafeAreaView style={styles.newDesignContainer}>
+        <SafeAreaView style={styles.mainContainer}>
             <StatusBar barStyle="dark-content" />
             
             <View style={styles.newHeader}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <X size={24} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.newHeaderTitle}>
-                    Select Theme
-                </Text>
-                <View style={styles.lobbyIdContainer}>
-                    <Text style={styles.lobbyIdLabel}>ID:</Text>
-                    <Text style={styles.lobbyIdValue}>{id?.slice(0, 8)}</Text>
+                <View style={styles.headerTop}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                        <X size={24} color="#333" />
+                    </TouchableOpacity>
+                    <View style={styles.headerTextContainer}>
+                        <Text style={styles.headerTitle}>Design Render: {lobby?.name || 'Lobby'}</Text>
+                        <Text style={styles.headerSubtitle}>Select a design for your tournament and click render</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.settingsBtn}>
+                        <Settings size={22} color="#333" />
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.editBtn}>
-                    <Edit size={20} color="#333" />
-                </TouchableOpacity>
             </View>
 
-            <View style={styles.carouselContent}>
-                <FlatList
-                    ref={carouselRef}
-                    data={themes}
-                    renderItem={renderThemeItem}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={(e) => {
-                        const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                        setActiveThemeIndex(index);
-                    }}
-                    keyExtractor={(item) => item.id}
-                    snapToInterval={SCREEN_WIDTH}
-                    decelerationRate="fast"
-                    contentContainerStyle={styles.carouselList}
-                />
-                
-                {/* Paging Dots */}
-                <View style={styles.pagination}>
-                    {themes.map((_, i) => (
-                        <View 
-                            key={i} 
-                            style={[
-                                styles.dot, 
-                                activeThemeIndex === i && styles.activeDot
-                            ]} 
-                        />
-                    ))}
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Choose Design</Text>
+                        <View style={styles.tabSwitcher}>
+                            <TouchableOpacity 
+                                style={[styles.tabItem, designTab === 'community' && styles.activeTabItem]}
+                                onPress={() => setDesignTab('community')}
+                            >
+                                <Share2 size={16} color={designTab === 'community' ? Theme.colors.accent : '#666'} />
+                                <Text style={[styles.tabItemText, designTab === 'community' && styles.activeTabItemText]}>Community</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.tabItem, designTab === 'user' && styles.activeTabItem]}
+                                onPress={() => setDesignTab('user')}
+                            >
+                                <User size={16} color={designTab === 'user' ? Theme.colors.accent : '#666'} />
+                                <Text style={[styles.tabItemText, designTab === 'user' && styles.activeTabItemText]}>Your Themes</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {filteredThemes.length > 0 ? (
+                        <View style={styles.designGrid}>
+                            {filteredThemes.map(item => (
+                                <View key={item.id} style={styles.gridItemWrapper}>
+                                    {renderThemeItem({ item })}
+                                </View>
+                            ))}
+                        </View>
+                    ) : (
+                        <View style={styles.emptyDesigns}>
+                            <Palette size={48} color={Theme.colors.border} />
+                            <Text style={styles.emptyDesignsText}>No designs found in this category</Text>
+                        </View>
+                    )}
                 </View>
-                
-                <View style={styles.bottomActionContainer}>
+            </ScrollView>
+
+            <View style={styles.bottomBar}>
+                <View style={styles.selectedDesignInfo}>
+                    <Text style={styles.selectedDesignLabel}>Selected Design: <Text style={styles.selectedDesignValue}>{selectedThemeName}</Text></Text>
+                </View>
+                <View style={styles.bottomButtons}>
+                    <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+                        <Text style={styles.cancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
                     <TouchableOpacity 
-                        style={styles.generateButton}
+                        style={[styles.renderBtn, isGenerating && styles.disabledBtn]} 
                         onPress={handleGenerateTable}
                         disabled={isGenerating}
                     >
@@ -345,8 +411,8 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                             <ActivityIndicator color="#fff" />
                         ) : (
                             <>
-                                <Layout size={20} color="#fff" />
-                                <Text style={styles.generateButtonText}>Generate Table</Text>
+                                <Play size={20} color="#fff" fill="#fff" />
+                                <Text style={styles.renderBtnText}>Render Design</Text>
                             </>
                         )}
                     </TouchableOpacity>
@@ -1102,168 +1168,218 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     // New Design System Styles
-    newDesignContainer: {
+    mainContainer: {
         flex: 1,
-        backgroundColor: '#FFFFFF', 
+        backgroundColor: '#fff',
     },
     newHeader: {
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === 'ios' ? 10 : 20,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    headerTop: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f8fafc',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    headerTextContainer: {
+        flex: 1,
+        marginLeft: 15,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#0f172a',
+    },
+    headerSubtitle: {
+        fontSize: 12,
+        color: '#64748b',
+        fontFamily: Theme.fonts.outfit.regular,
+        marginTop: 2,
+    },
+    settingsBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#f8fafc',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    content: {
+        flex: 1,
+    },
+    sectionContainer: {
+        padding: 20,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#0f172a',
+    },
+    tabSwitcher: {
+        flexDirection: 'row', 
+        backgroundColor: '#f1f5f9',
+        borderRadius: 10,
+        padding: 4,
+    },
+    tabItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 7,
+        gap: 6,
+    },
+    activeTabItem: {
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+    },
+    tabItemText: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#64748b',
+    },
+    activeTabItemText: {
+        color: Theme.colors.accent,
+    },
+    designGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginHorizontal: -8,
+    },
+    gridItemWrapper: {
+        width: '50%',
+        padding: 8,
+    },
+    newDesignCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        overflow: 'hidden',
+    },
+    selectedDesignCard: {
+        borderColor: Theme.colors.accent,
+        borderWidth: 2,
+    },
+    designImageWrapper: {
+        aspectRatio: 1,
+        backgroundColor: '#f8fafc',
+    },
+    designImage: {
+        width: '100%',
+        height: '100%',
+    },
+    designPlaceholder: {
+        flex: 1,
+        alignItems: 'center', 
+        justifyContent: 'center',
+    },
+    designCardFooter: {
+        padding: 10,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        backgroundColor: '#FFFFFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        backgroundColor: '#fff',
     },
-    newHeaderTitle: {
-        fontSize: 18,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: '#1A1A1A',
-        textAlign: 'center',
-        flex: 1,
-        marginLeft: 40, // Offset for lobby ID container
-    },
-    lobbyIdContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F8F9FA',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: '#E0E0E0',
-        marginRight: 10,
-    },
-    lobbyIdLabel: {
-        fontSize: 10,
-        color: Theme.colors.textSecondary,
-        fontFamily: Theme.fonts.outfit.medium,
-        marginRight: 4,
-    },
-    lobbyIdValue: {
-        fontSize: 10,
-        color: Theme.colors.accent,
-        fontFamily: Theme.fonts.monospace,
-    },
-    backButton: {
-        padding: 8,
-        backgroundColor: '#F8F9FA',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E0E0E0',
-    },
-    editBtn: {
-        padding: 8,
-        backgroundColor: '#F8F9FA',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E0E0E0',
-    },
-    carouselContent: {
-        flex: 1,
-        backgroundColor: '#FFFFFF',
-    },
-    carouselList: {
-        paddingVertical: 30,
-    },
-    carouselItem: {
-        width: SCREEN_WIDTH,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    activeCarouselItem: {
-        // Reserved
-    },
-    themeCard: {
-        width: SCREEN_WIDTH * 0.85,
-        borderRadius: 24,
-        overflow: 'hidden',
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#EEEEEE',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 10,
-    },
-    themeOverlay: {
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        backgroundColor: '#FFFFFF',
-        alignItems: 'center',
-        borderTopWidth: 1,
-        borderTopColor: '#F5F5F5',
-    },
-    themeBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(26, 115, 232, 0.08)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        marginBottom: 6,
-        gap: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(26, 115, 232, 0.1)',
-    },
-    themeBadgeText: {
-        color: Theme.colors.accent,
-        fontSize: 11,
-        fontFamily: Theme.fonts.outfit.bold,
-        letterSpacing: 0.8,
-        textTransform: 'uppercase',
-    },
-    themeNameLabel: {
-        color: '#333333',
-        fontSize: 15,
+    designCardName: {
+        fontSize: 13,
         fontFamily: Theme.fonts.outfit.semibold,
-        letterSpacing: 0.3,
+        color: '#334155',
+        flex: 1,
     },
-    pagination: {
-        flexDirection: 'row',
+    selectedCheck: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: Theme.colors.accent,
+        alignItems: 'center', 
         justifyContent: 'center',
+    },
+    emptyDesigns: {
         alignItems: 'center',
-        marginVertical: 15,
+        justifyContent: 'center', 
+        paddingVertical: 60,
+        gap: 15,
+    },
+    emptyDesignsText: {
+        fontSize: 14,
+        color: '#94a3b8',
+        fontFamily: Theme.fonts.outfit.medium, 
+    },
+    bottomBar: {
+        padding: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
+        backgroundColor: '#fff',
+    },
+    selectedDesignInfo: {
+        marginBottom: 15,
+    },
+    selectedDesignLabel: {
+        fontSize: 13,
+        color: '#64748b',
+        fontFamily: Theme.fonts.outfit.regular,
+    },
+    selectedDesignValue: {
+        fontFamily: Theme.fonts.outfit.bold, 
+        color: Theme.colors.accent,
+    },
+    bottomButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    cancelBtn: {
+        flex: 1,
+        height: 50,
+        borderRadius: 12,
+        alignItems: 'center', 
+        justifyContent: 'center',
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    cancelBtnText: {
+        fontSize: 15, 
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#64748b',
+    },
+    renderBtn: {
+        flex: 2,
+        height: 50,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         gap: 8,
     },
-    dot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#E0E0E0',
-    },
-    activeDot: {
-        width: 24,
-        backgroundColor: Theme.colors.accent,
-    },
-    bottomActionContainer: {
-        padding: 20,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 25,
-        backgroundColor: '#FFFFFF',
-        borderTopWidth: 1,
-        borderTopColor: '#F0F0F0',
-    },
-    generateButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Theme.colors.accent,
-        borderRadius: 18,
-        paddingVertical: 18,
-        gap: 12,
-        shadowColor: Theme.colors.accent,
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 6,
-    },
-    generateButtonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
+    renderBtnText: {
+        fontSize: 15,
         fontFamily: Theme.fonts.outfit.bold,
-        letterSpacing: 0.5,
+        color: '#fff',
+    },
+    disabledBtn: {
+        opacity: 0.6,
     },
     resultContent: {
         flex: 1,

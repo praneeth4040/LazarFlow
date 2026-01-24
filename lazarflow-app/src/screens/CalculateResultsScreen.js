@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
+import { getLobby, getLobbyTeams, updateTeam } from '../lib/dataService';
 import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { extractResultsFromScreenshot, processLobbyScreenshots } from '../lib/aiResultExtraction';
@@ -42,20 +42,10 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const fetchLobbyData = async () => {
         setLoading(true);
         try {
-            const { data: tData, error: tError } = await supabase
-                .from('lobbies')
-                .select('id, name, game, points_system, kill_points')
-                .eq('id', lobby?.id)
-                .single();
-
-            if (tError) throw tError;
+            const tData = await getLobby(lobby?.id);
             setLobby(tData);
 
-            const { data, error } = await supabase
-                .from('lobby_teams')
-                .select('id, team_name, members, total_points')
-                .eq('lobby_id', lobby.id);
-            if (error) throw error;
+            const data = await getLobbyTeams(lobby.id);
             setTeams(data || []);
         } catch (err) {
             Alert.alert('Error', 'Failed to fetch teams');
@@ -354,15 +344,10 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     }
                 }
 
-                const { error } = await supabase
-                    .from('lobby_teams')
-                    .update({
-                        total_points: newStats,
-                        members: currentMembers
-                    })
-                    .eq('id', result.team_id);
-
-                if (error) throw error;
+                await updateTeam(result.team_id, {
+                    total_points: newStats,
+                    members: currentMembers
+                });
             }
 
             Alert.alert('Success', 'Results submitted successfully!', [
@@ -955,7 +940,7 @@ const styles = StyleSheet.create({
     uploadTitle: {
         fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
-
+    },
     activeStepBadge: {
         backgroundColor: Theme.colors.accent,
     },
