@@ -96,10 +96,19 @@ const UserThemeCard = React.memo(({ theme, index, isRightColumn = false }) => {
     );
 });
 
-const DashboardScreen = ({ navigation }) => {
+const DashboardScreen = ({ navigation, route }) => {
     const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
     
     const [activeTab, setActiveTab] = useState('home');
+
+    // Handle tab navigation from other screens
+    useEffect(() => {
+        if (route.params?.tab) {
+            setActiveTab(route.params.tab);
+            // Clear the param so it doesn't switch back on re-renders
+            navigation.setParams({ tab: undefined });
+        }
+    }, [route.params?.tab]);
     const [lobbies, setLobbies] = useState([]);
     const [pastLobbies, setPastLobbies] = useState([]);
     const [loading, setLoading] = useState(true);

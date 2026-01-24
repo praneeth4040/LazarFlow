@@ -20,7 +20,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Buffer } from 'buffer';
-import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Check, X, RefreshCw, Edit, Image as ImageIcon, Camera, Instagram, Youtube, Play, User } from 'lucide-react-native';
+import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Check, X, RefreshCw, Edit, Image as ImageIcon, Camera, Instagram, Youtube, Play, User, ArrowLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
@@ -164,6 +164,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
 
     useFocusEffect(
         useCallback(() => {
+            navigation.setOptions({ headerShown: false });
             const initializeScreen = async () => {
                 if (id) {
                     setLoading(true);
@@ -343,15 +344,12 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             <View style={styles.newHeader}>
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <X size={24} color="#333" />
+                        <ArrowLeft size={24} color="#333" />
                     </TouchableOpacity>
                     <View style={styles.headerTextContainer}>
                         <Text style={styles.headerTitle}>Design Render: {lobby?.name || 'Lobby'}</Text>
                         <Text style={styles.headerSubtitle}>Select a design for your tournament and click render</Text>
                     </View>
-                    <TouchableOpacity onPress={() => setShowEditModal(true)} style={styles.settingsBtn}>
-                        <Settings size={22} color="#333" />
-                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -386,10 +384,27 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                             ))}
                         </View>
                     ) : (
-                        <View style={styles.emptyDesigns}>
-                            <Palette size={48} color={Theme.colors.border} />
-                            <Text style={styles.emptyDesignsText}>No designs found in this category</Text>
-                        </View>
+                        designTab === 'user' ? (
+                            <View style={styles.personalEmptyContainer}>
+                                <View style={styles.personalEmptyIconWrapper}>
+                                    <Layout size={32} color={Theme.colors.accent} />
+                                </View>
+                                <Text style={styles.personalEmptyTitle}>No Personal Designs Found</Text>
+                                <Text style={styles.personalEmptySub}>You haven't uploaded any custom designs yet. Create unique themes in the Design section to use them in your tournaments.</Text>
+                                <TouchableOpacity 
+                                    style={styles.goDesignBtn} 
+                                    onPress={() => navigation.navigate('Dashboard', { tab: 'design' })}
+                                >
+                                    <Text style={styles.goDesignBtnText}>Go to Design Section</Text>
+                                    <Play size={14} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View style={styles.emptyDesigns}>
+                                <Palette size={48} color={Theme.colors.border} />
+                                <Text style={styles.emptyDesignsText}>No designs found in this category</Text>
+                            </View>
+                        )
                     )}
                 </View>
             </ScrollView>
@@ -1225,9 +1240,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
+        flexWrap: 'wrap',
+        gap: 12,
     },
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 20,
         fontFamily: Theme.fonts.outfit.bold,
         color: '#0f172a',
     },
@@ -1380,6 +1397,54 @@ const styles = StyleSheet.create({
     },
     disabledBtn: {
         opacity: 0.6,
+    },
+    personalEmptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+        backgroundColor: '#f8fafc',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderStyle: 'dashed',
+    },
+    personalEmptyIconWrapper: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#eff6ff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+    },
+    personalEmptyTitle: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1e293b',
+        marginBottom: 8,
+    },
+    personalEmptySub: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#64748b',
+        textAlign: 'center',
+        lineHeight: 20,
+        marginBottom: 24,
+    },
+    goDesignBtn: {
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 10,
+        gap: 8,
+    },
+    goDesignBtnText: {
+        color: '#fff',
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.bold,
     },
     resultContent: {
         flex: 1,

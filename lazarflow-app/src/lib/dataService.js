@@ -246,7 +246,7 @@ export const renderResults = async (lobbyId, themeId) => {
     try {
         const response = await apiClient.post(`/render-results`, {
             lobbyId: lobbyId,
-            themesId: themeId
+            themeId: themeId
         }, {
             responseType: 'arraybuffer',
             headers: {
