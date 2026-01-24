@@ -300,11 +300,12 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     headerSubtitle: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     saveBtn: {
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
     },
     saveBtnText: {
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         fontSize: 16,
     },
     modeTabs: {
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
     },
     modeTabText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
     },
     modeTabTextActive: {
@@ -392,11 +393,11 @@ const styles = StyleSheet.create({
     },
     extractBtnText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     sectionTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 12,
     },
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
     },
     teamNumber: {
         width: 30,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.accent,
         fontSize: 16,
     },
@@ -428,7 +429,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: Theme.colors.textPrimary,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     teamMeta: {
         flexDirection: 'row',
@@ -488,6 +489,7 @@ const styles = StyleSheet.create({
     memberName: {
         flex: 1,
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
     },
     removeMemberBtn: {
@@ -506,6 +508,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     emptyText: {
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
 });

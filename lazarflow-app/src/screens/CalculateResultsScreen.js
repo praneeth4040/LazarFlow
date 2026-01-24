@@ -388,7 +388,12 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
                 <View style={styles.headerInfo}>
                     <Text style={styles.headerTitle}>Calculate Results</Text>
-                    <Text style={styles.headerSubtitle} numberOfLines={1}>{lobby?.name}</Text>
+                    <View style={styles.headerSubtitleRow}>
+                        <Text style={styles.headerSubtitle} numberOfLines={1}>{lobby?.name}</Text>
+                        <View style={styles.lobbyIdBadge}>
+                            <Text style={styles.lobbyIdText}>{lobby?.id?.slice(0, 8)}</Text>
+                        </View>
+                    </View>
                 </View>
                 <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting || results.length === 0}>
                     {submitting ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={[styles.submitBtnText, results.length === 0 && { opacity: 0.5 }]}>Submit</Text>}
@@ -448,7 +453,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         <View style={styles.aiTeamInfo}>
                                             <View style={styles.aiTeamHeader}>
                                                 <Text style={styles.aiTeamLabel}>AI Found:</Text>
-                                                <Text style={styles.aiTeamStats}>Rank #{res.rank} • {res.kills} kills</Text>
+                                                <Text style={[styles.aiTeamStats, { fontFamily: Theme.fonts.monospace }]}>Rank #{res.rank} • {res.kills} kills</Text>
                                             </View>
                                             <Text style={styles.aiTeamName}>{res.team_name}</Text>
 
@@ -457,7 +462,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                                     {res.players.map((p, pIdx) => (
                                                         <View key={pIdx} style={styles.aiPlayerItem}>
                                                             <Text style={styles.aiPlayerName}>{p.name}</Text>
-                                                            <Text style={styles.aiPlayerKills}>{p.kills}k</Text>
+                                                            <Text style={[styles.aiPlayerKills, { fontFamily: Theme.fonts.monospace }]}>{p.kills}k</Text>
                                                         </View>
                                                     ))}
                                                 </View>
@@ -778,12 +783,30 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     headerSubtitle: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
+        flexShrink: 1,
+    },
+    headerSubtitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    lobbyIdBadge: {
+        backgroundColor: 'rgba(26, 115, 232, 0.08)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    lobbyIdText: {
+        fontSize: 10,
+        color: Theme.colors.accent,
+        fontFamily: Theme.fonts.monospace,
     },
     submitBtn: {
         paddingHorizontal: 16,
@@ -791,7 +814,7 @@ const styles = StyleSheet.create({
     },
     submitBtnText: {
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         fontSize: 16,
     },
     modeTabs: {
@@ -814,7 +837,7 @@ const styles = StyleSheet.create({
     },
     modeTabText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
     },
     modeTabTextActive: {
@@ -844,6 +867,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     searchResults: {
         position: 'absolute',
@@ -871,6 +895,7 @@ const styles = StyleSheet.create({
     },
     searchItemName: {
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
     },
     aiUploadSection: {
@@ -926,6 +951,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+
+    uploadTitle: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+
     activeStepBadge: {
         backgroundColor: Theme.colors.accent,
     },
@@ -937,6 +967,7 @@ const styles = StyleSheet.create({
     stepTitle: {
         fontSize: 15,
         fontWeight: 'bold',
+
         color: Theme.colors.textPrimary,
     },
     stepDescription: {
@@ -1009,6 +1040,9 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 14,
+
+        fontFamily: Theme.fonts.outfit.regular,
+
     },
     uploadMainBtn: {
         backgroundColor: 'rgba(26, 115, 232, 0.05)',
@@ -1046,6 +1080,7 @@ const styles = StyleSheet.create({
     },
     instructionText: {
         fontSize: 12,
+
         color: Theme.colors.textSecondary,
         marginBottom: 2,
     },
@@ -1075,7 +1110,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 12,
     },
@@ -1097,7 +1132,7 @@ const styles = StyleSheet.create({
     },
     resultTeamName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     resultInputs: {
@@ -1110,6 +1145,7 @@ const styles = StyleSheet.create({
     },
     inputLabel: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginBottom: 4,
     },
@@ -1119,7 +1155,7 @@ const styles = StyleSheet.create({
         padding: 8,
         color: Theme.colors.textPrimary,
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         textAlign: 'center',
     },
     pointsDisplay: {
@@ -1133,11 +1169,11 @@ const styles = StyleSheet.create({
     pointsLabel: {
         fontSize: 10,
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     pointsValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.accent,
     },
     extractingLoader: {
@@ -1152,7 +1188,7 @@ const styles = StyleSheet.create({
     },
     extractingText: {
         color: Theme.colors.textPrimary,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     mappingSection: {
         backgroundColor: Theme.colors.primary,
@@ -1166,11 +1202,12 @@ const styles = StyleSheet.create({
     },
     mappingTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     mappingSubtitle: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     mappingRow: {
@@ -1186,16 +1223,18 @@ const styles = StyleSheet.create({
     },
     aiTeamLabel: {
         fontSize: 10,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textTransform: 'uppercase',
     },
     aiTeamName: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     aiTeamStats: {
         fontSize: 11,
+        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.accent,
     },
     teamPickerContainer: {
@@ -1211,11 +1250,11 @@ const styles = StyleSheet.create({
     selectedTeamName: {
         fontSize: 13,
         color: Theme.colors.textPrimary,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     unselectedText: {
         color: Theme.colors.textSecondary,
-        fontWeight: 'normal',
+        fontFamily: Theme.fonts.outfit.regular,
     },
     teamPickerEmpty: {
         borderColor: Theme.colors.danger,
@@ -1250,12 +1289,13 @@ const styles = StyleSheet.create({
     },
     aiPlayerName: {
         fontSize: 10,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
         maxWidth: 60,
     },
     aiPlayerKills: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
     },
     mappingArrow: {
@@ -1281,7 +1321,7 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         fontSize: 20,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     aiSummary: {
@@ -1292,22 +1332,23 @@ const styles = StyleSheet.create({
     },
     aiSummaryLabel: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginBottom: 4,
     },
     aiSummaryName: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     aiSummaryDetail: {
         fontSize: 14,
         color: Theme.colors.accent,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     sectionLabel: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
         marginBottom: 12,
         textTransform: 'uppercase',
@@ -1331,6 +1372,7 @@ const styles = StyleSheet.create({
     },
     teamOptionText: {
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
     },
     teamOptionTextSelected: {
@@ -1347,6 +1389,7 @@ const styles = StyleSheet.create({
     },
     alreadyMappedText: {
         fontSize: 10,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         fontStyle: 'italic',
     },
@@ -1359,7 +1402,7 @@ const styles = StyleSheet.create({
     },
     clearMappingText: {
         color: Theme.colors.danger,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     mappingActions: {
         flexDirection: 'row',
@@ -1398,7 +1441,7 @@ const styles = StyleSheet.create({
     },
     memberKillsTitle: {
         fontSize: 12,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textSecondary,
         marginBottom: 8,
         textTransform: 'uppercase',
@@ -1411,6 +1454,7 @@ const styles = StyleSheet.create({
     },
     memberKillName: {
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
     },
     memberKillInput: {
@@ -1420,8 +1464,8 @@ const styles = StyleSheet.create({
         width: 40,
         textAlign: 'center',
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
-        fontWeight: 'bold',
     },
     emptyState: {
         alignItems: 'center',

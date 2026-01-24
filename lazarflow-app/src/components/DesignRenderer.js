@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, ImageBackground, StyleSheet, Dimensions, Platform } from 'react-native';
+import { Theme } from '../styles/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -210,10 +211,10 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
                 <Text style={{ color: '#555', fontSize: 10 }}>ID: {theme.id}</Text>
                 
                 <View style={{ backgroundColor: '#000', padding: 10, borderRadius: 5, marginTop: 20, width: '90%' }}>
-                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>
+                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Theme.fonts.monospace }}>
                         Available Keys: {Object.keys(theme).join(', ')}
                     </Text>
-                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginTop: 5 }}>
+                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Theme.fonts.monospace, marginTop: 5 }}>
                         Raw URL Value: {JSON.stringify(themeUrl)}
                     </Text>
                 </View>

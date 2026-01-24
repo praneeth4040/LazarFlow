@@ -48,7 +48,8 @@
           "photosPermission": "Allow LazarFlow to save generated table images to your gallery.",
           "savePhotosPermission": "Allow LazarFlow to save generated table images to your gallery."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

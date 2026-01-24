@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
     },
     topHeaderTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     scrollContent: {
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 28,
-        fontWeight: '800',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         textAlign: 'center',
         marginBottom: 10,
@@ -415,6 +415,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingHorizontal: 20,
         lineHeight: 22,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     planCard: {
         backgroundColor: Theme.colors.primary,
@@ -452,7 +453,7 @@ const styles = StyleSheet.create({
     popularBadgeText: {
         color: '#fff',
         fontSize: 10,
-        fontWeight: '900',
+        fontFamily: Theme.fonts.outfit.bold,
         letterSpacing: 0.5,
     },
     planHeader: {
@@ -473,7 +474,7 @@ const styles = StyleSheet.create({
     },
     planName: {
         fontSize: 22,
-        fontWeight: '800',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 2,
     },
@@ -483,13 +484,13 @@ const styles = StyleSheet.create({
     },
     planPrice: {
         fontSize: 20,
-        fontWeight: '700',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
     },
     planPeriod: {
         fontSize: 14,
         color: Theme.colors.textSecondary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     currentBadge: {
         paddingHorizontal: 12,
@@ -498,7 +499,7 @@ const styles = StyleSheet.create({
     },
     currentBadgeText: {
         fontSize: 12,
-        fontWeight: '700',
+        fontFamily: Theme.fonts.outfit.bold,
         textTransform: 'uppercase',
     },
     featuresList: {
@@ -520,7 +521,7 @@ const styles = StyleSheet.create({
     featureText: {
         fontSize: 15,
         color: Theme.colors.textSecondary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     claimBtnGradient: {
         borderRadius: 16,
@@ -533,7 +534,7 @@ const styles = StyleSheet.create({
     },
     claimBtnText: {
         fontSize: 17,
-        fontWeight: '700',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     footer: {
         flexDirection: 'row',
@@ -546,7 +547,7 @@ const styles = StyleSheet.create({
     footerText: {
         fontSize: 13,
         color: Theme.colors.textSecondary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     faqSection: {
         marginTop: 40,
@@ -557,7 +558,7 @@ const styles = StyleSheet.create({
     },
     faqTitle: {
         fontSize: 20,
-        fontWeight: '800',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 24,
         textAlign: 'center',
@@ -567,7 +568,7 @@ const styles = StyleSheet.create({
     },
     faqQuestion: {
         fontSize: 16,
-        fontWeight: '700',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
     },
@@ -575,6 +576,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Theme.colors.textSecondary,
         lineHeight: 20,
+        fontFamily: Theme.fonts.outfit.regular,
     },
 });
 
