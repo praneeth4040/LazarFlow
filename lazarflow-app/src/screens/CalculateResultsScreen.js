@@ -955,7 +955,7 @@ const styles = StyleSheet.create({
     uploadTitle: {
         fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
-
+    },
     activeStepBadge: {
         backgroundColor: Theme.colors.accent,
     },
@@ -1474,7 +1474,7 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         color: Theme.colors.textSecondary,
-    },
+    }
 });
 
 export default CalculateResultsScreen;
