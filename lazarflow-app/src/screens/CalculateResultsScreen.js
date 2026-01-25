@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
-import { getLobby, getLobbyTeams, updateTeam } from '../lib/dataService';
+import { getLobby, getLobbyTeams, updateTeam, batchUpdateTeams, batchUpdateTeamMembers } from '../lib/dataService';
 import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { extractResultsFromScreenshot, processLobbyScreenshots } from '../lib/aiResultExtraction';
@@ -25,6 +25,42 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [mappings, setMappings] = useState({}); // { [rank]: registeredTeamId }
     const [selectedAiTeam, setSelectedAiTeam] = useState(null);
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
+    const [selectedSlotIndex, setSelectedSlotIndex] = useState(null);
+
+    const handleUpdateSlotMapping = (slotIndex, teamId) => {
+        const updatedSlots = [...processedSlots];
+        updatedSlots[slotIndex].mappedTeamId = teamId;
+        setProcessedSlots(updatedSlots);
+    };
+
+    const handleSaveSlotMappings = async () => {
+        setSubmitting(true);
+        try {
+            const updates = [];
+            for (const slot of processedSlots) {
+                if (slot.mappedTeamId) {
+                    updates.push({
+                        id: slot.mappedTeamId,
+                        members: slot.players
+                    });
+                }
+            }
+
+            if (updates.length > 0) {
+                // Use the dedicated batch endpoint for updating members
+                await batchUpdateTeamMembers(lobby.id, updates);
+                
+                Alert.alert('Success', 'Team members updated successfully!');
+                setShowSlotMapping(false);
+                fetchLobbyData();
+            }
+        } catch (err) {
+            console.error('Error saving slot mappings:', err);
+            Alert.alert('Error', 'Failed to save team member mappings');
+        } finally {
+            setSubmitting(false);
+        }
+    };
     
     // AI Workflow Steps
     const [aiStep, setAiStep] = useState(1);
@@ -32,6 +68,8 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [processingLobby, setProcessingLobby] = useState(false);
     const [lobbyStepExpanded, setLobbyStepExpanded] = useState(true);
     const [resultsStepExpanded, setResultsStepExpanded] = useState(false);
+    const [processedSlots, setProcessedSlots] = useState([]); // [{ slot: 1, players: [], mappedTeamId: null }]
+    const [showSlotMapping, setShowSlotMapping] = useState(false);
 
     useEffect(() => {
         if (lobby?.id) {
@@ -138,18 +176,37 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         
         setProcessingLobby(true);
         try {
-            const data = await processLobbyScreenshots(lobbyImages);
+            const data = await processLobbyScreenshots(lobbyImages, lobby.id);
             
-            if (data.success) {
-                Alert.alert(
-                    'Lobby Processed', 
-                    `Successfully identified ${data.teams_count || 0} teams. Now proceed to Step 2 to extract match results.`,
-                    [{ text: 'Next Step', onPress: () => {
-                        setAiStep(2);
-                        setLobbyStepExpanded(false);
-                        setResultsStepExpanded(true);
-                    }}]
-                );
+            // The API returns an array of teams/slots directly
+            const rawSlots = Array.isArray(data) ? data : (data.teams || []);
+            const isSuccess = rawSlots.length > 0 || data.success;
+            const teamsCount = rawSlots.length;
+            const displayMessage = data.message || `Successfully identified ${teamsCount} slots. You can now map them to teams.`;
+
+            if (isSuccess) {
+                // Map the slots and try to auto-match with registered teams based on slot position
+                const formattedSlots = rawSlots.map((item, index) => {
+                    const slotNum = item.team_number || item.slot || (index + 1);
+                    const players = (item.players || []).map(p => typeof p === 'object' ? p.name : p);
+                    
+                    // Auto-match with registered teams based on respective_slotlist_postion
+                    const matchedTeam = teams.find(t => t.respective_slotlist_postion === slotNum);
+
+                    return {
+                        slot: slotNum,
+                        players: players,
+                        mappedTeamId: matchedTeam ? matchedTeam.id : null
+                    };
+                });
+
+                setProcessedSlots(formattedSlots);
+                setShowSlotMapping(true);
+                setAiStep(2); // Still advance step but we'll show slot mapping
+                setLobbyStepExpanded(false);
+                setResultsStepExpanded(true);
+
+                Alert.alert('Lobby Processed', displayMessage);
             } else {
                 throw new Error(data.message || 'Failed to process lobby');
             }
@@ -188,57 +245,62 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const handleAIUpload = async (imageAssets) => {
         setExtracting(true);
         try {
-            const extracted = await extractResultsFromScreenshot(imageAssets);
+            // Pass lobby.id as the third argument
+            const extracted = await extractResultsFromScreenshot(imageAssets, {}, lobby.id);
 
             const initialMappings = {};
-            const candidateMatches = {};
 
-            console.log(`🤖 Starting auto-mapping for ${extracted.length} ranks against ${teams.length} teams...`);
+            // Only perform auto-mapping if lobby has been processed (Step 1 completed) or teams already have members
+            const hasExistingMembers = teams.some(t => t.members && t.members.length > 0);
+            if (processedSlots.length > 0 || hasExistingMembers) {
+                const candidateMatches = {};
+                console.log(`🤖 Starting auto-mapping for ${extracted.length} ranks against ${teams.length} teams...`);
 
-            extracted.forEach(res => {
-                let bestTeamId = null;
-                let bestScore = 0;
+                extracted.forEach(res => {
+                    let bestTeamId = null;
+                    let bestScore = 0;
 
-                teams.forEach(registeredTeam => {
-                    const teamMembers = registeredTeam.members || [];
-                    if (teamMembers.length === 0) return;
+                    teams.forEach(registeredTeam => {
+                        const teamMembers = registeredTeam.members || [];
+                        if (teamMembers.length === 0) return;
 
-                    let matchedPlayersCount = 0;
-                    let totalSim = 0;
+                        let matchedPlayersCount = 0;
+                        let totalSim = 0;
 
-                    res.players.forEach(aiPlayer => {
-                        const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.75);
-                        if (pMatch) {
-                            matchedPlayersCount++;
-                            totalSim += pMatch.score;
+                        res.players.forEach(aiPlayer => {
+                            const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.75);
+                            if (pMatch) {
+                                matchedPlayersCount++;
+                                totalSim += pMatch.score;
+                            }
+                        });
+
+                        if (matchedPlayersCount >= 2) {
+                            const avgSim = totalSim / matchedPlayersCount;
+                            const score = (matchedPlayersCount * 10) + avgSim;
+
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestTeamId = registeredTeam.id;
+                            }
                         }
                     });
 
-                    if (matchedPlayersCount >= 2) {
-                        const avgSim = totalSim / matchedPlayersCount;
-                        const score = (matchedPlayersCount * 10) + avgSim;
-
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestTeamId = registeredTeam.id;
+                    if (bestTeamId) {
+                        const existingClaim = candidateMatches[bestTeamId];
+                        if (!existingClaim || bestScore > existingClaim.score) {
+                            candidateMatches[bestTeamId] = {
+                                rank: res.rank,
+                                score: bestScore
+                            };
                         }
                     }
                 });
 
-                if (bestTeamId) {
-                    const existingClaim = candidateMatches[bestTeamId];
-                    if (!existingClaim || bestScore > existingClaim.score) {
-                        candidateMatches[bestTeamId] = {
-                            rank: res.rank,
-                            score: bestScore
-                        };
-                    }
-                }
-            });
-
-            Object.entries(candidateMatches).forEach(([teamId, data]) => {
-                initialMappings[data.rank] = teamId;
-            });
+                Object.entries(candidateMatches).forEach(([teamId, data]) => {
+                    initialMappings[data.rank] = teamId;
+                });
+            }
 
             setAiResults(extracted);
             setMappings(initialMappings);
@@ -294,6 +356,8 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
         setSubmitting(true);
         try {
+            const updates = [];
+            
             for (const result of results) {
                 const team = teams.find(t => t.id === result.team_id);
                 if (!team) continue;
@@ -306,48 +370,15 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
                 };
 
-                // Initialize current members as objects
-                let currentMembers = (team.members || []).map(m => {
-                    return typeof m === 'object' ? {
-                        name: m.name || '',
-                        kills: parseInt(m.kills) || 0,
-                        matches_played: parseInt(m.matches_played) || 0,
-                        wwcd: parseInt(m.wwcd) || 0
-                    } : { name: m, kills: 0, matches_played: 0, wwcd: 0 };
+                // Add to batch updates
+                updates.push({
+                    id: team.id,
+                    total_points: newStats
                 });
+            }
 
-                const resultMembers = result.members || [];
-                const seenInCurrentMatch = new Set();
-
-                for (const rm of resultMembers) {
-                    const pMatch = fuzzyMatchName(rm.name, currentMembers, 0.75);
-
-                    if (pMatch) {
-                        const mIdx = currentMembers.findIndex(m => m.name === pMatch.member.name);
-                        if (mIdx !== -1 && !seenInCurrentMatch.has(mIdx)) {
-                            currentMembers[mIdx] = {
-                                ...currentMembers[mIdx],
-                                kills: (currentMembers[mIdx].kills || 0) + (parseInt(rm.kills) || 0),
-                                matches_played: (currentMembers[mIdx].matches_played || 0) + 1,
-                                wwcd: (currentMembers[mIdx].wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
-                            };
-                            seenInCurrentMatch.add(mIdx);
-                        }
-                    } else {
-                        // Roster learning
-                        currentMembers.push({
-                            name: rm.name,
-                            kills: parseInt(rm.kills) || 0,
-                            matches_played: 1,
-                            wwcd: (parseInt(result.position) === 1 ? 1 : 0)
-                        });
-                    }
-                }
-
-                await updateTeam(result.team_id, {
-                    total_points: newStats,
-                    members: currentMembers
-                });
+            if (updates.length > 0) {
+                await batchUpdateTeams(lobby.id, updates);
             }
 
             Alert.alert('Success', 'Results submitted successfully!', [
@@ -427,6 +458,73 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                 <ActivityIndicator size="large" color={Theme.colors.accent} />
                                 <Text style={styles.extractingText}>AI is analyzing screenshots...</Text>
                             </View>
+                        ) : showSlotMapping ? (
+                            <View style={styles.mappingSection}>
+                                <View style={styles.mappingHeader}>
+                                    <Text style={styles.mappingTitle}>Lobby Slot Mapping</Text>
+                                    <Text style={styles.mappingSubtitle}>Map extracted slots to registered teams</Text>
+                                </View>
+
+                                {processedSlots.map((item, index) => (
+                                    <View key={index} style={styles.slotCard}>
+                                        <View style={styles.slotHeader}>
+                                            <Text style={styles.slotLabel}>SLOT {item.slot}</Text>
+                                        </View>
+                                        
+                                        <View style={styles.slotBody}>
+                                            <Text style={styles.slotFieldLabel}>TEAM:</Text>
+                                            <TouchableOpacity 
+                                                style={styles.slotPicker}
+                                                onPress={() => {
+                                                    setSelectedSlotIndex(index);
+                                                    setMappingModalVisible(true);
+                                                }}
+                                            >
+                                                <Text style={[
+                                                    styles.slotPickerText,
+                                                    !item.mappedTeamId && { color: Theme.colors.textSecondary }
+                                                ]}>
+                                                    {teams.find(t => t.id === item.mappedTeamId)?.team_name || 'Select Team'}
+                                                </Text>
+                                                <ChevronDown size={18} color={Theme.colors.textSecondary} />
+                                            </TouchableOpacity>
+
+                                            <Text style={styles.slotFieldLabel}>PLAYERS:</Text>
+                                            <View style={styles.slotPlayerList}>
+                                                {item.players && item.players.length > 0 ? (
+                                                    item.players.map((p, pIdx) => (
+                                                        <View key={pIdx} style={styles.playerBadge}>
+                                                            <Target size={12} color={Theme.colors.textSecondary} style={{ marginRight: 4 }} />
+                                                            <Text style={styles.playerBadgeText}>{p}</Text>
+                                                        </View>
+                                                    ))
+                                                ) : (
+                                                    <Text style={styles.noPlayersText}>No players identified</Text>
+                                                )}
+                                            </View>
+                                        </View>
+                                    </View>
+                                ))}
+
+                                <TouchableOpacity 
+                                    style={[styles.applyBtn, submitting && styles.disabledBtn]} 
+                                    onPress={handleSaveSlotMappings}
+                                    disabled={submitting}
+                                >
+                                    {submitting ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <>
+                                            <Save size={20} color="#fff" />
+                                            <Text style={styles.applyBtnText}>Save Mappings</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowSlotMapping(false)}>
+                                    <Text style={styles.cancelBtnText}>Go Back</Text>
+                                </TouchableOpacity>
+                            </View>
                         ) : showMapping ? (
                             <View style={styles.mappingSection}>
                                 <View style={styles.mappingHeader}>
@@ -498,13 +596,13 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                 </View>
 
                                 {/* Step 1: Process Lobby */}
-                                <View style={[styles.stepCard, aiStep === 1 && styles.activeStepCard]}>
+                                <View style={[styles.stepCard, lobbyStepExpanded && styles.activeStepCard]}>
                                     <TouchableOpacity 
                                         style={styles.stepHeader}
                                         onPress={() => setLobbyStepExpanded(!lobbyStepExpanded)}
                                     >
                                         <View style={styles.stepHeaderLeft}>
-                                            <View style={[styles.stepBadge, aiStep >= 1 && styles.activeStepBadge]}>
+                                            <View style={[styles.stepBadge, styles.activeStepBadge]}>
                                                 <Text style={styles.stepBadgeText}>1</Text>
                                             </View>
                                             <View>
@@ -512,7 +610,15 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                                 <Text style={styles.stepDescription}>Extract teams & members from lobby</Text>
                                             </View>
                                         </View>
-                                        {lobbyStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
+                                        <View style={styles.stepHeaderRight}>
+                                            {(processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0)) && (
+                                                <View style={styles.completedBadge}>
+                                                    <Check size={12} color="#fff" />
+                                                    <Text style={styles.completedBadgeText}>Completed</Text>
+                                                </View>
+                                            )}
+                                            {lobbyStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
+                                        </View>
                                     </TouchableOpacity>
 
                                     {lobbyStepExpanded && (
@@ -554,14 +660,13 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                 </View>
 
                                 {/* Step 2: Extract Results */}
-                                <View style={[styles.stepCard, aiStep === 2 && styles.activeStepCard, aiStep < 2 && styles.disabledStepCard]}>
+                                <View style={[styles.stepCard, resultsStepExpanded && styles.activeStepCard]}>
                                     <TouchableOpacity 
                                         style={styles.stepHeader}
-                                        onPress={() => aiStep >= 2 && setResultsStepExpanded(!resultsStepExpanded)}
-                                        disabled={aiStep < 2}
+                                        onPress={() => setResultsStepExpanded(!resultsStepExpanded)}
                                     >
                                         <View style={styles.stepHeaderLeft}>
-                                            <View style={[styles.stepBadge, aiStep >= 2 && styles.activeStepBadge]}>
+                                            <View style={[styles.stepBadge, styles.activeStepBadge]}>
                                                 <Text style={styles.stepBadgeText}>2</Text>
                                             </View>
                                             <View>
@@ -677,17 +782,36 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
                         <View style={styles.aiSummary}>
                             <Text style={styles.aiSummaryLabel}>AI extracted data for:</Text>
-                            <Text style={styles.aiSummaryName}>{selectedAiTeam?.team_name}</Text>
-                            <Text style={styles.aiSummaryDetail}>#{selectedAiTeam?.rank} • {selectedAiTeam?.kills} kills</Text>
+                            {selectedSlotIndex !== null ? (
+                                <>
+                                    <Text style={styles.aiSummaryName}>SLOT {processedSlots[selectedSlotIndex]?.slot}</Text>
+                                    <Text style={styles.aiSummaryDetail}>{processedSlots[selectedSlotIndex]?.players?.length || 0} players identified</Text>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.aiSummaryName}>{selectedAiTeam?.team_name}</Text>
+                                    <Text style={styles.aiSummaryDetail}>#{selectedAiTeam?.rank} • {selectedAiTeam?.kills} kills</Text>
+                                </>
+                            )}
                         </View>
 
                         <Text style={styles.sectionLabel}>Select Registered Team</Text>
                         <ScrollView style={styles.teamOptionsList}>
                             {teams.map(team => {
-                                const isMappedToOther = Object.entries(mappings).some(
-                                    ([rank, registeredId]) => registeredId === team.id && parseInt(rank) !== selectedAiTeam?.rank
-                                );
-                                const isSelected = mappings[selectedAiTeam?.rank] === team.id;
+                                let isSelected = false;
+                                let isMappedToOther = false;
+
+                                if (selectedSlotIndex !== null) {
+                                    isSelected = processedSlots[selectedSlotIndex].mappedTeamId === team.id;
+                                    isMappedToOther = processedSlots.some(
+                                        (slot, idx) => slot.mappedTeamId === team.id && idx !== selectedSlotIndex
+                                    );
+                                } else {
+                                    isSelected = mappings[selectedAiTeam?.rank] === team.id;
+                                    isMappedToOther = Object.entries(mappings).some(
+                                        ([rank, registeredId]) => registeredId === team.id && parseInt(rank) !== selectedAiTeam?.rank
+                                    );
+                                }
 
                                 return (
                                     <TouchableOpacity
@@ -699,10 +823,14 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         ]}
                                         disabled={isMappedToOther}
                                         onPress={() => {
-                                            setMappings({
-                                                ...mappings,
-                                                [selectedAiTeam.rank]: team.id
-                                            });
+                                            if (selectedSlotIndex !== null) {
+                                                handleUpdateSlotMapping(selectedSlotIndex, team.id);
+                                            } else {
+                                                setMappings({
+                                                    ...mappings,
+                                                    [selectedAiTeam.rank]: team.id
+                                                });
+                                            }
                                             setMappingModalVisible(false);
                                         }}
                                     >
@@ -732,9 +860,13 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                         <TouchableOpacity
                             style={styles.clearMappingBtn}
                             onPress={() => {
-                                const newMappings = { ...mappings };
-                                delete newMappings[selectedAiTeam?.rank];
-                                setMappings(newMappings);
+                                if (selectedSlotIndex !== null) {
+                                    handleUpdateSlotMapping(selectedSlotIndex, null);
+                                } else {
+                                    const newMappings = { ...mappings };
+                                    delete newMappings[selectedAiTeam?.rank];
+                                    setMappings(newMappings);
+                                }
                                 setMappingModalVisible(false);
                             }}
                         >
@@ -927,6 +1059,26 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
+    },
+    stepHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    completedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#10b981', // Success green
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+    },
+    completedBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     stepBadge: {
         width: 24,
@@ -1300,9 +1452,83 @@ const styles = StyleSheet.create({
     },
     modalHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 20,
+    },
+    // Slot Card Styles
+    slotCard: {
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        marginBottom: 16,
+        overflow: 'hidden',
+    },
+    slotHeader: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.border,
+        backgroundColor: 'rgba(0,0,0,0.02)',
+    },
+    slotLabel: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        letterSpacing: 1,
+    },
+    slotBody: {
+        padding: 16,
+    },
+    slotFieldLabel: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textSecondary,
+        marginBottom: 8,
+        letterSpacing: 0.5,
+    },
+    slotPicker: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 16,
+    },
+    slotPickerText: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: Theme.colors.textPrimary,
+    },
+    slotPlayerList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    playerBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f1f5f9',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    playerBadgeText: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: Theme.colors.textPrimary,
+    },
+    noPlayersText: {
+        fontSize: 13,
+        fontStyle: 'italic',
+        color: Theme.colors.textSecondary,
     },
     modalTitle: {
         fontSize: 20,

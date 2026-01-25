@@ -49,7 +49,7 @@ export const getDesignImageSource = (theme) => {
          return { uri: `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanPath}` };
     }
     
-    return { uri: `https://4a1447cb531c.ngrok-free.app/${cleanPath}` };
+    return { uri: `https://4a1447cb531c.ngrok-free.app/storage/${cleanPath}` };
 };
 
 export const getCurrentUser = async () => {
@@ -244,7 +244,8 @@ export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
  */
 export const renderResults = async (lobbyId, themeId) => {
     try {
-        const response = await apiClient.post(`/render-results`, {
+        console.log('🖼️ Requesting Results Render:', { lobbyId, themeId });
+        const response = await apiClient.post(`/api/render/render-results`, {
             lobbyId: lobbyId,
             themeId: themeId
         }, {
@@ -323,6 +324,88 @@ export const updateTeam = async (teamId, updates) => {
     return data;
 };
 
+export const batchUpdateTeams = async (lobbyId, updates) => {
+    const { data } = await apiClient.put(`/api/lobbies/${lobbyId}/teams/batch`, updates);
+    return data;
+};
+
+export const batchUpdateTeamMembers = async (lobbyId, updates) => {
+    const { data } = await apiClient.put(`/api/lobbies/${lobbyId}/teams/members/batch`, updates);
+    return data;
+};
+
 export const deleteTeam = async (teamId) => {
     await apiClient.delete(`/api/teams/${teamId}`);
+};
+
+// --- New Theme Management Endpoints ---
+
+/**
+ * Get all themes (user + system) with optional status filter
+ * Endpoint: GET /api/themes
+ */
+export const fetchThemes = async (status = null) => {
+    const params = status ? { status } : {};
+    const { data } = await apiClient.get('/api/themes', { params });
+    return data;
+};
+
+/**
+ * Upload/Create a new theme
+ * Endpoint: POST /api/themes
+ * Content-Type: multipart/form-data
+ */
+export const uploadTheme = async (name, imageUri) => {
+    const formData = new FormData();
+    formData.append('name', name);
+    
+    // Append image file
+    // React Native expects: { uri, name, type }
+    const fileName = imageUri.split('/').pop() || 'theme.png';
+    const match = /\.(\w+)$/.exec(fileName);
+    const type = match ? `image/${match[1]}` : 'image/png';
+    
+    formData.append('image', {
+        uri: imageUri,
+        name: fileName,
+        type: type,
+    });
+
+    const { data } = await apiClient.post('/api/themes', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+    return data;
+};
+
+/**
+ * Update Theme Name
+ * Endpoint: PUT /api/themes/<id>
+ */
+export const updateThemeName = async (id, name) => {
+    const { data } = await apiClient.put(`/api/themes/${id}`, { name });
+    return data;
+};
+
+/**
+ * Update Config & Status
+ * Endpoint: PUT /api/themes/<id>/config
+ */
+export const updateThemeConfig = async (id, status, mappingConfig) => {
+    const body = {};
+    if (status) body.status = status;
+    if (mappingConfig) body.mapping_config = mappingConfig;
+
+    const { data } = await apiClient.put(`/api/themes/${id}/config`, body);
+    return data;
+};
+
+/**
+ * Delete Theme
+ * Endpoint: DELETE /api/themes/<id>
+ */
+export const deleteTheme = async (id) => {
+    const { data } = await apiClient.delete(`/api/themes/${id}`);
+    return data;
 };

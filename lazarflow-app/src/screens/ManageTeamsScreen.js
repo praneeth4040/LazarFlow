@@ -59,7 +59,14 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
         setLoading(true);
         try {
+            // Get the raw response from the extraction service
             const extractedData = await extractTeamsFromText(aiText);
+            
+            // Handle if the service returns an object with a message
+            const hasTeams = Array.isArray(extractedData) && extractedData.length > 0;
+            const displayMessage = (typeof extractedData === 'object' && extractedData.message) 
+                ? extractedData.message 
+                : (hasTeams ? `Extracted ${extractedData.length} teams!` : 'Extraction complete');
 
             if (extractedData.length === 0) {
                 Alert.alert('Info', 'No team names could be identified. Try a clearer format.');
@@ -75,7 +82,7 @@ const ManageTeamsScreen = ({ route, navigation }) => {
             setTeams([...teams, ...extractedTeams]);
             setAiText('');
             setMode('manual');
-            Alert.alert('Success', `Extracted ${extractedData.length} teams!`);
+            Alert.alert('Success', displayMessage);
         } catch (error) {
             Alert.alert('Error', 'AI extraction failed');
         } finally {

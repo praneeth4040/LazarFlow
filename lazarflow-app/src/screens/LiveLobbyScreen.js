@@ -28,7 +28,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
-import { getUserThemes, getCommunityDesigns, renderResults, uploadLogo, getLobby, getLobbyTeams } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, renderResults, uploadLogo, getLobby, getLobbyTeams, getDesignImageSource } from '../lib/dataService';
 import { useSubscription } from '../hooks/useSubscription';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -37,11 +37,40 @@ const ResultsBottomSheet = ({ visible, onClose, imageUri }) => {
     const [downloading, setDownloading] = useState(false);
 
     const handleDownload = async () => {
-        Alert.alert('Demo', 'Save to Gallery will be implemented soon!');
-    };
+        try {
+            setDownloading(true);
+            
+            if (!imageUri) return;
 
-    const handleShare = async () => {
-        Alert.alert('Demo', 'Share Result will be implemented soon!');
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission needed', 'Please allow access to save photos');
+                return;
+            }
+
+            // If it's a remote URL
+            if (imageUri.startsWith('http')) {
+                const filename = FileSystem.documentDirectory + `result_${Date.now()}.png`;
+                const { uri } = await FileSystem.downloadAsync(imageUri, filename);
+                await MediaLibrary.saveToLibraryAsync(uri);
+            } 
+            // If it's base64
+            else if (imageUri.startsWith('data:image')) {
+                const base64Code = imageUri.split('base64,')[1];
+                const filename = FileSystem.documentDirectory + `result_${Date.now()}.png`;
+                await FileSystem.writeAsStringAsync(filename, base64Code, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                await MediaLibrary.saveToLibraryAsync(filename);
+            }
+
+            Alert.alert('Success', 'Image saved to gallery!');
+        } catch (error) {
+            console.error('Save error:', error);
+            Alert.alert('Error', 'Failed to save image');
+        } finally {
+            setDownloading(false);
+        }
     };
 
     return (
@@ -82,21 +111,13 @@ const ResultsBottomSheet = ({ visible, onClose, imageUri }) => {
                                 disabled={downloading}
                             >
                                 {downloading ? (
-                                    <ActivityIndicator color="#1A73E8" />
+                                    <ActivityIndicator color="#fff" />
                                 ) : (
                                     <>
-                                        <Download size={20} color="#1A73E8" />
+                                        <Download size={20} color="#fff" />
                                         <Text style={styles.downloadActionText}>Save to Gallery</Text>
                                     </>
                                 )}
-                            </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                style={[styles.sheetActionBtn, styles.shareActionBtn]} 
-                                onPress={handleShare}
-                            >
-                                <Share2 size={20} color="#FFFFFF" />
-                                <Text style={styles.shareActionText}>Share Result</Text>
                             </TouchableOpacity>
                         </View>
                     </ScrollView>
@@ -141,8 +162,8 @@ const LiveLobbyScreen = ({ route, navigation }) => {
 
     // Filter themes based on tab
     const filteredThemes = themes.filter(theme => {
-        if (designTab === 'user') return theme.user_id !== null;
-        return theme.user_id === null;
+        if (designTab === 'user') return !!theme.user_id; // Returns true if user_id exists
+        return !theme.user_id; // Returns true if user_id is null/undefined
     });
 
     // Sync designData with lobby data when it loads
@@ -192,7 +213,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             
             const allAvailable = [...(userThemes || []), ...(communityDesigns || [])];
             
-            // Show only verified designs
+            // Show only verified designs (Pending designs should only be visible in Design Studio)
             const filteredThemes = allAvailable.filter(t => t.status === 'verified');
             
             const uniqueThemes = filteredThemes.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
@@ -275,7 +296,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
 
     const renderThemeItem = ({ item }) => {
         const isSelected = item.id === selectedThemeId;
-        const imageSource = item.image_url ? { uri: item.image_url } : null;
+        const imageSource = getDesignImageSource(item);
 
         return (
             <TouchableOpacity 
@@ -285,7 +306,11 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             >
                 <View style={styles.designImageWrapper}>
                     {imageSource ? (
-                        <Image source={imageSource} style={styles.designImage} resizeMode="cover" />
+                        <Image 
+                            source={imageSource} 
+                            style={styles.designImage} 
+                            resizeMode="cover" 
+                        />
                     ) : (
                         <View style={styles.designPlaceholder}>
                             <Palette size={32} color={Theme.colors.textSecondary} />
@@ -1552,12 +1577,11 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     downloadActionBtn: {
-        backgroundColor: '#F0F7FF',
-        borderWidth: 1,
-        borderColor: '#1A73E8',
+        backgroundColor: Theme.colors.accent,
+        borderWidth: 0,
     },
     downloadActionText: {
-        color: '#1A73E8',
+        color: '#FFFFFF',
         fontSize: 15,
         fontFamily: Theme.fonts.outfit.bold,
     },

@@ -54,6 +54,7 @@ This document details all API endpoints used in the **LazarFlow** mobile applica
 | :--- | :--- | :--- | :--- | :--- |
 | `/:lobby_id/teams` | GET | `getLobbyTeams` <br> Called by: `src/screens/ManageTeamsScreen.js`, `src/screens/LiveLobbyScreen.js`, `src/screens/CalculateResultsScreen.js` | `None` | Fetch all teams and their statistics for a specific lobby. |
 | `/:lobby_id/teams` | POST | `addLobbyTeams` <br> Called by: `src/screens/ManageTeamsScreen.js` | `{ teams: [{ team_name: "string", members: Array }] }` | Bulk add multiple teams to a lobby. |
+| `/:lobby_id/teams/members/batch` | PUT | `batchUpdateTeamMembers` <br> Called by: `src/screens/CalculateResultsScreen.js` | `[{ id: "team_uuid", members: ["Player1", "Player2"] }]` | Batch update team members for a lobby. |
 | `/api/teams/:id` | PUT | `updateTeam` <br> Called by: `src/screens/CalculateResultsScreen.js` | `{ team_name?: string, members?: Array, total_points?: object }` | Update details for a specific team. |
 | `/api/teams/:id` | DELETE | `deleteTeam` <br> Called by: `src/screens/ManageTeamsScreen.js` (during full sync/replace) | `None` | Removes a specific team from a lobby. |
 
@@ -77,11 +78,11 @@ This document details all API endpoints used in the **LazarFlow** mobile applica
 
 | Endpoint | Method | Function / Call Site | Request Payload | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `/process-lobby` | POST | `processLobbyScreenshots` <br> Called by: `src/screens/ManageTeamsScreen.js` (Import from SS) | `FormData` with multiple `images`. | Extracts team/player names from lobby screenshots. |
-| `/extract-results` | POST | `extractResultsFromScreenshot` <br> Called by: `src/screens/CalculateResultsScreen.js` | `FormData` with `images` and options: `{ split, split_ratio, crop_top, crop_bottom }` | Extracts match results/standings from scoreboard screenshots. |
-| `/extract-teams` | POST | `extractTeamsFromText` <br> Called by: `src/screens/ManageTeamsScreen.js` (Paste Text) | `{ text: "raw text string" }` | Parses unstructured text (e.g., WhatsApp list) into structured team objects. |
+| `/api/ai/process-lobby` | POST | `processLobbyScreenshots` <br> Called by: `src/screens/CalculateResultsScreen.js` | `FormData` with multiple `images` and `lobby_id`. | Extracts team/player names from lobby screenshots. |
+| `/api/ai/extract-results` | POST | `extractResultsFromScreenshot` <br> Called by: `src/screens/CalculateResultsScreen.js` | `FormData` with `images` and options: `{ split, split_ratio, crop_top, crop_bottom }` | Extracts match results/standings from scoreboard screenshots. |
+| `/api/ai/extract-teams` | POST | `extractTeamsFromText` <br> Called by: `src/screens/ManageTeamsScreen.js` (Paste Text) | `{ text: "raw text string" }` | Parses unstructured text (e.g., WhatsApp list) into structured team objects. |
 | `/render/:lobbyId/:themeId` | POST | `renderLobbyDesign` <br> Called by: `src/screens/LiveLobbyScreen.js` | `{ ...overrides }` (Optional JSON body) | Generates a PNG image of the lobby standings. Returns binary image data. |
-| `/render-results` | POST | `renderResults` <br> Called by: `src/screens/LiveLobbyScreen.js` | `{ lobbyId: "string", themesId: "string" }` | Generates a PNG image of the detailed results table. Returns binary image data. |
+| `/api/render/render-results` | POST | `renderResults` <br> Called by: `src/screens/LiveLobbyScreen.js` | `{ lobbyId: "string", themesId: "string" }` | Generates a PNG image of the detailed results table. Returns binary image data. |
 
 ---
 

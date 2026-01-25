@@ -9,7 +9,7 @@ import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
 import { useSubscription } from '../hooks/useSubscription';
 import { useFocusEffect } from '@react-navigation/native';
-import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
 import SubscriptionPlansScreen from './SubscriptionPlansScreen';
 
 const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false }) => {
@@ -341,23 +341,9 @@ const DashboardScreen = ({ navigation, route }) => {
         try {
             setUploading(true);
             const { uri } = selectedImage;
-            const uriParts = uri.split('.');
-            const fileType = uriParts[uriParts.length - 1];
-            // Upload to themes/<userid>/ folder
-            const fileName = `${user?.id || 'unknown'}/${Date.now()}.${fileType}`;
-
-            const publicUrl = await uploadLogo(uri, fileName);
-
-            if (!publicUrl) throw new Error('Upload failed');
-
-            // Insert into themes table with pending status
-            await createTheme({
-                user_id: user?.id,
-                name: designDetails.name,
-                url: publicUrl,
-                status: 'pending',
-                created_at: new Date().toISOString()
-            });
+            
+            // Use new uploadTheme endpoint which handles file upload + record creation
+            await uploadTheme(designDetails.name, uri);
 
             fetchUserThemes();
             setUploadModalVisible(false);
@@ -448,8 +434,11 @@ const DashboardScreen = ({ navigation, route }) => {
             await updateUserProfile({ phone: phoneVal });
             
             setProfile(prev => ({ ...prev, phone: phoneVal }));
+            // Update the main user object too so it persists in the UI immediately
+            setUser(prev => ({ ...prev, phone: phoneVal }));
+            
             setNewPhoneNumber('');
-            setIsAddingPhone(false);
+            setIsPhoneDropdownOpen(false);
             Alert.alert('Success', 'Phone number updated successfully');
         } catch (error) {
             console.error('Error updating phone:', error);
@@ -472,6 +461,9 @@ const DashboardScreen = ({ navigation, route }) => {
                         try {
                             await updateUserProfile({ phone: null });
                             setProfile(prev => ({ ...prev, phone: null }));
+                            setUser(prev => ({ ...prev, phone: null }));
+                            setIsPhoneDropdownOpen(false);
+                            setNewPhoneNumber('');
                         } catch (err) {
                             Alert.alert("Error", "Failed to remove phone number");
                         }
@@ -981,18 +973,18 @@ const DashboardScreen = ({ navigation, route }) => {
                                         <View>
                                             <Text style={styles.statLabel}>Lobbies Created</Text>
                                             <Text style={styles.statSubLabel}>
-                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (limits?.maxAILobbies || 0) - lobbiesCreated)} remaining`}
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxAILobbies || 0) - lobbiesCreated)} remaining`}
                                             </Text>
                                         </View>
                                         <Text style={[styles.statValue, { color: colors.color }]}>
-                                            {lobbiesCreated} / {(limits?.maxAILobbies === Infinity || !limits?.maxAILobbies) ? '∞' : limits.maxAILobbies}
+                                            {lobbiesCreated} / {(maxAILobbies === Infinity || !maxAILobbies) ? '∞' : maxAILobbies}
                                         </Text>
                                     </View>
                                     <View style={styles.progressBarBg}>
                                         <View style={[
                                             styles.progressBarFill,
                                             {
-                                                width: `${(limits?.maxAILobbies === Infinity || !limits?.maxAILobbies) ? 100 : Math.min((lobbiesCreated / (limits?.maxAILobbies || 1)) * 100, 100)}%`,
+                                                width: `${(maxAILobbies === Infinity || !maxAILobbies) ? 100 : Math.min((lobbiesCreated / (maxAILobbies || 1)) * 100, 100)}%`,
                                                 backgroundColor: colors.color
                                             }
                                         ]} />
@@ -1004,18 +996,18 @@ const DashboardScreen = ({ navigation, route }) => {
                                         <View>
                                             <Text style={styles.statLabel}>Active Layouts</Text>
                                             <Text style={styles.statSubLabel}>
-                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (limits?.maxLayouts || 0) - activeLayoutsCount)} slots remaining`}
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxLayouts || 0) - activeLayoutsCount)} slots remaining`}
                                             </Text>
                                         </View>
                                         <Text style={[styles.statValue, { color: colors.color }]}>
-                                            {activeLayoutsCount} / {(limits?.maxLayouts === Infinity || !limits?.maxLayouts) ? '∞' : limits.maxLayouts}
+                                            {activeLayoutsCount} / {(maxLayouts === Infinity || !maxLayouts) ? '∞' : maxLayouts}
                                         </Text>
                                     </View>
                                     <View style={styles.progressBarBg}>
                                         <View style={[
                                             styles.progressBarFill,
                                             {
-                                                width: `${(limits?.maxLayouts === Infinity || !limits?.maxLayouts) ? 100 : Math.min((activeLayoutsCount / (limits?.maxLayouts || 1)) * 100, 100)}%`,
+                                                width: `${(maxLayouts === Infinity || !maxLayouts) ? 100 : Math.min((activeLayoutsCount / (maxLayouts || 1)) * 100, 100)}%`,
                                                 backgroundColor: colors.color
                                             }
                                         ]} />
