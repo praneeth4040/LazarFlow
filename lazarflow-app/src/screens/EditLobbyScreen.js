@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
-import { X, Sparkles, Save, ArrowLeft, Trash2 } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
+import { X, Sparkles, Save, ArrowLeft, Trash2, Plus } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
+import { getLobby, updateLobby, deleteLobby } from '../lib/dataService';
 
 const EditLobbyScreen = ({ route, navigation }) => {
     const { lobbyId } = route.params || {};
@@ -13,6 +13,7 @@ const EditLobbyScreen = ({ route, navigation }) => {
     const [killPoints, setKillPoints] = useState(1);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [metadataList, setMetadataList] = useState([]); // [{key: '', value: ''}]
 
     useEffect(() => {
         if (lobbyId) {
@@ -23,19 +24,21 @@ const EditLobbyScreen = ({ route, navigation }) => {
     const fetchLobby = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('lobbies')
-                .select('*')
-                .eq('id', lobbyId)
-                .single();
-
-            if (error) throw error;
+            const data = await getLobby(lobbyId);
 
             setLobby(data);
             setName(data.name);
             setGame(data.game || 'freeFire');
             setPointsSystem(data.points_system || []);
             setKillPoints(data.kill_points || 1);
+            
+            // Convert object metadata to list for easier editing
+            const meta = data.metadata || {};
+            const list = Object.keys(meta).map(key => ({
+                key,
+                value: String(meta[key])
+            }));
+            setMetadataList(list);
         } catch (error) {
             console.error('Error fetching lobby:', error);
             Alert.alert('Error', 'Failed to load lobby details');
@@ -51,25 +54,40 @@ const EditLobbyScreen = ({ route, navigation }) => {
         setPointsSystem(newSystem);
     };
 
+    const addMetadataField = () => {
+        setMetadataList([...metadataList, { key: '', value: '' }]);
+    };
+
+    const removeMetadataField = (index) => {
+        setMetadataList(metadataList.filter((_, i) => i !== index));
+    };
+
+    const updateMetadataField = (index, field, value) => {
+        const newList = [...metadataList];
+        newList[index][field] = value;
+        setMetadataList(newList);
+    };
+
     const handleSave = async () => {
         if (!name.trim()) {
             Alert.alert('Error', 'Please enter a lobby name');
             return;
         }
 
+        // Convert list back to object, filtering out empty keys
+        const metadataObj = {};
+        metadataList.forEach(item => {
+            if (item.key.trim()) {
+                metadataObj[item.key.trim()] = item.value;
+            }
+        });
+
         setSaving(true);
         try {
-            const { error } = await supabase
-                .from('lobbies')
-                .update({
-                    name: name.trim(),
-                    game: game,
-                    points_system: pointsSystem,
-                    kill_points: killPoints
-                })
-                .eq('id', lobbyId);
-
-            if (error) throw error;
+            await updateLobby(lobbyId, {
+                name: name.trim(),
+                metadata: metadataObj
+            });
 
             Alert.alert('Success', 'Lobby updated successfully!', [
                 { text: 'OK', onPress: () => navigation.goBack() }
@@ -94,13 +112,10 @@ const EditLobbyScreen = ({ route, navigation }) => {
                     onPress: async () => {
                         try {
                             setSaving(true);
-                            const { error } = await supabase
-                                .from('lobbies')
-                                .delete()
-                                .eq('id', lobbyId);
-                            if (error) throw error;
+                            await deleteLobby(lobbyId);
                             navigation.navigate('Dashboard');
                         } catch (err) {
+                            console.error('Error deleting lobby:', err);
                             Alert.alert("Error", "Failed to delete lobby");
                         } finally {
                             setSaving(false);
@@ -141,54 +156,43 @@ const EditLobbyScreen = ({ route, navigation }) => {
                         onChangeText={setName}
                         placeholderTextColor={Theme.colors.textSecondary}
                     />
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.label}>Game *</Text>
-                    <View style={styles.gameGrid}>
-                        {['freeFire', 'bgmi', 'other'].map((g) => (
-                            <TouchableOpacity
-                                key={g}
-                                style={[styles.gameCard, game === g && styles.gameCardActive]}
-                                onPress={() => setGame(g)}
-                            >
-                                <Text style={[styles.gameCardText, game === g && styles.gameCardTextActive]}>
-                                    {g === 'freeFire' ? 'Free Fire' : g === 'bgmi' ? 'BGMI' : 'Other'}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
+                    <Text style={styles.helperText}>Other settings like game and points system are locked after creation.</Text>
                 </View>
 
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.label}>Points System</Text>
-                        <View style={styles.killPointsContainer}>
-                            <Sparkles size={16} color={Theme.colors.accent} />
-                            <Text style={styles.killPointsLabel}>Kill Points:</Text>
-                            <TextInput
-                                style={styles.killPointsInput}
-                                keyboardType="numeric"
-                                value={String(killPoints)}
-                                onChangeText={(v) => setKillPoints(parseInt(v) || 0)}
-                            />
-                        </View>
+                        <Text style={styles.label}>Custom Metadata</Text>
+                        <TouchableOpacity style={styles.addMetaBtn} onPress={addMetadataField}>
+                            <Plus size={16} color={Theme.colors.accent} />
+                            <Text style={styles.addMetaBtnText}>Add Field</Text>
+                        </TouchableOpacity>
                     </View>
-
-                    <View style={styles.pointsGrid}>
-                        {pointsSystem.map((item, index) => (
-                            <View key={index} style={styles.pointRow}>
-                                <Text style={styles.placementText}>#{item.placement}</Text>
+                    
+                    {metadataList.length === 0 ? (
+                        <Text style={styles.emptyMetaText}>No custom metadata added yet.</Text>
+                    ) : (
+                        metadataList.map((item, index) => (
+                            <View key={index} style={styles.metaRow}>
                                 <TextInput
-                                    style={styles.pointInput}
-                                    keyboardType="numeric"
-                                    value={String(item.points)}
-                                    onChangeText={(v) => handlePointsChange(index, v)}
+                                    style={[styles.metaInput, styles.metaKeyInput]}
+                                    placeholder="Key (e.g. dha)"
+                                    value={item.key}
+                                    onChangeText={(v) => updateMetadataField(index, 'key', v)}
+                                    placeholderTextColor={Theme.colors.textSecondary}
                                 />
-                                <Text style={styles.pointsSuffix}>pts</Text>
+                                <TextInput
+                                    style={[styles.metaInput, styles.metaValueInput]}
+                                    placeholder="Value"
+                                    value={item.value}
+                                    onChangeText={(v) => updateMetadataField(index, 'value', v)}
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                />
+                                <TouchableOpacity onPress={() => removeMetadataField(index)} style={styles.removeMetaBtn}>
+                                    <X size={18} color={Theme.colors.danger} />
+                                </TouchableOpacity>
                             </View>
-                        ))}
-                    </View>
+                        ))
+                    )}
                 </View>
 
                 <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
@@ -259,6 +263,92 @@ const styles = StyleSheet.create({
         color: Theme.colors.textPrimary,
         fontSize: 16,
         fontFamily: Theme.fonts.outfit.regular,
+    },
+    helperText: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+        marginTop: 8,
+        fontStyle: 'italic',
+    },
+    addMetaBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    addMetaBtnText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.accent,
+    },
+    emptyMetaText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+        textAlign: 'center',
+        paddingVertical: 20,
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderStyle: 'dashed',
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 10,
+    },
+    metaInput: {
+        backgroundColor: Theme.colors.primary,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 8,
+        padding: 10,
+        color: Theme.colors.textPrimary,
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+    },
+    metaKeyInput: {
+        flex: 1,
+        fontFamily: Theme.fonts.monospace,
+    },
+    metaValueInput: {
+        flex: 1.5,
+    },
+    removeMetaBtn: {
+        padding: 5,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: Theme.colors.primary,
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        marginBottom: 12,
+    },
+    settingInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+        gap: 12,
+    },
+    settingTextContent: {
+        flex: 1,
+    },
+    settingLabel: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textPrimary,
+    },
+    settingDescription: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+        marginTop: 2,
     },
     gameGrid: {
         flexDirection: 'row',

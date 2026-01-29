@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, Circle } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
 import { Theme } from '../styles/theme';
 
 const SignUpScreen = ({ navigation }) => {
@@ -26,42 +26,19 @@ const SignUpScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            // Check if email already exists in profiles table
-            const { data: existingUser, error: checkError } = await supabase
-                .from('profiles')
-                .select('emails')
-                .eq('emails', email.toLowerCase())
-                .single();
-
-            if (existingUser) {
-                setLoading(false);
-                Alert.alert('Sign Up Failed', 'An account with this email already exists. Please sign in instead.');
-                return;
-            }
-
-            const { data, error } = await supabase.auth.signUp({
-                email: email.toLowerCase(),
-                password,
-                options: {
-                    data: {
-                        username: email.toLowerCase().split('@')[0] + '_' + Math.floor(Math.random() * 1000),
-                        display_name: email.toLowerCase().split('@')[0],
-                        marketing_opt_in: subscribeEmail
-                    }
-                }
+            await authService.register(email, password, {
+                marketing_opt_in: subscribeEmail
             });
-
-            if (error) throw error;
 
             Alert.alert('Success', 'Account created! Please check your email to confirm.', [
                 { text: 'OK', onPress: () => navigation.navigate('Login') }
             ]);
 
         } catch (error) {
-            let errorMessage = error.message || 'An error occurred';
+            let errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'An error occurred';
             
-            // Handle specific Supabase Auth errors
-            if (errorMessage.includes('User already registered') || errorMessage.includes('Email already in use')) {
+            // Handle specific errors based on API response conventions
+            if (errorMessage.includes('already registered') || errorMessage.includes('in use')) {
                 errorMessage = 'An account with this email already exists. Please sign in instead.';
             }
             

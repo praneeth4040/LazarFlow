@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
+import { authService } from '../lib/authService';
 
 const ResetPasswordScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
@@ -29,20 +29,21 @@ const ResetPasswordScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.updateUser({
-                password: password
-            });
+            Alert.alert('Notice', 'Password update is currently unavailable. Please contact support.');
+            // const { error } = await supabase.auth.updateUser({
+            //     password: password
+            // });
 
-            if (error) throw error;
+            // if (error) throw error;
 
-            // Log out after reset to ensure a clean session for the user
-            await supabase.auth.signOut();
+            // // Log out after reset to ensure a clean session for the user
+            // await authService.logout();
 
-            Alert.alert(
-                'Success',
-                'Your password has been updated. Please login with your new password.',
-                [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-            );
+            // Alert.alert(
+            //     'Success',
+            //     'Your password has been updated. Please login with your new password.',
+            //     [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+            // );
         } catch (error) {
             Alert.alert('Update Failed', error.message || 'An error occurred');
         } finally {

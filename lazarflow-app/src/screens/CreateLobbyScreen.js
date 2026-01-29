@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Sparkles, Trophy, Target, ChevronDown, Save, ArrowLeft, Crown } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
+import { createLobby } from '../lib/dataService';
+import { authService } from '../lib/authService';
 
 const CreateLobbyScreen = ({ navigation }) => {
-    const { canUseAI, tier, limits, lobbiesCreated, loading: subLoading } = useSubscription();
+    const { canUseAI, tier, maxAILobbies, lobbiesCreated, loading: subLoading } = useSubscription();
     const defaultPointsSystems = {
         freeFire: [
             { placement: 1, points: 12 },
@@ -69,10 +70,10 @@ const CreateLobbyScreen = ({ navigation }) => {
             return;
         }
 
-        if (!canUseAI && tier === 'free') {
+        if (!canUseAI) {
             Alert.alert(
                 'Limit Reached',
-                'You have reached your monthly limit of 2 lobbies. Upgrade to a premium plan to create more!',
+                `You have reached your limit of ${maxAILobbies} lobbies. Upgrade to a premium plan to create more!`,
                 [
                     { text: 'Later', style: 'cancel' },
                     { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') }
@@ -83,31 +84,21 @@ const CreateLobbyScreen = ({ navigation }) => {
 
         setLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getMe();
             if (!user) throw new Error('Not authenticated');
 
-            const { data, error } = await supabase
-                .from('lobbies')
-                .insert([
-                    {
-                        name: name.trim(),
-                        game: game,
-                        user_id: user.id,
-                        points_system: pointsSystem,
-                        kill_points: killPoints,
-                        status: 'active'
-                    }
-                ])
-                .select('id, name')
-                .single();
-
-            if (error) throw error;
+            const data = await createLobby({
+                name: name.trim(),
+                game: game,
+                points_system: pointsSystem,
+                kill_points: killPoints
+            });
 
             Alert.alert('Success', 'Lobby created successfully!');
             navigation.navigate('ManageTeams', { lobbyId: data.id, lobbyName: data.name });
         } catch (error) {
             console.error('Error creating lobby:', error);
-            Alert.alert('Error', error.message || 'Failed to create lobby');
+            Alert.alert('Error', error.response?.data?.message || error.message || 'Failed to create lobby');
         } finally {
             setLoading(false);
         }

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Mail, ArrowRight, ArrowLeft } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
 const ForgotPasswordScreen = ({ navigation }) => {
@@ -17,17 +16,19 @@ const ForgotPasswordScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'lazarflow://reset-password',
-            });
+            // Temporary replacement:
+            Alert.alert('Notice', 'Password reset is currently being updated. Please contact support.');
+            // const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            //     redirectTo: 'lazarflow://reset-password',
+            // });
 
-            if (error) throw error;
+            // if (error) throw error;
 
-            Alert.alert(
-                'Check your email',
-                'We have sent a password reset link to your email address.',
-                [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-            );
+            // Alert.alert(
+            //     'Check your email',
+            //     'We have sent a password reset link to your email address.',
+            //     [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+            // );
         } catch (error) {
             Alert.alert('Reset Failed', error.message || 'An error occurred');
         } finally {

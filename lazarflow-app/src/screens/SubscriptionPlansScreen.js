@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar 
 import { Check, Sparkles, ArrowLeft, Award, Crown, Zap, ShieldCheck, Star } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -13,34 +13,70 @@ import {
 } from 'react-native-cashfree-pg-sdk';
 
 const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
-    const { tier, lobbiesCreated, limits } = useSubscription();
+    const { tier, lobbiesCreated, maxAILobbies, maxLayouts } = useSubscription();
     const insets = useSafeAreaInsets();
 
+    // Check if Razorpay is linked/available
+    const isRazorpayAvailable = React.useMemo(() => {
+        try {
+            return !!RazorpayCheckout && typeof RazorpayCheckout.open === 'function';
+        } catch (e) {
+            console.log('Error checking Razorpay availability:', e);
+            return false;
+        }
+    }, [RazorpayCheckout]);
+
+    // Check if Cashfree is linked/available
+    const isCashfreeAvailable = React.useMemo(() => {
+        try {
+            return !!CFPaymentGatewayService && typeof CFPaymentGatewayService.setCallback === 'function';
+        } catch (e) {
+            console.log('Error checking Cashfree availability:', e);
+            return false;
+        }
+    }, [CFPaymentGatewayService]);
+
     React.useEffect(() => {
+        if (!isCashfreeAvailable) {
+            console.warn('⚠️ Cashfree SDK not linked or available');
+            return;
+        }
+
         const onVerify = async (orderID) => {
             console.log('Order verified:', orderID);
-            // Poll or wait for webhook to update Supabase, then refresh user profile
-            // For better UX, we can optimistically show success
-            Alert.alert('Success', 'Payment verified! Your plan will be updated shortly.');
-            if (!isTab) {
-                navigation.goBack();
-            }
+            navigation.navigate('PaymentStatus', {
+                status: 'success',
+                orderId: orderID,
+                message: 'Payment verified! Your plan has been updated.'
+            });
         };
 
         const onError = (error, orderID) => {
             console.error('Payment failed:', error, orderID);
-            Alert.alert('Payment Failed', error.message || 'Something went wrong');
+            navigation.navigate('PaymentStatus', {
+                status: 'failure',
+                orderId: orderID,
+                message: error.message || 'Something went wrong with the payment.'
+            });
         };
 
-        CFPaymentGatewayService.setCallback({
-            onVerify,
-            onError,
-        });
+        try {
+            CFPaymentGatewayService.setCallback({
+                onVerify,
+                onError,
+            });
+        } catch (err) {
+            console.error('Error setting Cashfree callback:', err);
+        }
 
         return () => {
-            CFPaymentGatewayService.removeCallback();
+            try {
+                CFPaymentGatewayService.removeCallback();
+            } catch (err) {
+                // Ignore cleanup errors
+            }
         };
-    }, []);
+    }, [isCashfreeAvailable]);
 
     const plans = [
         {
@@ -69,7 +105,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 '60 AI Lobbies per month',
                 '3 Active Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'Support'
             ],
@@ -86,7 +121,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 '100 AI Lobbies per month',
                 '5 Active Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'Support'
             ],
@@ -104,7 +138,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 '150 AI Lobbies per month',
                 '5 Active Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'Support'
             ],
@@ -121,7 +154,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 'Unlimited AI Lobbies',
                 'Unlimited Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'White-glove Support'
             ],
@@ -145,11 +177,16 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                     text: 'Pay Now',
                     onPress: async () => {
                         try {
-                            const { data: { user } } = await supabase.auth.getUser();
+                            const user = await authService.getMe();
                             if (!user) throw new Error('User not found');
 
                             // --- RAZORPAY FLOW (PRIMARY) ---
                             try {
+                                if (!isRazorpayAvailable) {
+                                    console.warn('⚠️ Razorpay SDK not linked or available');
+                                    throw new Error('Razorpay is not available on this device');
+                                }
+
                                 console.log('🚀 Initiating Razorpay flow...');
                                 // 1. Create Order via Backend
                                 const orderResponse = await apiClient.post('/create-order', {
@@ -162,7 +199,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                 // 2. Open Razorpay SDK
                                 const options = {
                                     description: `LazarFlow ${plan.name} Subscription`,
-                                    image: 'https://lazarflow.app/logo.png', // Replace with actual logo
+                                    image: 'https://api.lazarflow.app/logo.png', // Replace with actual logo
                                     currency: currency || 'INR',
                                     key: key_id, // Backend should provide the public key
                                     amount: amount,
@@ -176,6 +213,10 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                     theme: { color: Theme.colors.accent }
                                 };
 
+                                if (!RazorpayCheckout || typeof RazorpayCheckout.open !== 'function') {
+                                    throw new Error('Razorpay SDK is not initialized correctly');
+                                }
+
                                 const razorpayData = await RazorpayCheckout.open(options);
                                 console.log('✅ Razorpay Success:', razorpayData);
 
@@ -187,44 +228,68 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                 });
 
                                 if (verifyResponse.status === 200) {
-                                    Alert.alert('Success', 'Payment verified! Your plan has been updated.');
-                                    if (!isTab) navigation.goBack();
+                                    navigation.navigate('PaymentStatus', {
+                                        status: 'success',
+                                        orderId: razorpayData.razorpay_order_id,
+                                        planName: plan.name
+                                    });
                                     return;
                                 }
                             } catch (rpError) {
-                                console.log('⚠️ Razorpay failed or cancelled, trying Cashfree fallback...', rpError);
-                                // If user cancelled, don't fallback to Cashfree immediately, ask or just log
-                                if (rpError.code === 2) { // 2 is usually user cancellation in some SDKs
+                                if (rpError.code === 2) { // 2 is usually user cancellation
                                     return; 
+                                }
+
+                                if (!isCashfreeAvailable) {
+                                    console.log('⚠️ Razorpay failed and Cashfree is not available:', rpError);
+                                    navigation.navigate('PaymentStatus', {
+                                        status: 'failure',
+                                        message: rpError.message || 'Razorpay payment failed and no fallback available.'
+                                    });
+                                    return;
+                                }
+
+                                console.log('⚠️ Razorpay failed, trying Cashfree fallback...', rpError);
+                            }
+
+                            if (isCashfreeAvailable) {
+                                // --- CASHFREE FLOW (FALLBACK) ---
+                                console.log('🔄 Initiating Cashfree fallback...');
+                                // 1. Create Cashfree Order via Backend
+                                const cfResponse = await fetch('https://api.lazarflow.app/create-order-cashfree', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ user_id: user.id, tier: plan.id }),
+                                });
+
+                                const cfData = await cfResponse.json();
+                                if (!cfResponse.ok) throw new Error(cfData.message || 'Failed to create Cashfree order');
+
+                                const { payment_session_id, order_id: cf_order_id } = cfData;
+
+                                // 2. Start Cashfree Checkout
+                                try {
+                                    if (!CFPaymentGatewayService || typeof CFPaymentGatewayService.doPayment !== 'function') {
+                                        throw new Error('Cashfree SDK is not initialized correctly');
+                                    }
+
+                                    CFPaymentGatewayService.doPayment({
+                                        environment: 'PRODUCTION',
+                                        payment_session_id: payment_session_id,
+                                        order_id: cf_order_id || "ORDER_ID_NOT_PROVIDED",
+                                    });
+                                } catch (cfDoError) {
+                                    console.error('Cashfree doPayment error:', cfDoError);
+                                    throw new Error('Failed to open Cashfree payment gateway');
                                 }
                             }
 
-                            // --- CASHFREE FLOW (FALLBACK) ---
-                            console.log('🔄 Initiating Cashfree fallback...');
-                            // 1. Create Cashfree Order via Backend
-                            // Note: We might need a different endpoint for Cashfree if the backend logic differs
-                            // but assuming the same /create-order can handle it or we use a specific one.
-                            const cfResponse = await fetch('https://api.lazarflow.app/create-order-cashfree', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ user_id: user.id, tier: plan.id }),
-                            });
-
-                            const cfData = await cfResponse.json();
-                            if (!cfResponse.ok) throw new Error(cfData.message || 'Failed to create Cashfree order');
-
-                            const { payment_session_id, order_id: cf_order_id } = cfData;
-
-                            // 2. Start Cashfree Checkout
-                            CFPaymentGatewayService.doPayment({
-                                environment: 'PRODUCTION', // Changed to PRODUCTION as standard
-                                payment_session_id: payment_session_id,
-                                order_id: cf_order_id || "ORDER_ID_NOT_PROVIDED",
-                            });
-
                         } catch (error) {
                             console.error('Error initiating payment:', error);
-                            Alert.alert('Error', 'Failed to initiate payment. Please try again later.');
+                            navigation.navigate('PaymentStatus', {
+                                status: 'failure',
+                                message: error.message || 'Failed to initiate payment. Please try again later.'
+                            });
                         }
                     }
                 }

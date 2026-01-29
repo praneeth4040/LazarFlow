@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap } from 'lucide-react-native';
+import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
+import { authService } from '../lib/authService';
 import { useSubscription } from '../hooks/useSubscription';
-import { getUserThemes, getCommunityDesigns, getDesignImageSource, getUserProfile, updateUserProfile } from '../lib/dataService';
+import { useFocusEffect } from '@react-navigation/native';
+import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
 import SubscriptionPlansScreen from './SubscriptionPlansScreen';
 
 const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false }) => {
@@ -95,8 +96,19 @@ const UserThemeCard = React.memo(({ theme, index, isRightColumn = false }) => {
     );
 });
 
-const DashboardScreen = ({ navigation }) => {
+const DashboardScreen = ({ navigation, route }) => {
+    const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
+    
     const [activeTab, setActiveTab] = useState('home');
+
+    // Handle tab navigation from other screens
+    useEffect(() => {
+        if (route.params?.tab) {
+            setActiveTab(route.params.tab);
+            // Clear the param so it doesn't switch back on re-renders
+            navigation.setParams({ tab: undefined });
+        }
+    }, [route.params?.tab]);
     const [lobbies, setLobbies] = useState([]);
     const [pastLobbies, setPastLobbies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -128,95 +140,89 @@ const DashboardScreen = ({ navigation }) => {
             return () => clearTimeout(timer);
         }
     }, [tier, loading]);
+
     const [selectedImage, setSelectedImage] = useState(null);
     const [designDetails, setDesignDetails] = useState({
         name: ''
     });
-    const [profile, setProfile] = useState(null);
-    const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
-    const [isAddingPhone, setIsAddingPhone] = useState(false);
     const [isUsernameExpanded, setIsUsernameExpanded] = useState(false);
-    const [newPhoneNumber, setNewPhoneNumber] = useState('');
-    const [savingPhone, setSavingPhone] = useState(false);
-    const [showWhatsappCard, setShowWhatsappCard] = useState(true);
-
-    const { tier, lobbiesCreated, loading: subLoading, limits } = useSubscription();
 
     useEffect(() => {
         if (user?.id) {
             const fetchLayoutsCount = async () => {
-                const themes = await getUserThemes();
-                setActiveLayoutsCount(themes.length);
+                try {
+                    const themes = await getUserThemes();
+                    setActiveLayoutsCount(themes?.length || 0);
+                } catch (err) {
+                    console.error('Error fetching layout count:', err);
+                }
             };
             fetchLayoutsCount();
         }
     }, [user?.id]);
 
-    useEffect(() => {
-        let subscription = null;
-
-        const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
+    useFocusEffect(
+        React.useCallback(() => {
             fetchLobbies();
+            return () => {};
+        }, [])
+    );
 
-            // Fetch user profile
+    useEffect(() => {
+        const init = async () => {
             try {
-                const userProfile = await getUserProfile();
-                setProfile(userProfile);
+                const user = await authService.getMe();
+                setUser(user);
+                await fetchLobbies();
             } catch (err) {
-                console.error('Error fetching profile in init:', err);
-            }
-
-            if (user) {
-                // Subscribe to realtime updates for lobbies
-                subscription = supabase
-                    .channel(`lobbies-user-${user.id}`)
-                    .on(
-                        'postgres_changes',
-                        {
-                            event: '*',
-                            schema: 'public',
-                            table: 'lobbies',
-                            filter: `user_id=eq.${user.id}`,
-                        },
-                        () => fetchLobbies()
-                    )
-                    .subscribe();
+                console.error('Init error:', err);
             }
         };
 
         init();
-
-        return () => {
-            if (subscription) {
-                supabase.removeChannel(subscription);
-            }
-        };
     }, []);
 
     const fetchLobbies = async () => {
         try {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
+            const user = await authService.getMe();
             if (!user) return;
 
-            const { data, error } = await supabase
-                .from('lobbies')
-                .select('id, name, game, status, created_at, points_system, kill_points')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+            console.log('Fetching lobbies...');
+            const data = await getLobbies();
+            console.log(`Found ${data?.length || 0} lobbies`);
 
-            if (error) throw error;
+            // Fetch team counts for each lobby
+            const lobbiesWithCounts = await Promise.all((data || []).map(async (lobby) => {
+                try {
+                    const teams = await getLobbyTeams(lobby.id);
+                    console.log(`Lobby ${lobby.id} (${lobby.name}) response:`, teams);
+                    
+                    let count = 0;
+                    if (Array.isArray(teams)) {
+                        count = teams.length;
+                    } else if (teams && typeof teams === 'object') {
+                        // Some APIs return { teams: [...] } or { count: X }
+                        count = teams.count || (teams.teams ? teams.teams.length : 0);
+                    }
+                    
+                    return { 
+                        ...lobby, 
+                        teams_count: count || lobby.teams_count || 0 
+                    };
+                } catch (err) {
+                    console.warn(`Could not fetch teams for lobby ${lobby.id}:`, err);
+                    return { ...lobby, teams_count: lobby.teams_count || 0 };
+                }
+            }));
 
-            const active = data.filter(t => t.status !== 'completed');
-            const past = data.filter(t => t.status === 'completed');
+            const active = lobbiesWithCounts.filter(t => t.status !== 'completed');
+            const past = lobbiesWithCounts.filter(t => t.status === 'completed');
 
             setLobbies(active);
             setPastLobbies(past);
         } catch (error) {
             console.error('Error fetching lobbies:', error);
-            Alert.alert('Error', 'Failed to load lobbies');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -225,13 +231,7 @@ const DashboardScreen = ({ navigation }) => {
 
     const fetchUserThemes = async () => {
         try {
-            const { data, error } = await supabase
-                .from('themes')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const data = await getUserThemes();
             setUserThemesList(data || []);
         } catch (error) {
             console.error('Error fetching themes:', error);
@@ -274,7 +274,13 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        try {
+            await authService.logout();
+            // AppNavigator will handle the redirection since it listens to SIGNED_OUT event
+        } catch (error) {
+            console.error('Logout failed:', error);
+            Alert.alert('Error', 'Failed to log out. Please try again.');
+        }
     };
 
     const handleCreateLobby = () => {
@@ -313,10 +319,10 @@ const DashboardScreen = ({ navigation }) => {
         }
 
         // Enforce Layout Limits
-        if (tier !== 'developer' && activeLayoutsCount >= limits.maxLayouts) {
+        if (tier !== 'developer' && maxLayouts && activeLayoutsCount >= maxLayouts) {
             Alert.alert(
                 'Layout Limit Reached',
-                `Your current plan allows for ${limits.maxLayouts} custom layouts. Upgrade to upload more!`,
+                `Your current plan allows for ${maxLayouts} custom layouts. Upgrade to upload more!`,
                 [
                     { text: 'Later', style: 'cancel' },
                     { text: 'View Plans', onPress: () => setActiveTab('plans') }
@@ -328,40 +334,9 @@ const DashboardScreen = ({ navigation }) => {
         try {
             setUploading(true);
             const { uri } = selectedImage;
-            const uriParts = uri.split('.');
-            const fileType = uriParts[uriParts.length - 1];
-            // Upload to themes/<userid>/ folder
-            const fileName = `${user.id}/${Date.now()}.${fileType}`;
-
-            const formData = new FormData();
-            formData.append('file', {
-                uri,
-                name: fileName.split('/').pop(), // just the filename for the form data
-                type: `image/${fileType}`,
-            });
-
-            const { data, error } = await supabase.storage
-                .from('themes')
-                .upload(fileName, formData);
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('themes')
-                .getPublicUrl(fileName);
-
-            // Insert into themes table with pending status
-            const { error: dbError } = await supabase
-                .from('themes')
-                .insert([{
-                    user_id: user.id,
-                    name: designDetails.name,
-                    url: publicUrl,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                }]);
-
-            if (dbError) throw dbError;
+            
+            // Use new uploadTheme endpoint which handles file upload + record creation
+            await uploadTheme(designDetails.name, uri);
 
             fetchUserThemes();
             setUploadModalVisible(false);
@@ -395,11 +370,7 @@ const DashboardScreen = ({ navigation }) => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const { error } = await supabase
-                                .from('lobbies')
-                                .update({ status: 'completed' })
-                                .eq('id', lobby.id);
-                            if (error) throw error;
+                            await endLobby(lobby.id);
                             // Realtime sub will update list, but we can also fetch manually to be sure
                             fetchLobbies();
                         } catch (err) {
@@ -422,11 +393,7 @@ const DashboardScreen = ({ navigation }) => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const { error } = await supabase
-                                .from('lobbies')
-                                .delete()
-                                .eq('id', lobby.id);
-                            if (error) throw error;
+                            await deleteLobby(lobby.id);
                             fetchLobbies();
                         } catch (err) {
                             Alert.alert("Error", "Failed to delete lobby");
@@ -443,60 +410,10 @@ const DashboardScreen = ({ navigation }) => {
         navigation.navigate('EditLobby', { lobbyId: lobby.id });
     };
 
-
-    const handleUpdatePhone = async () => {
-        if (savingPhone) return;
-        
-        const numericPhone = newPhoneNumber.replace(/\D/g, '');
-        if (!numericPhone) {
-            Alert.alert('Invalid Input', 'Please enter a valid phone number');
-            return;
-        }
-
-        const phoneVal = parseInt(numericPhone, 10);
-        
-        try {
-            setSavingPhone(true);
-            await updateUserProfile({ phone: phoneVal });
-            
-            setProfile(prev => ({ ...prev, phone: phoneVal }));
-            setNewPhoneNumber('');
-            setIsAddingPhone(false);
-            Alert.alert('Success', 'Phone number updated successfully');
-        } catch (error) {
-            console.error('Error updating phone:', error);
-            Alert.alert('Error', 'Failed to update phone number. Ensure it is unique across all users.');
-        } finally {
-            setSavingPhone(false);
-        }
-    };
-
-    const handleRemovePhone = async () => {
-        Alert.alert(
-            "Remove Phone Number",
-            `Are you sure you want to remove your phone number?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Remove",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await updateUserProfile({ phone: null });
-                            setProfile(prev => ({ ...prev, phone: null }));
-                        } catch (err) {
-                            Alert.alert("Error", "Failed to remove phone number");
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
     const renderHeader = () => {
         let title = 'Home';
         if (activeTab === 'home') {
-            const username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
+            const username = user?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
             title = `Welcome ${username}`;
         }
         if (activeTab === 'design') title = 'Design Studio';
@@ -507,20 +424,13 @@ const DashboardScreen = ({ navigation }) => {
             <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
                 {activeTab === 'home' ? (
                     <Text style={styles.headerTitle}>
-                        Welcome <Text style={{ color: Theme.colors.accent }}>{user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'}</Text>
+                        Welcome <Text style={{ color: Theme.colors.accent }}>{user?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'}</Text>
                     </Text>
                 ) : (
                     <Text style={styles.headerTitle}>{title}</Text>
                 )}
             </View>
         );
-    };
-
-    const handleNavigateToPhoneSettings = () => {
-        setShowWhatsappCard(false);
-        setActiveTab('profile');
-        setExpandedSections(prev => ({ ...prev, account: true }));
-        setIsPhoneDropdownOpen(true);
     };
 
     const renderHome = () => (
@@ -530,56 +440,6 @@ const DashboardScreen = ({ navigation }) => {
             onScroll={() => setActiveSettingsId(null)} // Close settings on scroll
             scrollEventThrottle={16}
         >
-            {/* WhatsApp Bot Modal */}
-            <Modal
-                visible={showWhatsappCard && !profile?.phone}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowWhatsappCard(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.popupContainer}>
-                        <TouchableOpacity 
-                            style={styles.closePopupBtn} 
-                            onPress={() => setShowWhatsappCard(false)}
-                        >
-                            <X size={20} color={Theme.colors.textSecondary} />
-                        </TouchableOpacity>
-
-                        <View style={styles.popupContent}>
-                            <View style={[styles.popupIconCircle, { backgroundColor: '#25D366' }]}>
-                                <FontAwesome name="whatsapp" size={40} color="#fff" />
-                            </View>
-                            
-                            <View style={styles.popupBadge}>
-                                <Text style={styles.popupBadgeText}>NEW FEATURE</Text>
-                            </View>
-
-                            <Text style={styles.popupTitle}>WhatsApp Bot is Here!</Text>
-                            
-                            <Text style={styles.popupDesc}>
-                                Connect your phone number now to get instant lobby updates and manage your lobbies directly through WhatsApp.
-                            </Text>
-
-                            <TouchableOpacity 
-                                style={styles.popupCta} 
-                                onPress={handleNavigateToPhoneSettings}
-                            >
-                                <Text style={styles.popupCtaText}>Connect & Setup Now</Text>
-                                <ArrowRight size={18} color="#fff" />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                style={styles.popupSecondaryBtn} 
-                                onPress={() => setShowWhatsappCard(false)}
-                            >
-                                <Text style={styles.popupSecondaryBtnText}>Maybe Later</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
             {/* Premium Access Banner */}
             {tier === 'free' && (
                 <View style={styles.banner}>
@@ -607,13 +467,15 @@ const DashboardScreen = ({ navigation }) => {
                         >
                             <View style={styles.cardInfo}>
                                 <Text style={styles.cardTitle}>{lobby.name}</Text>
-                                <Text style={styles.cardMeta}>{lobby.game} • {new Date(lobby.created_at).toLocaleDateString()}</Text>
+                                <Text style={styles.cardMeta}>
+                                    {lobby.game} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
+                                </Text>
                             </View>
                         </TouchableOpacity>
 
                         <View style={styles.cardActions}>
                             <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Go Live">
-                                <Radio size={18} color={Theme.colors.accent} />
+                                <Play size={18} color={Theme.colors.accent} />
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('CalculateResults', { lobby: lobby })} title="Calculate">
                                 <Calculator size={18} color="#94a3b8" />
@@ -781,7 +643,9 @@ const DashboardScreen = ({ navigation }) => {
             >
                 <View style={styles.cardInfo}>
                     <Text style={styles.cardTitle}>{lobby.name}</Text>
-                    <Text style={styles.cardMeta}>{new Date(lobby.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.cardMeta}>
+                        {lobby.game || 'Game'} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
+                    </Text>
                 </View>
                 <View style={styles.cardActions}>
                     <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Leaderboard">
@@ -808,9 +672,8 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const getTierDisplayName = (tierName) => {
-        const isInTrial = tierName?.toLowerCase() === 'free' && lobbiesCreated < 2;
         const tierMap = {
-            'free': isInTrial ? 'Free Trial' : 'Free Tier',
+            'free': 'Free Tier',
             'ranked': 'Ranked Tier',
             'competitive': 'Competitive Tier',
             'premier': 'Premier Tier',
@@ -838,10 +701,21 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const renderProfile = () => {
-        const colors = getTierColors(tier);
-        const isInTrial = tier?.toLowerCase() === 'free' && lobbiesCreated < 2;
-        const displayName = user?.email?.split('@')[0] || 'User';
-        const truncatedName = displayName.length > 7 ? displayName.substring(0, 7) + '...' : displayName;
+        const subTier = user?.subscription_tier || tier;
+        const colors = getTierColors(subTier);
+        const isInTrial = subTier?.toLowerCase() === 'free' && lobbiesCreated < 2;
+        
+        // Data from /me response (based on Terminal output)
+        const email = user?.emails || user?.email || '—';
+        const userId = user?.id || '—';
+        const username = user?.username || '—';
+        const displayName = user?.display_name || username || email.split('@')[0] || 'User';
+        const phone = user?.phone || '—';
+        const lastLogin = formatDate(user?.last_sign_in_at);
+        const createdAt = formatDate(user?.created_at);
+        const lobbiesCreatedCount = user?.lobbies_created_count ?? 0;
+
+        const truncatedName = displayName.length > 10 ? displayName.substring(0, 10) + '...' : displayName;
 
         return (
             <ScrollView style={styles.content}>
@@ -849,7 +723,7 @@ const DashboardScreen = ({ navigation }) => {
                     <View style={styles.heroGradient} />
                     <View style={styles.profileHeaderMain}>
                         <View style={styles.avatarCircle}>
-                            <Text style={styles.avatarInitial}>{user?.email?.charAt(0).toUpperCase()}</Text>
+                            <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
                         </View>
                         <TouchableOpacity 
                             style={styles.profileNameContainer} 
@@ -859,7 +733,7 @@ const DashboardScreen = ({ navigation }) => {
                             <Text style={styles.profileName}>
                                 {isUsernameExpanded ? displayName : truncatedName}
                             </Text>
-                            {displayName.length > 7 && (
+                            {displayName.length > 10 && (
                                 <Text style={styles.expandHint}>
                                     {isUsernameExpanded ? '(tap to collapse)' : '(tap to expand)'}
                                 </Text>
@@ -871,7 +745,7 @@ const DashboardScreen = ({ navigation }) => {
                 <View style={[styles.profileContent, { marginTop: 20 }]}>
                     <View style={styles.badgeContainer}>
                         <View style={[styles.planBadge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                            <Text style={[styles.planBadgeText, { color: colors.color }]}>{getTierDisplayName(tier)}</Text>
+                            <Text style={[styles.planBadgeText, { color: colors.color }]}>{getTierDisplayName(subTier)}</Text>
                         </View>
                     </View>
 
@@ -883,7 +757,7 @@ const DashboardScreen = ({ navigation }) => {
                             </View>
                             <Text style={styles.trialDescription}>
                                 Enjoying full features with 3 layouts and custom social links.
-                                Use {2 - lobbiesCreated} more AI lobbies to keep these perks!
+                                Use {2 - lobbiesCreatedCount} more AI lobbies to keep these perks!
                             </Text>
                         </View>
                     )}
@@ -910,87 +784,34 @@ const DashboardScreen = ({ navigation }) => {
                                         <Text style={[styles.infoLabel, { color: Theme.colors.accent, fontWeight: '700' }]}>Current Plan</Text>
                                     </View>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                        <Text style={[styles.infoValue, { textTransform: 'capitalize', color: Theme.colors.accent }]}>{tier}</Text>
+                                        <Text style={[styles.infoValue, { textTransform: 'capitalize', color: Theme.colors.accent }]}>{subTier}</Text>
                                         <ArrowRight size={14} color={Theme.colors.accent} />
                                     </View>
                                 </TouchableOpacity>
 
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>User ID</Text>
-                                    <Text style={[styles.infoValue, { fontFamily: Theme.fonts.monospace }]} numberOfLines={1}>{user?.id}</Text>
+                                    <Text style={styles.infoLabel}>Username</Text>
+                                    <Text style={styles.infoValue}>{username}</Text>
                                 </View>
                                 <View style={styles.infoRow}>
                                     <Text style={styles.infoLabel}>Email</Text>
-                                    <Text style={styles.infoValue}>{user?.email}</Text>
+                                    <Text style={styles.infoValue}>{email}</Text>
                                 </View>
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>Phone Number</Text>
-                                    <TouchableOpacity 
-                                        style={styles.phoneDropdownBtn}
-                                        onPress={() => setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
-                                    >
-                                        {isPhoneDropdownOpen ? (
-                                            <ChevronUp size={20} color={Theme.colors.accent} />
-                                        ) : (
-                                            <ChevronDown size={20} color={Theme.colors.accent} />
-                                        )}
-                                    </TouchableOpacity>
+                                    <Text style={styles.infoLabel}>Phone</Text>
+                                    <Text style={styles.infoValue}>{phone}</Text>
                                 </View>
-
-                                {isPhoneDropdownOpen && (
-                                    <View style={styles.phoneDropdownContent}>
-                                        {profile?.phone ? (
-                                            <View style={styles.phoneItem}>
-                                                <Text style={styles.phoneItemText}>{profile.phone}</Text>
-                                                <TouchableOpacity onPress={handleRemovePhone}>
-                                                    <Trash2 size={16} color={Theme.colors.danger} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        ) : null}
-
-                                        {isAddingPhone ? (
-                                            <View style={styles.addPhoneForm}>
-                                                <TextInput
-                                                    style={styles.addPhoneInput}
-                                                    value={newPhoneNumber}
-                                                    onChangeText={setNewPhoneNumber}
-                                                    placeholder="Enter phone number"
-                                                    placeholderTextColor={Theme.colors.textSecondary}
-                                                    keyboardType="phone-pad"
-                                                    autoFocus
-                                                />
-                                                <View style={styles.phoneActions}>
-                                                    <TouchableOpacity onPress={handleUpdatePhone} disabled={savingPhone}>
-                                                        {savingPhone ? (
-                                                            <ActivityIndicator size="small" color={Theme.colors.accent} />
-                                                        ) : (
-                                                            <Check size={20} color={Theme.colors.accent} />
-                                                        )}
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity onPress={() => {
-                                                        setIsAddingPhone(false);
-                                                        setNewPhoneNumber('');
-                                                    }}>
-                                                        <X size={20} color={Theme.colors.danger} />
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        ) : (
-                                            !profile?.phone && (
-                                                <TouchableOpacity 
-                                                    style={styles.addPhoneBtn}
-                                                    onPress={() => setIsAddingPhone(true)}
-                                                >
-                                                    <Plus size={16} color={Theme.colors.accent} />
-                                                    <Text style={styles.addPhoneBtnText}>Add Phone Number</Text>
-                                                </TouchableOpacity>
-                                            )
-                                        )}
-                                    </View>
-                                )}
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>Member Since</Text>
-                                    <Text style={styles.infoValue}>{formatDate(user?.created_at)}</Text>
+                                    <Text style={styles.infoLabel}>Lobbies Created</Text>
+                                    <Text style={styles.infoValue}>{lobbiesCreatedCount}</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Account ID</Text>
+                                    <Text style={[styles.infoValue, { fontFamily: Theme.fonts.monospace, fontSize: 10 }]} numberOfLines={1}>{userId}</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Joined</Text>
+                                    <Text style={styles.infoValue}>{createdAt}</Text>
                                 </View>
                             </View>
                         )}
@@ -1032,18 +853,18 @@ const DashboardScreen = ({ navigation }) => {
                                         <View>
                                             <Text style={styles.statLabel}>Lobbies Created</Text>
                                             <Text style={styles.statSubLabel}>
-                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxAILobbies - lobbiesCreated)} remaining`}
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxAILobbies || 0) - lobbiesCreated)} remaining`}
                                             </Text>
                                         </View>
                                         <Text style={[styles.statValue, { color: colors.color }]}>
-                                            {lobbiesCreated} / {limits.maxAILobbies === Infinity ? '∞' : limits.maxAILobbies}
+                                            {lobbiesCreated} / {(maxAILobbies === Infinity || !maxAILobbies) ? '∞' : maxAILobbies}
                                         </Text>
                                     </View>
                                     <View style={styles.progressBarBg}>
                                         <View style={[
                                             styles.progressBarFill,
                                             {
-                                                width: `${limits.maxAILobbies === Infinity ? 100 : Math.min((lobbiesCreated / limits.maxAILobbies) * 100, 100)}%`,
+                                                width: `${(maxAILobbies === Infinity || !maxAILobbies) ? 100 : Math.min((lobbiesCreated / (maxAILobbies || 1)) * 100, 100)}%`,
                                                 backgroundColor: colors.color
                                             }
                                         ]} />
@@ -1055,18 +876,18 @@ const DashboardScreen = ({ navigation }) => {
                                         <View>
                                             <Text style={styles.statLabel}>Active Layouts</Text>
                                             <Text style={styles.statSubLabel}>
-                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxLayouts - activeLayoutsCount)} slots remaining`}
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxLayouts || 0) - activeLayoutsCount)} slots remaining`}
                                             </Text>
                                         </View>
                                         <Text style={[styles.statValue, { color: colors.color }]}>
-                                            {activeLayoutsCount} / {limits.maxLayouts === Infinity ? '∞' : limits.maxLayouts}
+                                            {activeLayoutsCount} / {(maxLayouts === Infinity || !maxLayouts) ? '∞' : maxLayouts}
                                         </Text>
                                     </View>
                                     <View style={styles.progressBarBg}>
                                         <View style={[
                                             styles.progressBarFill,
                                             {
-                                                width: `${limits.maxLayouts === Infinity ? 100 : Math.min((activeLayoutsCount / limits.maxLayouts) * 100, 100)}%`,
+                                                width: `${(maxLayouts === Infinity || !maxLayouts) ? 100 : Math.min((activeLayoutsCount / (maxLayouts || 1)) * 100, 100)}%`,
                                                 backgroundColor: colors.color
                                             }
                                         ]} />
@@ -1789,40 +1610,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
     },
-    phoneDropdownBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.3)',
-        gap: 8,
-    },
-    phoneDropdownText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: Theme.colors.accent,
-    },
-    phoneDropdownContent: {
-        backgroundColor: 'rgba(0,0,0,0.02)',
-        paddingHorizontal: 16,
-        paddingBottom: 8,
-    },
-    phoneItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Theme.colors.border,
-    },
-    phoneItemText: {
-        fontSize: 16,
-        color: Theme.colors.text,
-        fontWeight: '500',
-    },
     subscriptionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1835,41 +1622,6 @@ const styles = StyleSheet.create({
     subscriptionBtnText: {
         fontSize: 15,
         fontWeight: '600',
-    },
-    addPhoneForm: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingVertical: 12,
-    },
-    addPhoneInput: {
-        flex: 1,
-        fontSize: 14,
-        color: Theme.colors.textPrimary,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    addPhoneBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 12,
-        marginTop: 4,
-    },
-    addPhoneBtnText: {
-        fontSize: 14,
-        color: Theme.colors.accent,
-        fontWeight: '600',
-    },
-    phoneActions: {
-        flexDirection: 'row',
-        gap: 12,
-        alignItems: 'center',
     },
     infoLabel: {
         fontSize: 14,
@@ -1988,105 +1740,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
-    },
-    // Modal & Popup Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    popupContainer: {
-        backgroundColor: Theme.colors.card,
-        borderRadius: 24,
-        width: '100%',
-        maxWidth: 340,
-        position: 'relative',
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        elevation: 15,
-    },
-    closePopupBtn: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        padding: 8,
-        zIndex: 10,
-    },
-    popupContent: {
-        padding: 30,
-        alignItems: 'center',
-    },
-    popupIconCircle: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-        shadowColor: '#25D366',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    popupBadge: {
-        backgroundColor: 'rgba(37, 211, 102, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-        marginBottom: 12,
-    },
-    popupBadgeText: {
-        color: '#25D366',
-        fontSize: 11,
-        fontWeight: 'bold',
-        letterSpacing: 0.5,
-    },
-    popupTitle: {
-        fontSize: 22,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    popupDesc: {
-        fontSize: 15,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 24,
-    },
-    popupCta: {
-        backgroundColor: Theme.colors.accent,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 14,
-        width: '100%',
-        gap: 8,
-        marginBottom: 12,
-    },
-    popupCtaText: {
-        color: '#fff',
-        fontFamily: Theme.fonts.outfit.bold,
-        fontSize: 16,
-    },
-    popupSecondaryBtn: {
-        paddingVertical: 10,
-    },
-    popupSecondaryBtnText: {
-        color: Theme.colors.textSecondary,
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.semibold,
     },
     // Design Studio Styles
     designTabNav: {
