@@ -24,7 +24,7 @@ import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Che
 import * as ImagePicker from 'expo-image-picker';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
@@ -45,12 +45,7 @@ const ResultsBottomSheet = ({ visible, onClose, imageUri }) => {
                 return;
             }
 
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Please allow access to save photos in settings');
-                return;
-            }
-
+            // Skip permission request - we're saving to cache directory, not media library
             let localUri = '';
 
             // If it's a remote URL
@@ -64,7 +59,7 @@ const ResultsBottomSheet = ({ visible, onClose, imageUri }) => {
                 const base64Code = imageUri.split('base64,')[1];
                 const filename = FileSystem.cacheDirectory + `result_${Date.now()}.png`;
                 await FileSystem.writeAsStringAsync(filename, base64Code, {
-                    encoding: FileSystem.EncodingType.Base64,
+                    encoding: 'base64',
                 });
                 localUri = filename;
             } else {

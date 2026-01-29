@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { authService } from '../lib/authService';
+import { useState, useEffect, useContext } from 'react';
+import { UserContext } from '../context/UserContext';
 
 export const useSubscription = () => {
-    const [user, setUser] = useState(null);
+    const { user, loading: userLoading } = useContext(UserContext);
     const [tier, setTier] = useState('free');
     const [status, setStatus] = useState('active');
     const [expiresAt, setExpiresAt] = useState(null);
@@ -17,22 +17,13 @@ export const useSubscription = () => {
     const [isCasual, setIsCasual] = useState(true);
 
     useEffect(() => {
-        const initUser = async () => {
-            const authUser = await authService.getMe();
-            setUser(authUser);
-            if (!authUser) setLoading(false);
-        };
-        initUser();
-    }, []);
-
-    useEffect(() => {
         if (!user) {
             return;
         }
 
         const fetchSubscription = async () => {
             try {
-                // Use the user data directly from the state which was fetched via getMe()
+                // Use the user data directly from context (already fetched)
                 const currentTier = user?.subscription_tier?.toLowerCase() || 'free';
                 const currentStatus = user?.subscription_status || 'active';
                 const currentExpiresAt = user?.subscription_expires_at;
@@ -106,7 +97,7 @@ export const useSubscription = () => {
         status,
         expiresAt,
         lobbiesCreated,
-        loading,
+        loading: userLoading || loading,
         maxAILobbies,
         maxLayouts,
         canUseAI,

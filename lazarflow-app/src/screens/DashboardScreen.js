@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap } from 'lucide-react-native';
@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
+import { UserContext } from '../context/UserContext';
 import { useSubscription } from '../hooks/useSubscription';
 import { useFocusEffect } from '@react-navigation/native';
 import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
@@ -98,6 +99,7 @@ const UserThemeCard = React.memo(({ theme, index, isRightColumn = false }) => {
 
 const DashboardScreen = ({ navigation, route }) => {
     const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
+    const { user, loading: userLoading } = useContext(UserContext);
     
     const [activeTab, setActiveTab] = useState('home');
 
@@ -113,7 +115,6 @@ const DashboardScreen = ({ navigation, route }) => {
     const [pastLobbies, setPastLobbies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [user, setUser] = useState(null);
     const [activeSettingsId, setActiveSettingsId] = useState(null);
     const [activeLayoutsCount, setActiveLayoutsCount] = useState(0);
     const [expandedSections, setExpandedSections] = useState({
@@ -151,7 +152,7 @@ const DashboardScreen = ({ navigation, route }) => {
         if (user?.id) {
             const fetchLayoutsCount = async () => {
                 try {
-                    const themes = await getUserThemes();
+                    const themes = await getUserThemes(user.id);
                     setActiveLayoutsCount(themes?.length || 0);
                 } catch (err) {
                     console.error('Error fetching layout count:', err);
@@ -163,30 +164,17 @@ const DashboardScreen = ({ navigation, route }) => {
 
     useFocusEffect(
         React.useCallback(() => {
-            fetchLobbies();
-            return () => {};
-        }, [])
-    );
-
-    useEffect(() => {
-        const init = async () => {
-            try {
-                const user = await authService.getMe();
-                setUser(user);
-                await fetchLobbies();
-            } catch (err) {
-                console.error('Init error:', err);
+            if (user?.id && !userLoading) {
+                fetchLobbies();
             }
-        };
-
-        init();
-    }, []);
+            return () => {};
+        }, [user?.id, userLoading])
+    );
 
     const fetchLobbies = async () => {
         try {
             setLoading(true);
-            const user = await authService.getMe();
-            if (!user) return;
+            if (!user?.id) return;
 
             console.log('Fetching lobbies...');
             const data = await getLobbies();
@@ -260,6 +248,32 @@ const DashboardScreen = ({ navigation, route }) => {
             }
         }
     }, [activeTab, designTab]);
+
+    // Swipe gesture handling for tab navigation
+    const tabOrder = ['home', 'design', 'plans', 'profile'];
+    const startX = useRef(0);
+
+    const handleTouchStart = (evt) => {
+        startX.current = evt.nativeEvent.pageX;
+    };
+
+    const handleTouchEnd = (evt) => {
+        const endX = evt.nativeEvent.pageX;
+        const distance = startX.current - endX;
+        const currentIndex = tabOrder.indexOf(activeTab);
+
+        // Minimum swipe distance of 50px
+        if (Math.abs(distance) > 50) {
+            // Swipe left (distance > 0) - move to next tab
+            if (distance > 0 && currentIndex < tabOrder.length - 1) {
+                setActiveTab(tabOrder[currentIndex + 1]);
+            }
+            // Swipe right (distance < 0) - move to previous tab
+            else if (distance < 0 && currentIndex > 0) {
+                setActiveTab(tabOrder[currentIndex - 1]);
+            }
+        }
+    };
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -1157,7 +1171,7 @@ const DashboardScreen = ({ navigation, route }) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             {renderHeader()}
             <View style={{ flex: 1 }} onStartShouldSetResponder={() => activeSettingsId !== null ? setActiveSettingsId(null) : false}>
                 {renderContent()}
