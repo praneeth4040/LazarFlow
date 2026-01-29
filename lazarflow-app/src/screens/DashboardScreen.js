@@ -145,13 +145,7 @@ const DashboardScreen = ({ navigation, route }) => {
     const [designDetails, setDesignDetails] = useState({
         name: ''
     });
-    const [profile, setProfile] = useState(null);
-    const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
-    const [isAddingPhone, setIsAddingPhone] = useState(false);
     const [isUsernameExpanded, setIsUsernameExpanded] = useState(false);
-    const [newPhoneNumber, setNewPhoneNumber] = useState('');
-    const [savingPhone, setSavingPhone] = useState(false);
-    const [showWhatsappCard, setShowWhatsappCard] = useState(true);
 
     useEffect(() => {
         if (user?.id) {
@@ -179,7 +173,6 @@ const DashboardScreen = ({ navigation, route }) => {
             try {
                 const user = await authService.getMe();
                 setUser(user);
-                setProfile(user); // Using user data for profile as well
                 await fetchLobbies();
             } catch (err) {
                 console.error('Init error:', err);
@@ -417,62 +410,6 @@ const DashboardScreen = ({ navigation, route }) => {
         navigation.navigate('EditLobby', { lobbyId: lobby.id });
     };
 
-
-    const handleUpdatePhone = async () => {
-        if (savingPhone) return;
-        
-        const numericPhone = newPhoneNumber.replace(/\D/g, '');
-        if (!numericPhone) {
-            Alert.alert('Invalid Input', 'Please enter a valid phone number');
-            return;
-        }
-
-        const phoneVal = parseInt(numericPhone, 10);
-        
-        try {
-            setSavingPhone(true);
-            await updateUserProfile({ phone: phoneVal });
-            
-            setProfile(prev => ({ ...prev, phone: phoneVal }));
-            // Update the main user object too so it persists in the UI immediately
-            setUser(prev => ({ ...prev, phone: phoneVal }));
-            
-            setNewPhoneNumber('');
-            setIsPhoneDropdownOpen(false);
-            Alert.alert('Success', 'Phone number updated successfully');
-        } catch (error) {
-            console.error('Error updating phone:', error);
-            Alert.alert('Error', 'Failed to update phone number. Ensure it is unique across all users.');
-        } finally {
-            setSavingPhone(false);
-        }
-    };
-
-    const handleRemovePhone = async () => {
-        Alert.alert(
-            "Remove Phone Number",
-            `Are you sure you want to remove your phone number?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Remove",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await updateUserProfile({ phone: null });
-                            setProfile(prev => ({ ...prev, phone: null }));
-                            setUser(prev => ({ ...prev, phone: null }));
-                            setIsPhoneDropdownOpen(false);
-                            setNewPhoneNumber('');
-                        } catch (err) {
-                            Alert.alert("Error", "Failed to remove phone number");
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
     const renderHeader = () => {
         let title = 'Home';
         if (activeTab === 'home') {
@@ -496,13 +433,6 @@ const DashboardScreen = ({ navigation, route }) => {
         );
     };
 
-    const handleNavigateToPhoneSettings = () => {
-        setShowWhatsappCard(false);
-        setActiveTab('profile');
-        setExpandedSections(prev => ({ ...prev, account: true }));
-        setIsPhoneDropdownOpen(true);
-    };
-
     const renderHome = () => (
         <ScrollView
             style={styles.content}
@@ -510,56 +440,6 @@ const DashboardScreen = ({ navigation, route }) => {
             onScroll={() => setActiveSettingsId(null)} // Close settings on scroll
             scrollEventThrottle={16}
         >
-            {/* WhatsApp Bot Modal */}
-            <Modal
-                visible={showWhatsappCard && !profile?.phone}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowWhatsappCard(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.popupContainer}>
-                        <TouchableOpacity 
-                            style={styles.closePopupBtn} 
-                            onPress={() => setShowWhatsappCard(false)}
-                        >
-                            <X size={20} color={Theme.colors.textSecondary} />
-                        </TouchableOpacity>
-
-                        <View style={styles.popupContent}>
-                            <View style={[styles.popupIconCircle, { backgroundColor: '#25D366' }]}>
-                                <FontAwesome name="whatsapp" size={40} color="#fff" />
-                            </View>
-                            
-                            <View style={styles.popupBadge}>
-                                <Text style={styles.popupBadgeText}>NEW FEATURE</Text>
-                            </View>
-
-                            <Text style={styles.popupTitle}>WhatsApp Bot is Here!</Text>
-                            
-                            <Text style={styles.popupDesc}>
-                                Connect your phone number now to get instant lobby updates and manage your lobbies directly through WhatsApp.
-                            </Text>
-
-                            <TouchableOpacity 
-                                style={styles.popupCta} 
-                                onPress={handleNavigateToPhoneSettings}
-                            >
-                                <Text style={styles.popupCtaText}>Connect & Setup Now</Text>
-                                <ArrowRight size={18} color="#fff" />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                style={styles.popupSecondaryBtn} 
-                                onPress={() => setShowWhatsappCard(false)}
-                            >
-                                <Text style={styles.popupSecondaryBtnText}>Maybe Later</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
             {/* Premium Access Banner */}
             {tier === 'free' && (
                 <View style={styles.banner}>
@@ -1730,40 +1610,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
     },
-    phoneDropdownBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.3)',
-        gap: 8,
-    },
-    phoneDropdownText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: Theme.colors.accent,
-    },
-    phoneDropdownContent: {
-        backgroundColor: 'rgba(0,0,0,0.02)',
-        paddingHorizontal: 16,
-        paddingBottom: 8,
-    },
-    phoneItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Theme.colors.border,
-    },
-    phoneItemText: {
-        fontSize: 16,
-        color: Theme.colors.text,
-        fontWeight: '500',
-    },
     subscriptionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1776,41 +1622,6 @@ const styles = StyleSheet.create({
     subscriptionBtnText: {
         fontSize: 15,
         fontWeight: '600',
-    },
-    addPhoneForm: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingVertical: 12,
-    },
-    addPhoneInput: {
-        flex: 1,
-        fontSize: 14,
-        color: Theme.colors.textPrimary,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    addPhoneBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 12,
-        marginTop: 4,
-    },
-    addPhoneBtnText: {
-        fontSize: 14,
-        color: Theme.colors.accent,
-        fontWeight: '600',
-    },
-    phoneActions: {
-        flexDirection: 'row',
-        gap: 12,
-        alignItems: 'center',
     },
     infoLabel: {
         fontSize: 14,
@@ -1929,105 +1740,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
-    },
-    // Modal & Popup Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    popupContainer: {
-        backgroundColor: Theme.colors.card,
-        borderRadius: 24,
-        width: '100%',
-        maxWidth: 340,
-        position: 'relative',
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        elevation: 15,
-    },
-    closePopupBtn: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        padding: 8,
-        zIndex: 10,
-    },
-    popupContent: {
-        padding: 30,
-        alignItems: 'center',
-    },
-    popupIconCircle: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-        shadowColor: '#25D366',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    popupBadge: {
-        backgroundColor: 'rgba(37, 211, 102, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-        marginBottom: 12,
-    },
-    popupBadgeText: {
-        color: '#25D366',
-        fontSize: 11,
-        fontWeight: 'bold',
-        letterSpacing: 0.5,
-    },
-    popupTitle: {
-        fontSize: 22,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    popupDesc: {
-        fontSize: 15,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 24,
-    },
-    popupCta: {
-        backgroundColor: Theme.colors.accent,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 14,
-        width: '100%',
-        gap: 8,
-        marginBottom: 12,
-    },
-    popupCtaText: {
-        color: '#fff',
-        fontFamily: Theme.fonts.outfit.bold,
-        fontSize: 16,
-    },
-    popupSecondaryBtn: {
-        paddingVertical: 10,
-    },
-    popupSecondaryBtnText: {
-        color: Theme.colors.textSecondary,
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.semibold,
     },
     // Design Studio Styles
     designTabNav: {

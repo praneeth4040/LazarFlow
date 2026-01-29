@@ -46,7 +46,8 @@
         "expo-media-library",
         {
           "photosPermission": "Allow LazarFlow to save generated table images to your gallery.",
-          "savePhotosPermission": "Allow LazarFlow to save generated table images to your gallery."
+          "savePhotosPermission": "Allow LazarFlow to save generated table images to your gallery.",
+          "isAccessMediaLocationEnabled": false
         }
       ],
       "expo-font"

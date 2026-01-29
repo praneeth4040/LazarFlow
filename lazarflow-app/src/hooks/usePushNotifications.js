@@ -5,7 +5,7 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { authService } from '../lib/authService';
-import { getUserProfile, updateUserProfile } from '../lib/dataService';
+import { getCurrentUser, updateUserProfile } from '../lib/dataService';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -111,7 +111,7 @@ export const usePushNotifications = () => {
             console.log('🔄 Checking if push token needs update for user:', userId);
             
             // 1. First, fetch the current token from the profile
-            const profile = await getUserProfile();
+            const profile = await getCurrentUser();
 
             // 2. Only update if the token is different or doesn't exist
             if (profile?.expo_push_token === token) {
@@ -121,9 +121,9 @@ export const usePushNotifications = () => {
 
             console.log('📤 Token is new or changed. Updating Profile...');
             
+            // Send only expo_push_token as per API spec
             await updateUserProfile({ 
-                expo_push_token: token,
-                updated_at: new Date().toISOString()
+                expo_push_token: token
             });
 
             console.log('✅ Push token successfully updated in Profile');

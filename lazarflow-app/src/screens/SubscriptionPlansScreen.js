@@ -105,7 +105,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 '60 AI Lobbies per month',
                 '3 Active Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'Support'
             ],
@@ -122,7 +121,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 '100 AI Lobbies per month',
                 '5 Active Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'Support'
             ],
@@ -140,7 +138,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 '150 AI Lobbies per month',
                 '5 Active Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'Support'
             ],
@@ -157,7 +154,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                 'Unlimited AI Lobbies',
                 'Unlimited Layout slots',
                 'AI Extraction',
-                'WhatsApp Integration',
                 'Manual Points Table',
                 'White-glove Support'
             ],
@@ -203,7 +199,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                 // 2. Open Razorpay SDK
                                 const options = {
                                     description: `LazarFlow ${plan.name} Subscription`,
-                                    image: 'https://4a1447cb531c.ngrok-free.app/logo.png', // Replace with actual logo
+                                    image: 'https://api.lazarflow.app/logo.png', // Replace with actual logo
                                     currency: currency || 'INR',
                                     key: key_id, // Backend should provide the public key
                                     amount: amount,

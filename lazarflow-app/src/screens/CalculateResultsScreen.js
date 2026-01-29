@@ -612,10 +612,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         </View>
                                         <View style={styles.stepHeaderRight}>
                                             {(processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0)) && (
-                                                <View style={styles.completedBadge}>
-                                                    <Check size={12} color="#fff" />
-                                                    <Text style={styles.completedBadgeText}>Completed</Text>
-                                                </View>
+                                                <Check size={16} color="#10b981" />
                                             )}
                                             {lobbyStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
                                         </View>

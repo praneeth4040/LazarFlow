@@ -42,14 +42,14 @@ export const getDesignImageSource = (theme) => {
     if (cleanPath.startsWith('optimized/')) {
         // Fallback to supabase for old assets if needed, or point to new API
         // For now, assuming new API handles serving or returns full URLs
-        return { uri: `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanPath}` }; 
+        return { uri: `https://api.lazarflow.app/storage/themes/${cleanPath}` }; 
     }
 
     if (theme.user_id || theme.is_user_theme) {
-         return { uri: `https://4a1447cb531c.ngrok-free.app/storage/themes/${cleanPath}` };
+         return { uri: `https://api.lazarflow.app/storage/themes/${cleanPath}` };
     }
     
-    return { uri: `https://4a1447cb531c.ngrok-free.app/storage/${cleanPath}` };
+    return { uri: `https://api.lazarflow.app/storage/${cleanPath}` };
 };
 
 export const getCurrentUser = async () => {
@@ -63,12 +63,15 @@ export const getCurrentUser = async () => {
 
 /**
  * Update user profile
- * @param {Object} updates - Data to update
+ * @param {Object} updates - Data to update (only expo_push_token supported)
  * @returns {Promise<boolean>} Success status
  */
 export const updateUserProfile = async (updates) => {
     try {
-        await apiClient.put('/api/auth/me', updates);
+        // API only allows expo_push_token field per spec
+        const payload = { expo_push_token: updates.expo_push_token };
+        const response = await apiClient.put('/api/auth/me', payload);
+        console.log('Profile update response:', response.data);
         return true;
     } catch (error) {
         console.error('Error updating profile:', error);

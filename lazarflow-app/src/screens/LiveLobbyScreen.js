@@ -40,34 +40,47 @@ const ResultsBottomSheet = ({ visible, onClose, imageUri }) => {
         try {
             setDownloading(true);
             
-            if (!imageUri) return;
-
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Please allow access to save photos');
+            if (!imageUri) {
+                Alert.alert('Error', 'No image to save');
                 return;
             }
 
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission needed', 'Please allow access to save photos in settings');
+                return;
+            }
+
+            let localUri = '';
+
             // If it's a remote URL
             if (imageUri.startsWith('http')) {
-                const filename = FileSystem.documentDirectory + `result_${Date.now()}.png`;
-                const { uri } = await FileSystem.downloadAsync(imageUri, filename);
-                await MediaLibrary.saveToLibraryAsync(uri);
+                const filename = FileSystem.cacheDirectory + `result_${Date.now()}.png`;
+                const downloadResult = await FileSystem.downloadAsync(imageUri, filename);
+                localUri = downloadResult.uri;
             } 
             // If it's base64
             else if (imageUri.startsWith('data:image')) {
                 const base64Code = imageUri.split('base64,')[1];
-                const filename = FileSystem.documentDirectory + `result_${Date.now()}.png`;
+                const filename = FileSystem.cacheDirectory + `result_${Date.now()}.png`;
                 await FileSystem.writeAsStringAsync(filename, base64Code, {
                     encoding: FileSystem.EncodingType.Base64,
                 });
-                await MediaLibrary.saveToLibraryAsync(filename);
+                localUri = filename;
+            } else {
+                localUri = imageUri;
             }
 
+            // Save to library
+            const asset = await MediaLibrary.createAssetAsync(localUri);
+            
+            // On Android, createAssetAsync already saves to DCIM. 
+            // On iOS, we might want to put it in a specific album, but createAssetAsync is usually enough for the gallery.
+            
             Alert.alert('Success', 'Image saved to gallery!');
         } catch (error) {
             console.error('Save error:', error);
-            Alert.alert('Error', 'Failed to save image');
+            Alert.alert('Error', 'Failed to save image to gallery');
         } finally {
             setDownloading(false);
         }
