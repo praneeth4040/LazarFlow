@@ -7,6 +7,7 @@ import { useFonts, Outfit_300Light, Outfit_400Regular, Outfit_500Medium, Outfit_
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import AppNavigator from './src/navigation/AppNavigator';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
+import { UserProvider } from './src/context/UserContext';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -70,8 +71,10 @@ export default function App() {
     return (
       <ErrorBoundary>
         <SafeAreaProvider onLayout={onLayoutRootView}>
-          <AppNavigator />
-          <PushNotificationHandler />
+          <UserProvider>
+            <AppNavigator />
+            <PushNotificationHandler />
+          </UserProvider>
           <StatusBar style="auto" />
         </SafeAreaProvider>
       </ErrorBoundary>

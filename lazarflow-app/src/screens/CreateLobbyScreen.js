@@ -1,15 +1,16 @@
 // Main screen for creating a new lobby
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Sparkles, Trophy, Target, ChevronDown, Save, ArrowLeft, Crown } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
+import { UserContext } from '../context/UserContext';
 import { createLobby } from '../lib/dataService';
-import { authService } from '../lib/authService';
 
 const CreateLobbyScreen = ({ navigation }) => {
     const { canUseAI, tier, maxAILobbies, lobbiesCreated, loading: subLoading } = useSubscription();
+    const { user } = useContext(UserContext);
     const defaultPointsSystems = {
         freeFire: [
             { placement: 1, points: 12 },
@@ -84,7 +85,6 @@ const CreateLobbyScreen = ({ navigation }) => {
 
         setLoading(true);
         try {
-            const user = await authService.getMe();
             if (!user) throw new Error('Not authenticated');
 
             const data = await createLobby({

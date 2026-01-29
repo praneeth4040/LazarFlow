@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, StatusBar } from 'react-native';
 import { Check, Sparkles, ArrowLeft, Award, Crown, Zap, ShieldCheck, Star } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
-import { authService } from '../lib/authService';
+import { UserContext } from '../context/UserContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import RazorpayCheckout from 'react-native-razorpay';
@@ -14,6 +14,7 @@ import {
 
 const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     const { tier, lobbiesCreated, maxAILobbies, maxLayouts } = useSubscription();
+    const { user } = useContext(UserContext);
     const insets = useSafeAreaInsets();
 
     // Check if Razorpay is linked/available
@@ -177,7 +178,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                     text: 'Pay Now',
                     onPress: async () => {
                         try {
-                            const user = await authService.getMe();
                             if (!user) throw new Error('User not found');
 
                             // --- RAZORPAY FLOW (PRIMARY) ---

@@ -52,15 +52,6 @@ export const getDesignImageSource = (theme) => {
     return { uri: `https://api.lazarflow.app/storage/${cleanPath}` };
 };
 
-export const getCurrentUser = async () => {
-    try {
-        const user = await authService.getMe();
-        return user;
-    } catch (error) {
-        return null;
-    }
-};
-
 /**
  * Update user profile
  * @param {Object} updates - Data to update (only expo_push_token supported)
@@ -79,13 +70,12 @@ export const updateUserProfile = async (updates) => {
     }
 };
 
-export const getUserThemes = async (forceRefresh = false) => {
-    const user = await getCurrentUser();
-    if (!user) return [];
+export const getUserThemes = async (userId, forceRefresh = false) => {
+    if (!userId) return [];
 
     if (!forceRefresh) {
         try {
-            const cached = await AsyncStorage.getItem(`${CACHE_KEYS.USER_THEMES}_${user.id}`);
+            const cached = await AsyncStorage.getItem(`${CACHE_KEYS.USER_THEMES}_${userId}`);
             if (cached) {
                 const { data, timestamp } = JSON.parse(cached);
                 if (Date.now() - timestamp < CACHE_EXPIRY) {
@@ -103,13 +93,13 @@ export const getUserThemes = async (forceRefresh = false) => {
         const { data: themes } = await apiClient.get('/api/themes');
         console.log(`📦 Fetched ${themes?.length || 0} total themes from server`);
         
-        const userThemes = themes ? themes.filter(t => t.user_id === user.id) : [];
-        console.log(`👤 Found ${userThemes.length} themes for user ${user.id}`);
+        const userThemes = themes ? themes.filter(t => t.user_id === userId) : [];
+        console.log(`👤 Found ${userThemes.length} themes for user ${userId}`);
 
         if (userThemes.length > 0) {
             try {
                 await AsyncStorage.setItem(
-                    `${CACHE_KEYS.USER_THEMES}_${user.id}`, 
+                    `${CACHE_KEYS.USER_THEMES}_${userId}`, 
                     JSON.stringify({ data: userThemes, timestamp: Date.now() })
                 );
             } catch (e) {

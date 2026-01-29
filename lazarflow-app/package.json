@@ -51,6 +51,7 @@
   "private": true,
   "devDependencies": {
     "@babel/core": "^7.28.5",
+    "@types/react": "~19.1.10",
     "eas-cli": "^16.28.0"
   }
 }

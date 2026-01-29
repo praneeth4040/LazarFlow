@@ -1,11 +1,12 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { authService } from '../lib/authService';
-import { getCurrentUser, updateUserProfile } from '../lib/dataService';
+import { UserContext } from '../context/UserContext';
+import { updateUserProfile } from '../lib/dataService';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -56,6 +57,7 @@ async function registerForPushNotificationsAsync() {
 }
 
 export const usePushNotifications = () => {
+    const { user } = useContext(UserContext);
     const [expoPushToken, setExpoPushToken] = useState('');
     const [notification, setNotification] = useState(false);
     const tokenRef = useRef('');
@@ -72,16 +74,8 @@ export const usePushNotifications = () => {
             setExpoPushToken(token);
             tokenRef.current = token;
 
-            if (token) {
-                // Initial check for user
-                try {
-                    const user = await authService.getMe();
-                    if (user && isMounted) {
-                        await saveTokenToProfile(user.id, token);
-                    }
-                } catch (e) {
-                    console.log('User not logged in or error checking auth for push token');
-                }
+            if (token && user?.id) {
+                await saveTokenToProfile(user.id, token, user?.expo_push_token);
             }
         };
 
@@ -106,15 +100,12 @@ export const usePushNotifications = () => {
         };
     }, []);
 
-    const saveTokenToProfile = async (userId, token) => {
+    const saveTokenToProfile = async (userId, token, currentExpoToken = null) => {
         try {
             console.log('🔄 Checking if push token needs update for user:', userId);
             
-            // 1. First, fetch the current token from the profile
-            const profile = await getCurrentUser();
-
-            // 2. Only update if the token is different or doesn't exist
-            if (profile?.expo_push_token === token) {
+            // Only update if the token is different or doesn't exist
+            if (currentExpoToken === token) {
                 console.log('✅ Push token is already up to date. Skipping update.');
                 return;
             }
