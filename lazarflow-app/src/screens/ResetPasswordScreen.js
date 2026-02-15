@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
+import { authService } from '../lib/authService';
 
 const ResetPasswordScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
@@ -29,20 +29,21 @@ const ResetPasswordScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.updateUser({
-                password: password
-            });
+            Alert.alert('Notice', 'Password update is currently unavailable. Please contact support.');
+            // const { error } = await supabase.auth.updateUser({
+            //     password: password
+            // });
 
-            if (error) throw error;
+            // if (error) throw error;
 
-            // Log out after reset to ensure a clean session for the user
-            await supabase.auth.signOut();
+            // // Log out after reset to ensure a clean session for the user
+            // await authService.logout();
 
-            Alert.alert(
-                'Success',
-                'Your password has been updated. Please login with your new password.',
-                [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-            );
+            // Alert.alert(
+            //     'Success',
+            //     'Your password has been updated. Please login with your new password.',
+            //     [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+            // );
         } catch (error) {
             Alert.alert('Update Failed', error.message || 'An error occurred');
         } finally {
@@ -146,12 +147,13 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textAlign: 'center',
     },
@@ -172,7 +174,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
         marginLeft: 4,
@@ -194,6 +196,7 @@ const styles = StyleSheet.create({
         flex: 1,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     button: {
         backgroundColor: Theme.colors.accent,
@@ -217,7 +220,7 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
 });
 

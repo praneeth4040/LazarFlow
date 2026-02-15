@@ -1,25 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
+import { authService } from '../lib/authService';
+import { UserContext } from '../context/UserContext';
 import { useSubscription } from '../hooks/useSubscription';
-import { getUserThemes, getCommunityDesigns, getDesignImageSource, getUserProfile, updateUserProfile } from '../lib/dataService';
+import { useFocusEffect } from '@react-navigation/native';
+import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
+import SubscriptionPlansScreen from './SubscriptionPlansScreen';
 
-const CommunityDesignCard = React.memo(({ theme, index, navigation, isRightColumn = false }) => {
+const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false }) => {
     const imageSource = getDesignImageSource(theme);
     const height = isRightColumn ? 180 + (index % 3) * 50 : 200 + (index % 3) * 40;
     
     return (
-        <TouchableOpacity 
-            style={styles.pinCard}
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate('DesignDetails', { theme: theme })}
-        >
+        <View style={styles.pinCard}>
             <View style={styles.pinImageContainer}>
                 {imageSource ? (
                     <Image 
@@ -43,49 +42,79 @@ const CommunityDesignCard = React.memo(({ theme, index, navigation, isRightColum
                         </View>
                         <Text style={styles.pinAuthorName} numberOfLines={1}>{theme.author || 'Community'}</Text>
                     </View>
-                    <TouchableOpacity>
-                        <MoreHorizontal size={16} color={Theme.colors.textSecondary} />
-                    </TouchableOpacity>
                 </View>
-            </View>
-        </TouchableOpacity>
-    );
-});
-
-const UserThemeCard = React.memo(({ theme, index }) => {
-    return (
-        <View style={styles.themeThumbCard}>
-            <Image 
-                source={getDesignImageSource(theme)} 
-                style={styles.themeThumb} 
-                fadeDuration={300}
-            />
-            <View style={styles.themeInfo}>
-                <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.themeName} numberOfLines={1}>{theme.name || `Theme ${index + 1}`}</Text>
-                    <View style={[styles.statusBadge, theme.status === 'pending' ? styles.statusPending : styles.statusVerified]}>
-                        <Text style={styles.statusText}>{theme.status === 'pending' ? 'Pending' : 'Verified'}</Text>
-                    </View>
-                </View>
-                <TouchableOpacity
-                    style={[styles.useThemeBtn, theme.status !== 'verified' && styles.useThemeBtnDisabled]}
-                    disabled={theme.status !== 'verified'}
-                    onPress={() => Alert.alert('Apply Design', 'Design applied to your tournaments!')}
-                >
-                    <ArrowRight size={14} color="#fff" />
-                </TouchableOpacity>
             </View>
         </View>
     );
 });
 
-const DashboardScreen = ({ navigation }) => {
+const UserThemeCard = React.memo(({ theme, index, isRightColumn = false }) => {
+    const imageSource = getDesignImageSource(theme);
+    const height = isRightColumn ? 180 + (index % 3) * 50 : 200 + (index % 3) * 40;
+    
+    return (
+        <View style={styles.pinCard}>
+            <View style={styles.pinImageContainer}>
+                {imageSource ? (
+                    <Image 
+                        source={imageSource} 
+                        style={[styles.pinImage, { height }]} 
+                        resizeMode="cover" 
+                        fadeDuration={300}
+                    />
+                ) : (
+                    <View style={[styles.pinImage, { height, backgroundColor: Theme.colors.secondary, justifyContent: 'center', alignItems: 'center' }]}>
+                        <Palette size={32} color={Theme.colors.textSecondary} />
+                    </View>
+                )}
+                
+                {/* Status Overlay */}
+                <View style={[
+                    styles.previewOverlay, 
+                    { 
+                        top: 8, 
+                        right: 8, 
+                        backgroundColor: theme.status === 'pending' ? 'rgba(245, 158, 11, 0.8)' : 'rgba(16, 185, 129, 0.8)' 
+                    }
+                ]}>
+                    <Text style={[styles.previewTag, { fontSize: 8 }]}>
+                        {theme.status === 'pending' ? 'PENDING' : 'VERIFIED'}
+                    </Text>
+                </View>
+            </View>
+            <View style={styles.pinContent}>
+                <Text style={styles.pinTitle} numberOfLines={2}>{theme.name || `Design #${index + 1}`}</Text>
+                <View style={styles.pinMeta}>
+                    <View style={styles.pinAuthor}>
+                        <View style={[styles.pinAvatar, { backgroundColor: Theme.colors.accent }]}>
+                            <User size={10} color="#fff" />
+                        </View>
+                        <Text style={styles.pinAuthorName} numberOfLines={1}>My Design</Text>
+                    </View>
+                </View>
+            </View>
+        </View>
+    );
+});
+
+const DashboardScreen = ({ navigation, route }) => {
+    const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
+    const { user, loading: userLoading } = useContext(UserContext);
+    
     const [activeTab, setActiveTab] = useState('home');
-    const [tournaments, setTournaments] = useState([]);
-    const [pastTournaments, setPastTournaments] = useState([]);
+
+    // Handle tab navigation from other screens
+    useEffect(() => {
+        if (route.params?.tab) {
+            setActiveTab(route.params.tab);
+            // Clear the param so it doesn't switch back on re-renders
+            navigation.setParams({ tab: undefined });
+        }
+    }, [route.params?.tab]);
+    const [lobbies, setLobbies] = useState([]);
+    const [pastLobbies, setPastLobbies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [user, setUser] = useState(null);
     const [activeSettingsId, setActiveSettingsId] = useState(null);
     const [activeLayoutsCount, setActiveLayoutsCount] = useState(0);
     const [expandedSections, setExpandedSections] = useState({
@@ -100,91 +129,88 @@ const DashboardScreen = ({ navigation }) => {
     const [communityThemesList, setCommunityThemesList] = useState([]);
     const [loadingCommunity, setLoadingCommunity] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [profile, setProfile] = useState(null);
-    const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
-    const [isAddingPhone, setIsAddingPhone] = useState(false);
-    const [isUsernameExpanded, setIsUsernameExpanded] = useState(false);
-    const [newPhoneNumber, setNewPhoneNumber] = useState('');
-    const [savingPhone, setSavingPhone] = useState(false);
-    const [showWhatsappCard, setShowWhatsappCard] = useState(true);
+    const [uploadModalVisible, setUploadModalVisible] = useState(false);
+    const [showPromoModal, setShowPromoModal] = useState(false);
 
-    const { tier, tournamentsCreated, loading: subLoading, limits } = useSubscription();
+    useEffect(() => {
+        // Show promo modal for free users on load (once per session)
+        if (tier === 'free' && !refreshing && !loading) {
+            const timer = setTimeout(() => {
+                setShowPromoModal(true);
+            }, 1500); // Delay for better UX
+            return () => clearTimeout(timer);
+        }
+    }, [tier, loading]);
+
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [designDetails, setDesignDetails] = useState({
+        name: ''
+    });
+    const [isUsernameExpanded, setIsUsernameExpanded] = useState(false);
 
     useEffect(() => {
         if (user?.id) {
             const fetchLayoutsCount = async () => {
-                const themes = await getUserThemes();
-                setActiveLayoutsCount(themes.length);
+                try {
+                    const themes = await getUserThemes(user.id);
+                    setActiveLayoutsCount(themes?.length || 0);
+                } catch (err) {
+                    console.error('Error fetching layout count:', err);
+                }
             };
             fetchLayoutsCount();
         }
     }, [user?.id]);
 
-    useEffect(() => {
-        let subscription = null;
-
-        const init = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-            fetchTournaments();
-
-            // Fetch user profile
-            try {
-                const userProfile = await getUserProfile();
-                setProfile(userProfile);
-            } catch (err) {
-                console.error('Error fetching profile in init:', err);
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user?.id && !userLoading) {
+                fetchLobbies();
             }
+            return () => {};
+        }, [user?.id, userLoading])
+    );
 
-            if (user) {
-                // Subscribe to realtime updates for tournaments
-                subscription = supabase
-                    .channel(`tournaments-user-${user.id}`)
-                    .on(
-                        'postgres_changes',
-                        {
-                            event: '*',
-                            schema: 'public',
-                            table: 'tournaments',
-                            filter: `user_id=eq.${user.id}`,
-                        },
-                        () => fetchTournaments()
-                    )
-                    .subscribe();
-            }
-        };
-
-        init();
-
-        return () => {
-            if (subscription) {
-                supabase.removeChannel(subscription);
-            }
-        };
-    }, []);
-
-    const fetchTournaments = async () => {
+    const fetchLobbies = async () => {
         try {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user?.id) return;
 
-            const { data, error } = await supabase
-                .from('tournaments')
-                .select('id, name, game, status, created_at, points_system, kill_points')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false });
+            console.log('Fetching lobbies...');
+            const data = await getLobbies();
+            console.log(`Found ${data?.length || 0} lobbies`);
 
-            if (error) throw error;
+            // Fetch team counts for each lobby
+            const lobbiesWithCounts = await Promise.all((data || []).map(async (lobby) => {
+                try {
+                    const teams = await getLobbyTeams(lobby.id);
+                    console.log(`Lobby ${lobby.id} (${lobby.name}) response:`, teams);
+                    
+                    let count = 0;
+                    if (Array.isArray(teams)) {
+                        count = teams.length;
+                    } else if (teams && typeof teams === 'object') {
+                        // Some APIs return { teams: [...] } or { count: X }
+                        count = teams.count || (teams.teams ? teams.teams.length : 0);
+                    }
+                    
+                    return { 
+                        ...lobby, 
+                        teams_count: count || lobby.teams_count || 0 
+                    };
+                } catch (err) {
+                    console.warn(`Could not fetch teams for lobby ${lobby.id}:`, err);
+                    return { ...lobby, teams_count: lobby.teams_count || 0 };
+                }
+            }));
 
-            const active = data.filter(t => t.status !== 'completed');
-            const past = data.filter(t => t.status === 'completed');
+            const active = lobbiesWithCounts.filter(t => t.status !== 'completed');
+            const past = lobbiesWithCounts.filter(t => t.status === 'completed');
 
-            setTournaments(active);
-            setPastTournaments(past);
+            setLobbies(active);
+            setPastLobbies(past);
         } catch (error) {
-            console.error('Error fetching tournaments:', error);
-            Alert.alert('Error', 'Failed to load tournaments');
+            console.error('Error fetching lobbies:', error);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -193,8 +219,8 @@ const DashboardScreen = ({ navigation }) => {
 
     const fetchUserThemes = async () => {
         try {
-            const themes = await getUserThemes();
-            setUserThemesList(themes);
+            const data = await getUserThemes();
+            setUserThemesList(data || []);
         } catch (error) {
             console.error('Error fetching themes:', error);
         }
@@ -223,11 +249,37 @@ const DashboardScreen = ({ navigation }) => {
         }
     }, [activeTab, designTab]);
 
+    // Swipe gesture handling for tab navigation
+    const tabOrder = ['home', 'design', 'plans', 'profile'];
+    const startX = useRef(0);
+
+    const handleTouchStart = (evt) => {
+        startX.current = evt.nativeEvent.pageX;
+    };
+
+    const handleTouchEnd = (evt) => {
+        const endX = evt.nativeEvent.pageX;
+        const distance = startX.current - endX;
+        const currentIndex = tabOrder.indexOf(activeTab);
+
+        // Minimum swipe distance of 50px
+        if (Math.abs(distance) > 50) {
+            // Swipe left (distance > 0) - move to next tab
+            if (distance > 0 && currentIndex < tabOrder.length - 1) {
+                setActiveTab(tabOrder[currentIndex + 1]);
+            }
+            // Swipe right (distance < 0) - move to previous tab
+            else if (distance < 0 && currentIndex > 0) {
+                setActiveTab(tabOrder[currentIndex - 1]);
+            }
+        }
+    };
+
     const onRefresh = () => {
         setRefreshing(true);
         // Force refresh all data on pull-to-refresh
         Promise.all([
-            fetchTournaments(),
+            fetchLobbies(),
             getUserThemes(true),
             getCommunityDesigns(true)
         ]).finally(() => {
@@ -236,15 +288,21 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        try {
+            await authService.logout();
+            // AppNavigator will handle the redirection since it listens to SIGNED_OUT event
+        } catch (error) {
+            console.error('Logout failed:', error);
+            Alert.alert('Error', 'Failed to log out. Please try again.');
+        }
     };
 
-    const handleCreateTournament = () => {
-        navigation.navigate('CreateTournament');
+    const handleCreateLobby = () => {
+        navigation.navigate('CreateLobby');
     };
 
     const handleBannerAction = () => {
-        navigation.navigate('CreateTournament');
+        navigation.navigate('CreateLobby');
     };
 
     const handleDesignUpload = async () => {
@@ -257,43 +315,45 @@ const DashboardScreen = ({ navigation }) => {
 
             if (result.canceled) return;
 
-            setUploading(true);
-            const { uri } = result.assets[0];
-            const uriParts = uri.split('.');
-            const fileType = uriParts[uriParts.length - 1];
-            const fileName = `theme_${user.id}_${Date.now()}.${fileType}`;
-
-            const formData = new FormData();
-            formData.append('file', {
-                uri,
-                name: fileName,
-                type: `image/${fileType}`,
+            setSelectedImage(result.assets[0]);
+            setDesignDetails({
+                name: ''
             });
+            setUploadModalVisible(true);
+        } catch (error) {
+            console.error('Image Selection Error:', error);
+            Alert.alert('Error', 'Failed to select image');
+        }
+    };
 
-            const { data, error } = await supabase.storage
-                .from('themes')
-                .upload(fileName, formData);
+    const submitDesignUpload = async () => {
+        if (!designDetails.name.trim()) {
+            Alert.alert('Required', 'Please enter a name for your design');
+            return;
+        }
 
-            if (error) throw error;
+        // Enforce Layout Limits
+        if (tier !== 'developer' && maxLayouts && activeLayoutsCount >= maxLayouts) {
+            Alert.alert(
+                'Layout Limit Reached',
+                `Your current plan allows for ${maxLayouts} custom layouts. Upgrade to upload more!`,
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'View Plans', onPress: () => setActiveTab('plans') }
+                ]
+            );
+            return;
+        }
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('themes')
-                .getPublicUrl(fileName);
-
-            // Insert into themes table with pending status
-            const { error: dbError } = await supabase
-                .from('themes')
-                .insert([{
-                    user_id: user.id,
-                    name: `Design ${Date.now()}`,
-                    url: publicUrl,
-                    status: 'pending',
-                    created_at: new Date().toISOString()
-                }]);
-
-            if (dbError) throw dbError;
+        try {
+            setUploading(true);
+            const { uri } = selectedImage;
+            
+            // Use new uploadTheme endpoint which handles file upload + record creation
+            await uploadTheme(designDetails.name, uri);
 
             fetchUserThemes();
+            setUploadModalVisible(false);
             Alert.alert('Success', 'Your custom design has been uploaded and is currently under verification.');
         } catch (error) {
             console.error('Upload Error:', error);
@@ -313,10 +373,10 @@ const DashboardScreen = ({ navigation }) => {
         }
     };
 
-    const confirmEndTournament = (tournament) => {
+    const confirmEndLobby = (lobby) => {
         Alert.alert(
-            "End Tournament",
-            `Are you sure you want to end "${tournament.name}"? It will be moved to past tournaments.`,
+            "End Lobby",
+            `Are you sure you want to end "${lobby.name}"? It will be moved to past lobbies.`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -324,15 +384,11 @@ const DashboardScreen = ({ navigation }) => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const { error } = await supabase
-                                .from('tournaments')
-                                .update({ status: 'completed' })
-                                .eq('id', tournament.id);
-                            if (error) throw error;
+                            await endLobby(lobby.id);
                             // Realtime sub will update list, but we can also fetch manually to be sure
-                            fetchTournaments();
+                            fetchLobbies();
                         } catch (err) {
-                            Alert.alert("Error", "Failed to end tournament");
+                            Alert.alert("Error", "Failed to end lobby");
                         }
                     }
                 }
@@ -340,10 +396,10 @@ const DashboardScreen = ({ navigation }) => {
         );
     };
 
-    const confirmDeleteTournament = (tournament) => {
+    const confirmDeleteLobby = (lobby) => {
         Alert.alert(
-            "Delete Tournament",
-            `Are you sure you want to delete "${tournament.name}"? This cannot be undone.`,
+            "Delete Lobby",
+            `Are you sure you want to delete "${lobby.name}"? This cannot be undone.`,
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -351,14 +407,10 @@ const DashboardScreen = ({ navigation }) => {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const { error } = await supabase
-                                .from('tournaments')
-                                .delete()
-                                .eq('id', tournament.id);
-                            if (error) throw error;
-                            fetchTournaments();
+                            await deleteLobby(lobby.id);
+                            fetchLobbies();
                         } catch (err) {
-                            Alert.alert("Error", "Failed to delete tournament");
+                            Alert.alert("Error", "Failed to delete lobby");
                         }
                     }
                 }
@@ -366,106 +418,33 @@ const DashboardScreen = ({ navigation }) => {
         );
     };
 
-    const handleEditTournament = (tournament) => {
+    const handleEditLobby = (lobby) => {
         // Close settings
         setActiveSettingsId(null);
-        navigation.navigate('EditTournament', { tournamentId: tournament.id });
-    };
-
-
-    const handleAddPhone = async () => {
-        if (savingPhone) return;
-        
-        const numericPhone = newPhoneNumber.replace(/\D/g, '');
-        if (!numericPhone) {
-            Alert.alert('Invalid Input', 'Please enter a valid phone number');
-            return;
-        }
-
-        const phoneVal = parseInt(numericPhone, 10);
-        const currentPhones = Array.isArray(profile?.phone) ? profile.phone : [];
-        
-        if (currentPhones.length >= 5) {
-            Alert.alert('Limit Reached', 'You can only add up to 5 phone numbers');
-            return;
-        }
-
-        if (currentPhones.includes(phoneVal)) {
-            Alert.alert('Duplicate', 'This phone number is already added');
-            return;
-        }
-
-        try {
-            setSavingPhone(true);
-            const updatedPhones = [...currentPhones, phoneVal];
-            
-            await updateUserProfile({ phone: updatedPhones });
-            
-            setProfile(prev => ({ ...prev, phone: updatedPhones }));
-            setNewPhoneNumber('');
-            setIsAddingPhone(false);
-            Alert.alert('Success', 'Phone number added successfully');
-        } catch (error) {
-            console.error('Error adding phone:', error);
-            Alert.alert('Error', 'Failed to add phone number. Ensure it is unique across all users.');
-        } finally {
-            setSavingPhone(false);
-        }
-    };
-
-    const handleRemovePhone = async (indexToRemove) => {
-        const currentPhones = Array.isArray(profile?.phone) ? profile.phone : [];
-        const phoneToRemove = currentPhones[indexToRemove];
-
-        Alert.alert(
-            "Remove Phone Number",
-            `Are you sure you want to remove ${phoneToRemove}?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Remove",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const updatedPhones = currentPhones.filter((_, index) => index !== indexToRemove);
-                            await updateUserProfile({ phone: updatedPhones });
-                            setProfile(prev => ({ ...prev, phone: updatedPhones }));
-                        } catch (err) {
-                            Alert.alert("Error", "Failed to remove phone number");
-                        }
-                    }
-                }
-            ]
-        );
+        navigation.navigate('EditLobby', { lobbyId: lobby.id });
     };
 
     const renderHeader = () => {
         let title = 'Home';
         if (activeTab === 'home') {
-            const username = user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
+            const username = user?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
             title = `Welcome ${username}`;
         }
         if (activeTab === 'design') title = 'Design Studio';
+        if (activeTab === 'plans') title = 'Subscription Plans';
         if (activeTab === 'profile') title = 'Account Settings';
 
         return (
             <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
                 {activeTab === 'home' ? (
                     <Text style={styles.headerTitle}>
-                        Welcome <Text style={{ color: Theme.colors.accent }}>{user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'}</Text>
+                        Welcome <Text style={{ color: Theme.colors.accent }}>{user?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'}</Text>
                     </Text>
                 ) : (
                     <Text style={styles.headerTitle}>{title}</Text>
                 )}
             </View>
         );
-    };
-
-    const handleNavigateToPhoneSettings = () => {
-        setShowWhatsappCard(false);
-        setActiveTab('profile');
-        setExpandedSections(prev => ({ ...prev, account: true }));
-        setIsPhoneDropdownOpen(true);
     };
 
     const renderHome = () => (
@@ -475,115 +454,69 @@ const DashboardScreen = ({ navigation }) => {
             onScroll={() => setActiveSettingsId(null)} // Close settings on scroll
             scrollEventThrottle={16}
         >
-            {/* WhatsApp Bot Modal */}
-            <Modal
-                visible={showWhatsappCard && (!profile?.phone || profile.phone.length === 0)}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowWhatsappCard(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.popupContainer}>
-                        <TouchableOpacity 
-                            style={styles.closePopupBtn} 
-                            onPress={() => setShowWhatsappCard(false)}
-                        >
-                            <X size={20} color={Theme.colors.textSecondary} />
-                        </TouchableOpacity>
-
-                        <View style={styles.popupContent}>
-                            <View style={[styles.popupIconCircle, { backgroundColor: '#25D366' }]}>
-                                <FontAwesome name="whatsapp" size={40} color="#fff" />
-                            </View>
-                            
-                            <View style={styles.popupBadge}>
-                                <Text style={styles.popupBadgeText}>NEW FEATURE</Text>
-                            </View>
-
-                            <Text style={styles.popupTitle}>WhatsApp Bot is Here!</Text>
-                            
-                            <Text style={styles.popupDesc}>
-                                Connect your phone number now to get instant tournament updates and manage your lobbies directly through WhatsApp.
-                            </Text>
-
-                            <TouchableOpacity 
-                                style={styles.popupCta} 
-                                onPress={handleNavigateToPhoneSettings}
-                            >
-                                <Text style={styles.popupCtaText}>Connect & Setup Now</Text>
-                                <ArrowRight size={18} color="#fff" />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                style={styles.popupSecondaryBtn} 
-                                onPress={() => setShowWhatsappCard(false)}
-                            >
-                                <Text style={styles.popupSecondaryBtnText}>Maybe Later</Text>
-                            </TouchableOpacity>
-                        </View>
+            {/* Premium Access Banner */}
+            {tier === 'free' && (
+                <View style={styles.banner}>
+                    <View style={styles.bannerBadge}>
+                        <Sparkles size={12} color="#fff" />
+                        <Text style={styles.bannerBadgeText}>PREMIUM</Text>
                     </View>
+                    <Text style={styles.bannerTitle}>Unlock Premium Access</Text>
+                    <Text style={styles.bannerDesc}>Get unlimited lobbies, custom layouts, LexiView AI & more!</Text>
+                    <TouchableOpacity style={styles.bannerCta} onPress={() => setActiveTab('plans')}>
+                        <Text style={styles.bannerCtaText}>Upgrade Now</Text>
+                        <ArrowRight size={16} color="#1E3A8A" />
+                    </TouchableOpacity>
                 </View>
-            </Modal>
+            )}
 
-            {/* Banner */}
-            <View style={styles.banner}>
-                <View style={styles.bannerBadge}>
-                    <Sparkles size={12} color="#fff" />
-                    <Text style={styles.bannerBadgeText}>NEW FEATURE</Text>
-                </View>
-                <Text style={styles.bannerTitle}>Introducing LexiView</Text>
-                <Text style={styles.bannerDesc}>Extract scoreboard data with 99.9% accuracy.</Text>
-                <TouchableOpacity style={styles.bannerCta} onPress={handleBannerAction}>
-                    <Text style={styles.bannerCtaText}>Try now</Text>
-                    <ArrowRight size={16} color="#1E3A8A" />
-                </TouchableOpacity>
-            </View>
-
-            <Text style={styles.sectionTitle}>Active Tournaments</Text>
-            {tournaments.length > 0 ? (
-                tournaments.map(tournament => (
-                    <View key={tournament.id} style={[styles.card, { zIndex: activeSettingsId === tournament.id ? 10 : 1 }]}>
+            <Text style={styles.sectionTitle}>Active Lobbies</Text>
+            {lobbies.length > 0 ? (
+                lobbies.map(lobby => (
+                    <View key={lobby.id} style={[styles.card, { zIndex: activeSettingsId === lobby.id ? 10 : 1 }]}>
                         <TouchableOpacity
                             style={styles.cardMainClickArea}
-                            onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })}
+                            onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
                             activeOpacity={0.7}
                         >
                             <View style={styles.cardInfo}>
-                                <Text style={styles.cardTitle}>{tournament.name}</Text>
-                                <Text style={styles.cardMeta}>{tournament.game} • {new Date(tournament.created_at).toLocaleDateString()}</Text>
+                                <Text style={styles.cardTitle}>{lobby.name}</Text>
+                                <Text style={styles.cardMeta}>
+                                    {lobby.game} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
+                                </Text>
                             </View>
                         </TouchableOpacity>
 
                         <View style={styles.cardActions}>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })} title="Go Live">
-                                <Radio size={18} color={Theme.colors.accent} />
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Go Live">
+                                <Play size={18} color={Theme.colors.accent} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('CalculateResults', { tournament: tournament })} title="Calculate">
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('CalculateResults', { lobby: lobby })} title="Calculate">
                                 <Calculator size={18} color="#94a3b8" />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmEndTournament(tournament)} title="End Tournament">
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmEndLobby(lobby)} title="End Lobby">
                                 <Flag size={18} color="#ef4444" />
                             </TouchableOpacity>
 
                             {/* Settings Button & Dropdown */}
                             <View>
                                 <TouchableOpacity
-                                    style={[styles.iconBtn, activeSettingsId === tournament.id && styles.iconBtnActive]}
-                                    onPress={() => toggleSettings(tournament.id)}
+                                    style={[styles.iconBtn, activeSettingsId === lobby.id && styles.iconBtnActive]}
+                                    onPress={() => toggleSettings(lobby.id)}
                                 >
                                     <Settings size={18} color="#94a3b8" />
                                 </TouchableOpacity>
 
-                                {activeSettingsId === tournament.id && (
+                                {activeSettingsId === lobby.id && (
                                     <View style={styles.dropdownMenu}>
-                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => handleEditTournament(tournament)}>
+                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => handleEditLobby(lobby)}>
                                             <Edit size={16} color={Theme.colors.textPrimary} />
                                             <Text style={styles.dropdownText}>Edit</Text>
                                         </TouchableOpacity>
                                         <View style={styles.dropdownDivider} />
                                         <TouchableOpacity style={styles.dropdownItem} onPress={() => {
                                             setActiveSettingsId(null);
-                                            confirmDeleteTournament(tournament);
+                                            confirmDeleteLobby(lobby);
                                         }}>
                                             <Trash2 size={16} color={Theme.colors.danger} />
                                             <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>
@@ -597,7 +530,7 @@ const DashboardScreen = ({ navigation }) => {
             ) : (
                 <View style={styles.emptyState}>
                     <Trophy size={48} color="#334155" />
-                    <Text style={styles.emptyText}>No active tournaments</Text>
+                    <Text style={styles.emptyText}>No active lobbies</Text>
                 </View>
             )}
             <View style={{ height: 80 }} />
@@ -636,11 +569,35 @@ const DashboardScreen = ({ navigation }) => {
                         )}
                     </TouchableOpacity>
 
-                    <View style={styles.themesGrid}>
-                        {userThemesList.map((theme, index) => (
-                            <UserThemeCard key={theme.id || index} theme={theme} index={index} />
-                        ))}
-                    </View>
+                    {userThemesList.length === 0 ? (
+                        <View style={[styles.emptyState, { marginTop: 40 }]}>
+                            <Palette size={48} color={Theme.colors.border} />
+                            <Text style={styles.emptyText}>No Custom Designs Yet</Text>
+                            <Text style={styles.emptySubText}>Upload your first design to see it here!</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.pinterestGrid}>
+                            <View style={styles.masonryColumn}>
+                                {userThemesList.filter((_, i) => i % 2 === 0).map((theme, index) => (
+                                    <UserThemeCard 
+                                        key={theme.id || `own-left-${index}`} 
+                                        theme={theme} 
+                                        index={index} 
+                                    />
+                                ))}
+                            </View>
+                            <View style={styles.masonryColumn}>
+                                {userThemesList.filter((_, i) => i % 2 !== 0).map((theme, index) => (
+                                    <UserThemeCard 
+                                        key={theme.id || `own-right-${index}`} 
+                                        theme={theme} 
+                                        index={index} 
+                                        isRightColumn={true}
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    )}
                 </View>
             )}
 
@@ -662,7 +619,6 @@ const DashboardScreen = ({ navigation }) => {
                                         key={themes.id || `left-${index}`} 
                                         theme={themes} 
                                         index={index} 
-                                        navigation={navigation} 
                                     />
                                 ))}
                             </View>
@@ -672,7 +628,6 @@ const DashboardScreen = ({ navigation }) => {
                                         key={themes.id || `right-${index}`} 
                                         theme={themes} 
                                         index={index} 
-                                        navigation={navigation} 
                                         isRightColumn={true}
                                     />
                                 ))}
@@ -685,33 +640,35 @@ const DashboardScreen = ({ navigation }) => {
     );
 
     const renderHistoryContent = () => {
-        if (pastTournaments.length === 0) {
+        if (pastLobbies.length === 0) {
             return (
                 <View style={[styles.emptyState, { marginTop: 20 }]}>
                     <History size={40} color={Theme.colors.border} />
-                    <Text style={styles.emptyText}>No past tournaments yet</Text>
+                    <Text style={styles.emptyText}>No past lobbies yet</Text>
                 </View>
             );
         }
 
-        return pastTournaments.map(tournament => (
+        return pastLobbies.map(lobby => (
             <TouchableOpacity
-                key={tournament.id}
+                key={lobby.id}
                 style={[styles.card, { marginHorizontal: 0 }]}
-                onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })}
+                onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
             >
                 <View style={styles.cardInfo}>
-                    <Text style={styles.cardTitle}>{tournament.name}</Text>
-                    <Text style={styles.cardMeta}>{new Date(tournament.created_at).toLocaleDateString()}</Text>
+                    <Text style={styles.cardTitle}>{lobby.name}</Text>
+                    <Text style={styles.cardMeta}>
+                        {lobby.game || 'Game'} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
+                    </Text>
                 </View>
                 <View style={styles.cardActions}>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id })} title="Leaderboard">
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Leaderboard">
                         <BarChart2 size={16} color={Theme.colors.textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveTournament', { id: tournament.id, view: 'mvp' })} title="MVPs">
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id, view: 'mvp' })} title="MVPs">
                         <Award size={16} color={Theme.colors.accent} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteTournament(tournament)} title="Delete">
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteLobby(lobby)} title="Delete">
                         <Trash2 size={16} color="#ef4444" />
                     </TouchableOpacity>
                 </View>
@@ -729,9 +686,8 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const getTierDisplayName = (tierName) => {
-        const isInTrial = tierName?.toLowerCase() === 'free' && tournamentsCreated < 2;
         const tierMap = {
-            'free': isInTrial ? 'Free Trial' : 'Free Tier',
+            'free': 'Free Tier',
             'ranked': 'Ranked Tier',
             'competitive': 'Competitive Tier',
             'premier': 'Premier Tier',
@@ -759,10 +715,21 @@ const DashboardScreen = ({ navigation }) => {
     };
 
     const renderProfile = () => {
-        const colors = getTierColors(tier);
-        const isInTrial = tier?.toLowerCase() === 'free' && tournamentsCreated < 2;
-        const displayName = user?.email?.split('@')[0] || 'User';
-        const truncatedName = displayName.length > 7 ? displayName.substring(0, 7) + '...' : displayName;
+        const subTier = user?.subscription_tier || tier;
+        const colors = getTierColors(subTier);
+        const isInTrial = subTier?.toLowerCase() === 'free' && lobbiesCreated < 2;
+        
+        // Data from /me response (based on Terminal output)
+        const email = user?.emails || user?.email || '—';
+        const userId = user?.id || '—';
+        const username = user?.username || '—';
+        const displayName = user?.display_name || username || email.split('@')[0] || 'User';
+        const phone = user?.phone || '—';
+        const lastLogin = formatDate(user?.last_sign_in_at);
+        const createdAt = formatDate(user?.created_at);
+        const lobbiesCreatedCount = user?.lobbies_created_count ?? 0;
+
+        const truncatedName = displayName.length > 10 ? displayName.substring(0, 10) + '...' : displayName;
 
         return (
             <ScrollView style={styles.content}>
@@ -770,7 +737,7 @@ const DashboardScreen = ({ navigation }) => {
                     <View style={styles.heroGradient} />
                     <View style={styles.profileHeaderMain}>
                         <View style={styles.avatarCircle}>
-                            <Text style={styles.avatarInitial}>{user?.email?.charAt(0).toUpperCase()}</Text>
+                            <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
                         </View>
                         <TouchableOpacity 
                             style={styles.profileNameContainer} 
@@ -780,7 +747,7 @@ const DashboardScreen = ({ navigation }) => {
                             <Text style={styles.profileName}>
                                 {isUsernameExpanded ? displayName : truncatedName}
                             </Text>
-                            {displayName.length > 7 && (
+                            {displayName.length > 10 && (
                                 <Text style={styles.expandHint}>
                                     {isUsernameExpanded ? '(tap to collapse)' : '(tap to expand)'}
                                 </Text>
@@ -792,7 +759,7 @@ const DashboardScreen = ({ navigation }) => {
                 <View style={[styles.profileContent, { marginTop: 20 }]}>
                     <View style={styles.badgeContainer}>
                         <View style={[styles.planBadge, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-                            <Text style={[styles.planBadgeText, { color: colors.color }]}>{getTierDisplayName(tier)}</Text>
+                            <Text style={[styles.planBadgeText, { color: colors.color }]}>{getTierDisplayName(subTier)}</Text>
                         </View>
                     </View>
 
@@ -804,7 +771,7 @@ const DashboardScreen = ({ navigation }) => {
                             </View>
                             <Text style={styles.trialDescription}>
                                 Enjoying full features with 3 layouts and custom social links.
-                                Use {2 - tournamentsCreated} more AI tournaments to keep these perks!
+                                Use {2 - lobbiesCreatedCount} more AI lobbies to keep these perks!
                             </Text>
                         </View>
                     )}
@@ -816,101 +783,62 @@ const DashboardScreen = ({ navigation }) => {
                             onPress={() => toggleSection('account')}
                             activeOpacity={0.7}
                         >
-                            <Text style={styles.groupLabel}>Account Details</Text>
+                            <Text style={styles.groupLabel}>Account & Subscription</Text>
                             <Settings size={16} color={Theme.colors.textSecondary} />
                         </TouchableOpacity>
 
                         {expandedSections.account && (
                             <View style={styles.groupContent}>
+                                <TouchableOpacity 
+                                    style={styles.infoRow}
+                                    onPress={() => setActiveTab('plans')}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Sparkles size={16} color={Theme.colors.accent} />
+                                        <Text style={[styles.infoLabel, { color: Theme.colors.accent, fontWeight: '700' }]}>Current Plan</Text>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Text style={[styles.infoValue, { textTransform: 'capitalize', color: Theme.colors.accent }]}>{subTier}</Text>
+                                        <ArrowRight size={14} color={Theme.colors.accent} />
+                                    </View>
+                                </TouchableOpacity>
+
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>User ID</Text>
-                                    <Text style={styles.infoValue} numberOfLines={1}>{user?.id}</Text>
+                                    <Text style={styles.infoLabel}>Username</Text>
+                                    <Text style={styles.infoValue}>{username}</Text>
                                 </View>
                                 <View style={styles.infoRow}>
                                     <Text style={styles.infoLabel}>Email</Text>
-                                    <Text style={styles.infoValue}>{user?.email}</Text>
+                                    <Text style={styles.infoValue}>{email}</Text>
                                 </View>
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>Connected Phone Numbers</Text>
-                                    <TouchableOpacity 
-                                        style={styles.phoneDropdownBtn}
-                                        onPress={() => setIsPhoneDropdownOpen(!isPhoneDropdownOpen)}
-                                    >
-                                        {isPhoneDropdownOpen ? (
-                                            <ChevronUp size={20} color={Theme.colors.accent} />
-                                        ) : (
-                                            <ChevronDown size={20} color={Theme.colors.accent} />
-                                        )}
-                                    </TouchableOpacity>
+                                    <Text style={styles.infoLabel}>Phone</Text>
+                                    <Text style={styles.infoValue}>{phone}</Text>
                                 </View>
-
-                                {isPhoneDropdownOpen && (
-                                    <View style={styles.phoneDropdownContent}>
-                                        {profile?.phone && profile.phone.map((phone, index) => (
-                                            <View key={index} style={styles.phoneItem}>
-                                                <Text style={styles.phoneItemText}>{phone}</Text>
-                                                <TouchableOpacity onPress={() => handleRemovePhone(index)}>
-                                                    <Trash2 size={16} color={Theme.colors.danger} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        ))}
-
-                                        {isAddingPhone ? (
-                                            <View style={styles.addPhoneForm}>
-                                                <TextInput
-                                                    style={styles.addPhoneInput}
-                                                    value={newPhoneNumber}
-                                                    onChangeText={setNewPhoneNumber}
-                                                    placeholder="Enter phone number"
-                                                    placeholderTextColor={Theme.colors.textSecondary}
-                                                    keyboardType="phone-pad"
-                                                    autoFocus
-                                                />
-                                                <View style={styles.phoneActions}>
-                                                    <TouchableOpacity onPress={handleAddPhone} disabled={savingPhone}>
-                                                        {savingPhone ? (
-                                                            <ActivityIndicator size="small" color={Theme.colors.accent} />
-                                                        ) : (
-                                                            <Check size={20} color={Theme.colors.accent} />
-                                                        )}
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity onPress={() => {
-                                                        setIsAddingPhone(false);
-                                                        setNewPhoneNumber('');
-                                                    }}>
-                                                        <X size={20} color={Theme.colors.danger} />
-                                                    </TouchableOpacity>
-                                                </View>
-                                            </View>
-                                        ) : (
-                                            (profile?.phone?.length || 0) < 5 && (
-                                                <TouchableOpacity 
-                                                    style={styles.addPhoneBtn}
-                                                    onPress={() => setIsAddingPhone(true)}
-                                                >
-                                                    <Plus size={16} color={Theme.colors.accent} />
-                                                    <Text style={styles.addPhoneBtnText}>Add Phone Number</Text>
-                                                </TouchableOpacity>
-                                            )
-                                        )}
-                                    </View>
-                                )}
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>Member Since</Text>
-                                    <Text style={styles.infoValue}>{formatDate(user?.created_at)}</Text>
+                                    <Text style={styles.infoLabel}>Lobbies Created</Text>
+                                    <Text style={styles.infoValue}>{lobbiesCreatedCount}</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Account ID</Text>
+                                    <Text style={[styles.infoValue, { fontFamily: Theme.fonts.monospace, fontSize: 10 }]} numberOfLines={1}>{userId}</Text>
+                                </View>
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Joined</Text>
+                                    <Text style={styles.infoValue}>{createdAt}</Text>
                                 </View>
                             </View>
                         )}
                     </View>
 
-                    {/* Tournament History */}
+                    {/* Lobby History */}
                     <View style={styles.infoGroup}>
                         <TouchableOpacity
                             style={styles.groupHeader}
                             onPress={() => toggleSection('history')}
                             activeOpacity={0.7}
                         >
-                            <Text style={styles.groupLabel}>Tournament History</Text>
+                            <Text style={styles.groupLabel}>Lobby History</Text>
                             <History size={16} color={Theme.colors.textSecondary} />
                         </TouchableOpacity>
 
@@ -937,20 +865,20 @@ const DashboardScreen = ({ navigation }) => {
                                 <View style={styles.statContainer}>
                                     <View style={styles.statHeader}>
                                         <View>
-                                            <Text style={styles.statLabel}>Tournaments Created</Text>
+                                            <Text style={styles.statLabel}>Lobbies Created</Text>
                                             <Text style={styles.statSubLabel}>
-                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxAILobbies - tournamentsCreated)} remaining`}
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxAILobbies || 0) - lobbiesCreated)} remaining`}
                                             </Text>
                                         </View>
                                         <Text style={[styles.statValue, { color: colors.color }]}>
-                                            {tournamentsCreated} / {limits.maxAILobbies === Infinity ? '∞' : limits.maxAILobbies}
+                                            {lobbiesCreated} / {(maxAILobbies === Infinity || !maxAILobbies) ? '∞' : maxAILobbies}
                                         </Text>
                                     </View>
                                     <View style={styles.progressBarBg}>
                                         <View style={[
                                             styles.progressBarFill,
                                             {
-                                                width: `${limits.maxAILobbies === Infinity ? 100 : Math.min((tournamentsCreated / limits.maxAILobbies) * 100, 100)}%`,
+                                                width: `${(maxAILobbies === Infinity || !maxAILobbies) ? 100 : Math.min((lobbiesCreated / (maxAILobbies || 1)) * 100, 100)}%`,
                                                 backgroundColor: colors.color
                                             }
                                         ]} />
@@ -962,23 +890,34 @@ const DashboardScreen = ({ navigation }) => {
                                         <View>
                                             <Text style={styles.statLabel}>Active Layouts</Text>
                                             <Text style={styles.statSubLabel}>
-                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, limits.maxLayouts - activeLayoutsCount)} slots remaining`}
+                                                {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxLayouts || 0) - activeLayoutsCount)} slots remaining`}
                                             </Text>
                                         </View>
                                         <Text style={[styles.statValue, { color: colors.color }]}>
-                                            {activeLayoutsCount} / {limits.maxLayouts === Infinity ? '∞' : limits.maxLayouts}
+                                            {activeLayoutsCount} / {(maxLayouts === Infinity || !maxLayouts) ? '∞' : maxLayouts}
                                         </Text>
                                     </View>
                                     <View style={styles.progressBarBg}>
                                         <View style={[
                                             styles.progressBarFill,
                                             {
-                                                width: `${limits.maxLayouts === Infinity ? 100 : Math.min((activeLayoutsCount / limits.maxLayouts) * 100, 100)}%`,
+                                                width: `${(maxLayouts === Infinity || !maxLayouts) ? 100 : Math.min((activeLayoutsCount / (maxLayouts || 1)) * 100, 100)}%`,
                                                 backgroundColor: colors.color
                                             }
                                         ]} />
                                     </View>
                                 </View>
+
+                                <TouchableOpacity 
+                                    style={[styles.subscriptionBtn, { backgroundColor: Theme.colors.accent + '20', borderColor: Theme.colors.accent }]}
+                                     onPress={() => setActiveTab('plans')}
+                                 >
+                                    <Sparkles size={18} color={Theme.colors.accent} style={{ marginRight: 8 }} />
+                                    <Text style={[styles.subscriptionBtnText, { color: Theme.colors.accent }]}>
+                                        {tier === 'free' ? 'Get Subscription' : 'View Subscription Plan'}
+                                    </Text>
+                                    <ArrowRight size={16} color={Theme.colors.accent} style={{ marginLeft: 'auto' }} />
+                                </TouchableOpacity>
                             </View>
                         )}
                     </View>
@@ -1064,18 +1003,180 @@ const DashboardScreen = ({ navigation }) => {
                 </View>
             );
         }
-        if (activeTab === 'home') return renderHome();
-        if (activeTab === 'design') return renderDesign();
-        if (activeTab === 'profile') return renderProfile();
+
+        return (
+            <View style={{ flex: 1 }}>
+                {activeTab === 'home' && renderHome()}
+                {activeTab === 'design' && renderDesign()}
+                {activeTab === 'plans' && <SubscriptionPlansScreen navigation={navigation} isTab={true} />}
+                {activeTab === 'profile' && renderProfile()}
+                
+                {/* Design Studio Upload Form Bottom Sheet */}
+                <Modal
+                    visible={uploadModalVisible}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setUploadModalVisible(false)}
+                >
+                    <View style={styles.bottomSheetOverlay}>
+                        <TouchableOpacity 
+                            style={styles.bottomSheetBackdrop} 
+                            activeOpacity={1} 
+                            onPress={() => setUploadModalVisible(false)} 
+                        />
+                        <View style={styles.uploadBottomSheet}>
+                            <View style={styles.dragHandle} />
+                            
+                            <View style={styles.uploadModalHeader}>
+                                <Text style={styles.uploadModalTitle}>Finalize Your Design</Text>
+                                <TouchableOpacity 
+                                    style={styles.closeBtnSmall}
+                                    onPress={() => setUploadModalVisible(false)}
+                                >
+                                    <X size={20} color={Theme.colors.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView 
+                                style={styles.uploadModalBody} 
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{ paddingBottom: 20 }}
+                            >
+                                <View style={styles.uploadPreviewWrapper}>
+                                    {selectedImage && (
+                                        <Image 
+                                            source={{ uri: selectedImage.uri }} 
+                                            style={styles.uploadPreviewImage} 
+                                            resizeMode="cover"
+                                        />
+                                    )}
+                                    <View style={styles.previewOverlay}>
+                                        <Text style={styles.previewTag}>PREVIEW</Text>
+                                    </View>
+                                </View>
+
+                                <View style={styles.uploadInputGroup}>
+                                    <Text style={styles.uploadInputLabel}>DESIGN NAME</Text>
+                                    <View style={styles.styledInputWrapper}>
+                                        <Palette size={18} color={Theme.colors.accent} style={{ marginRight: 12 }} />
+                                        <TextInput
+                                            style={styles.styledInput}
+                                            placeholder="e.g. Minimalist Navy Standings"
+                                            placeholderTextColor={Theme.colors.textSecondary}
+                                            value={designDetails.name}
+                                            onChangeText={(text) => setDesignDetails({ name: text })}
+                                        />
+                                    </View>
+                                    <Text style={styles.inputHint}>This name will be visible in your Design Studio.</Text>
+                                </View>
+                            </ScrollView>
+
+                            <View style={styles.uploadModalFooter}>
+                                <TouchableOpacity 
+                                    style={[styles.uploadSubmitBtnFull, uploading && styles.uploadSubmitBtnDisabled]} 
+                                    onPress={submitDesignUpload}
+                                    disabled={uploading}
+                                >
+                                    {uploading ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <>
+                                            <Text style={styles.uploadSubmitBtnText}>Upload to Studio</Text>
+                                            <Upload size={18} color="#fff" />
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Subscription Promo Modal */}
+                <Modal
+                    visible={showPromoModal}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setShowPromoModal(false)}
+                >
+                    <View style={styles.promoOverlay}>
+                        <View style={styles.promoContainer}>
+                            <TouchableOpacity 
+                                style={styles.promoCloseBtn} 
+                                onPress={() => setShowPromoModal(false)}
+                            >
+                                <X size={24} color="#fff" />
+                            </TouchableOpacity>
+
+                            <LinearGradient
+                                colors={['#1e1b4b', '#312e81']}
+                                style={styles.promoHeader}
+                            >
+                                <View style={styles.promoIconCircle}>
+                                    <Crown size={40} color="#f59e0b" fill="#f59e0b" />
+                                </View>
+                                <Text style={styles.promoTitle}>Unlock Full Potential</Text>
+                                <Text style={styles.promoSubtitle}>Upgrade to Premium today</Text>
+                            </LinearGradient>
+
+                            <View style={styles.promoBody}>
+                                <View style={styles.promoFeatureRow}>
+                                    <View style={styles.promoFeatureIcon}>
+                                        <Zap size={18} color="#f59e0b" />
+                                    </View>
+                                    <Text style={styles.promoFeatureText}>Up to 150 AI Lobbies / month</Text>
+                                </View>
+                                <View style={styles.promoFeatureRow}>
+                                    <View style={styles.promoFeatureIcon}>
+                                        <Palette size={18} color="#f59e0b" />
+                                    </View>
+                                    <Text style={styles.promoFeatureText}>Unlimited Custom Layouts</Text>
+                                </View>
+                                <View style={styles.promoFeatureRow}>
+                                    <View style={styles.promoFeatureIcon}>
+                                        <ShieldCheck size={18} color="#f59e0b" />
+                                    </View>
+                                    <Text style={styles.promoFeatureText}>Ad-free experience & Priority Support</Text>
+                                </View>
+
+                                <TouchableOpacity 
+                                    style={styles.promoMainBtn}
+                                    onPress={() => {
+                                        setShowPromoModal(false);
+                                        setActiveTab('plans');
+                                    }}
+                                >
+                                    <LinearGradient
+                                        colors={['#f59e0b', '#d97706']}
+                                        style={styles.promoBtnGradient}
+                                        start={{ x: 0, y: 0 }}
+                                        end={{ x: 1, y: 0 }}
+                                    >
+                                        <Text style={styles.promoMainBtnText}>View All Plans</Text>
+                                        <ArrowRight size={18} color="#fff" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity 
+                                    style={styles.promoSecondaryBtn}
+                                    onPress={() => setShowPromoModal(false)}
+                                >
+                                    <Text style={styles.promoSecondaryBtnText}>Maybe Later</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            </View>
+        );
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.container} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             {renderHeader()}
             <View style={{ flex: 1 }} onStartShouldSetResponder={() => activeSettingsId !== null ? setActiveSettingsId(null) : false}>
                 {renderContent()}
                 {activeTab === 'home' && (
-                    <TouchableOpacity style={styles.fabContainer} onPress={handleCreateTournament} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.fabContainer} onPress={handleCreateLobby} activeOpacity={0.8}>
                         <LinearGradient
                             colors={['#1E3A8A', '#3B82F6']}
                             style={styles.fabGradient}
@@ -1089,6 +1190,26 @@ const DashboardScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 )}
             </View>
+
+            {/* Floating PRO Badge for Free Users */}
+            {tier === 'free' && activeTab === 'home' && (
+                <TouchableOpacity 
+                    style={styles.floatingProBadge} 
+                    onPress={() => setActiveTab('plans')}
+                    activeOpacity={0.9}
+                >
+                    <LinearGradient
+                        colors={['#f59e0b', '#d97706']}
+                        style={styles.proBadgeGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    >
+                        <Crown size={16} color="#fff" fill="#fff" />
+                        <Text style={styles.proBadgeText}>PRO</Text>
+                    </LinearGradient>
+                </TouchableOpacity>
+            )}
+
             <View style={styles.tabBar}>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('home')}>
                     <Home size={24} color={activeTab === 'home' ? Theme.colors.accent : Theme.colors.textSecondary} />
@@ -1097,6 +1218,12 @@ const DashboardScreen = ({ navigation }) => {
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('design')}>
                     <Palette size={24} color={activeTab === 'design' ? Theme.colors.accent : Theme.colors.textSecondary} />
                     <Text style={[styles.tabLabel, activeTab === 'design' && styles.tabLabelActive]}>Design</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('plans')}>
+                    <View style={styles.premiumTabItem}>
+                        <Crown size={24} color={activeTab === 'plans' ? '#f59e0b' : Theme.colors.textSecondary} />
+                        <Text style={[styles.tabLabel, { color: activeTab === 'plans' ? '#f59e0b' : Theme.colors.textSecondary, fontWeight: activeTab === 'plans' ? '800' : '400' }]}>Plans</Text>
+                    </View>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('profile')}>
                     <User size={24} color={activeTab === 'profile' ? Theme.colors.accent : Theme.colors.textSecondary} />
@@ -1124,8 +1251,28 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
+    },
+    headerUpgradeBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f59e0b', // Amber/Gold color for upgrade
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        gap: 6,
+        shadowColor: '#f59e0b',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    headerUpgradeText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '800',
+        letterSpacing: 0.3,
     },
     addButton: {
         padding: 5,
@@ -1187,6 +1334,57 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginBottom: 15,
     },
+    premiumBanner: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        borderRadius: 16,
+        overflow: 'hidden',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+    },
+    premiumBannerGradient: {
+        padding: 16,
+    },
+    premiumBannerContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    premiumBannerTextGroup: {
+        flex: 1,
+        marginRight: 12,
+    },
+    premiumBannerHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+        gap: 6,
+    },
+    premiumBannerTitle: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#fff',
+    },
+    premiumBannerDesc: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#E0E7FF',
+        opacity: 0.9,
+    },
+    premiumBannerBadge: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+    },
+    premiumBannerBadgeText: {
+        color: '#1E3A8A',
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
     bannerCta: {
         backgroundColor: '#fff',
         flexDirection: 'row',
@@ -1200,7 +1398,7 @@ const styles = StyleSheet.create({
     },
     bannerCtaText: {
         color: '#1E3A8A',
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         fontSize: 14,
     },
     card: {
@@ -1228,12 +1426,13 @@ const styles = StyleSheet.create({
     },
     cardTitle: {
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 4,
     },
     cardMeta: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     cardActions: {
@@ -1425,74 +1624,18 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
     },
-    phoneDropdownBtn: {
+    subscriptionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
+        padding: 12,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(56, 189, 248, 0.3)',
-        gap: 8,
+        marginTop: 16,
+        marginBottom: 8,
     },
-    phoneDropdownText: {
-        fontSize: 13,
+    subscriptionBtnText: {
+        fontSize: 15,
         fontWeight: '600',
-        color: Theme.colors.accent,
-    },
-    phoneDropdownContent: {
-        backgroundColor: 'rgba(0,0,0,0.02)',
-        paddingHorizontal: 16,
-        paddingBottom: 8,
-    },
-    phoneItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderBottomWidth: 0.5,
-        borderBottomColor: Theme.colors.border,
-    },
-    phoneItemText: {
-        fontSize: 14,
-        color: Theme.colors.textPrimary,
-        fontWeight: '500',
-    },
-    addPhoneForm: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingVertical: 12,
-    },
-    addPhoneInput: {
-        flex: 1,
-        fontSize: 14,
-        color: Theme.colors.textPrimary,
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    addPhoneBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 12,
-        marginTop: 4,
-    },
-    addPhoneBtnText: {
-        fontSize: 14,
-        color: Theme.colors.accent,
-        fontWeight: '600',
-    },
-    phoneActions: {
-        flexDirection: 'row',
-        gap: 12,
-        alignItems: 'center',
     },
     infoLabel: {
         fontSize: 14,
@@ -1575,6 +1718,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    premiumTabItem: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ scale: 1.1 }],
+    },
     tabLabel: {
         fontSize: 12,
         color: Theme.colors.textSecondary,
@@ -1607,104 +1755,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
     },
-    // Modal & Popup Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 24,
-    },
-    popupContainer: {
-        backgroundColor: Theme.colors.card,
-        borderRadius: 24,
-        width: '100%',
-        maxWidth: 340,
-        position: 'relative',
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-        elevation: 15,
-    },
-    closePopupBtn: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        padding: 8,
-        zIndex: 10,
-    },
-    popupContent: {
-        padding: 30,
-        alignItems: 'center',
-    },
-    popupIconCircle: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 20,
-        shadowColor: '#25D366',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    popupBadge: {
-        backgroundColor: 'rgba(37, 211, 102, 0.1)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-        marginBottom: 12,
-    },
-    popupBadgeText: {
-        color: '#25D366',
-        fontSize: 11,
-        fontWeight: 'bold',
-        letterSpacing: 0.5,
-    },
-    popupTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: Theme.colors.textPrimary,
-        textAlign: 'center',
-        marginBottom: 12,
-    },
-    popupDesc: {
-        fontSize: 15,
-        color: Theme.colors.textSecondary,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 24,
-    },
-    popupCta: {
-        backgroundColor: Theme.colors.accent,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 24,
-        borderRadius: 14,
-        width: '100%',
-        gap: 8,
-        marginBottom: 12,
-    },
-    popupCtaText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 16,
-    },
-    popupSecondaryBtn: {
-        paddingVertical: 10,
-    },
-    popupSecondaryBtnText: {
-        color: Theme.colors.textSecondary,
-        fontSize: 14,
-        fontWeight: '600',
-    },
     // Design Studio Styles
     designTabNav: {
         flexDirection: 'row',
@@ -1726,7 +1776,7 @@ const styles = StyleSheet.create({
     },
     designTabLabel: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
     },
     designTabLabelActive: {
@@ -1757,12 +1807,13 @@ const styles = StyleSheet.create({
     },
     activeDesignTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 4,
     },
     activeDesignStatus: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     editDesignBtn: {
@@ -1785,7 +1836,7 @@ const styles = StyleSheet.create({
     },
     uploadTitleSmall: {
         fontSize: 15,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
     },
     themesGrid: {
@@ -1815,7 +1866,7 @@ const styles = StyleSheet.create({
     },
     themeName: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         flex: 1,
         marginRight: 8,
@@ -1827,6 +1878,7 @@ const styles = StyleSheet.create({
     },
     emptySubText: {
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textAlign: 'center',
         marginTop: 8,
@@ -1851,13 +1903,156 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textSecondary,
         textTransform: 'uppercase',
     },
     useThemeBtnDisabled: {
         opacity: 0.5,
         backgroundColor: Theme.colors.border,
+    },
+    // Upload Bottom Sheet Styles
+    bottomSheetOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        justifyContent: 'flex-end',
+    },
+    bottomSheetBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    uploadBottomSheet: {
+        backgroundColor: Theme.colors.secondary,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingTop: 12,
+        paddingHorizontal: 24,
+        paddingBottom: 40,
+        maxHeight: '90%',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 25,
+    },
+    dragHandle: {
+        width: 40,
+        height: 5,
+        backgroundColor: Theme.colors.border,
+        borderRadius: 2.5,
+        alignSelf: 'center',
+        marginBottom: 20,
+    },
+    uploadModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    uploadModalTitle: {
+        fontSize: 22,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        letterSpacing: -0.5,
+    },
+    closeBtnSmall: {
+        padding: 8,
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    uploadModalBody: {
+        maxHeight: 400,
+    },
+    uploadPreviewWrapper: {
+        width: '100%',
+        height: 200,
+        borderRadius: 20,
+        overflow: 'hidden',
+        marginBottom: 24,
+        backgroundColor: Theme.colors.primary,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    uploadPreviewImage: {
+        width: '100%',
+        height: '100%',
+    },
+    previewOverlay: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    previewTag: {
+        color: '#fff',
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        letterSpacing: 1,
+    },
+    uploadInputGroup: {
+        marginBottom: 24,
+    },
+    uploadInputLabel: {
+        fontSize: 11,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textSecondary,
+        marginBottom: 10,
+        letterSpacing: 1,
+    },
+    styledInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        height: 56,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    styledInput: {
+        flex: 1,
+        fontSize: 16,
+        color: Theme.colors.textPrimary,
+        fontFamily: Theme.fonts.outfit.medium,
+    },
+    inputHint: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+        marginTop: 8,
+        fontStyle: 'italic',
+        fontFamily: Theme.fonts.outfit.regular,
+    },
+    uploadModalFooter: {
+        marginTop: 8,
+    },
+    uploadSubmitBtnFull: {
+        backgroundColor: Theme.colors.accent,
+        height: 56,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        shadowColor: Theme.colors.accent,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    uploadSubmitBtnDisabled: {
+        opacity: 0.6,
+        backgroundColor: Theme.colors.border,
+    },
+    uploadSubmitBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
     },
     // Pinterest Style Grid
     pinterestGrid: {
@@ -1889,7 +2084,7 @@ const styles = StyleSheet.create({
     },
     pinTitle: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 6,
         lineHeight: 20,
@@ -1916,13 +2111,147 @@ const styles = StyleSheet.create({
     },
     pinAvatarText: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textSecondary,
     },
     pinAuthorName: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         flex: 1,
+    },
+    promoOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    promoContainer: {
+        width: '100%',
+        maxWidth: 360,
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 28,
+        overflow: 'hidden',
+        elevation: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 15 },
+        shadowOpacity: 0.6,
+        shadowRadius: 25,
+    },
+    promoCloseBtn: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        zIndex: 100,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        borderRadius: 20,
+        padding: 6,
+    },
+    promoHeader: {
+        padding: 35,
+        alignItems: 'center',
+    },
+    promoIconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(245, 158, 11, 0.3)',
+    },
+    promoTitle: {
+        fontSize: 26,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#fff',
+        textAlign: 'center',
+        marginBottom: 8,
+    },
+    promoSubtitle: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: 'rgba(255, 255, 255, 0.7)',
+        textAlign: 'center',
+    },
+    promoBody: {
+        padding: 24,
+        backgroundColor: Theme.colors.primary,
+    },
+    promoFeatureRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    promoFeatureIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.secondary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
+    },
+    promoFeatureText: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textPrimary,
+    },
+    promoMainBtn: {
+        marginTop: 24,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    promoBtnGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 18,
+        gap: 10,
+    },
+    promoMainBtnText: {
+        color: '#fff',
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    promoSecondaryBtn: {
+        marginTop: 15,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    promoSecondaryBtnText: {
+        color: Theme.colors.textSecondary,
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+    },
+    floatingProBadge: {
+        position: 'absolute',
+        bottom: 25,
+        left: 25,
+        zIndex: 100,
+        shadowColor: '#f59e0b',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 10,
+    },
+    proBadgeGradient: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 20,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    proBadgeText: {
+        color: '#fff',
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.bold,
+        letterSpacing: 1,
     },
 });
 

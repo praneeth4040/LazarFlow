@@ -9,7 +9,7 @@ export const extractTeamsFromText = async (text) => {
     console.log('🔍 Calling team extraction API...');
 
     try {
-        const response = await apiClient.post('/extract-teams', { text });
+        const response = await apiClient.post('/api/ai/extract-teams', { text });
 
         // Log the raw response for debugging
         console.log('🔍 Raw API Response:', response.data);

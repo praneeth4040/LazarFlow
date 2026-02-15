@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
 import { Theme } from '../styles/theme';
 
 const LoginScreen = ({ navigation }) => {
@@ -18,21 +18,14 @@ const LoginScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
+            const data = await authService.login(email, password);
 
-            if (error) throw error;
-
-            if (data.user) {
-                if (data.session) {
-                    // The onAuthStateChange listener in AppNavigator will handle navigation
-                    console.log('✅ Login successful, session established');
-                }
+            if (data.user || data.session) {
+                // The onAuthStateChange listener in AppNavigator will handle navigation
+                console.log('✅ Login successful, session established');
             }
         } catch (error) {
-            Alert.alert('Login Failed', error.message || 'An error occurred');
+            Alert.alert('Login Failed', error.response?.data?.error || error.response?.data?.message || error.message || 'An error occurred');
         } finally {
             setLoading(false);
         }
@@ -49,6 +42,7 @@ const LoginScreen = ({ navigation }) => {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.header}>
+                    <Text style={styles.topBadge}>LOGIN</Text>
                     <Image
                         source={require('../../assets/logo.png')}
                         style={styles.logo}
@@ -137,8 +131,20 @@ const styles = StyleSheet.create({
         backgroundColor: Theme.colors.secondary,
     },
     header: {
-        marginBottom: 40,
+        marginBottom: 30,
         alignItems: 'center',
+    },
+    topBadge: {
+        backgroundColor: Theme.colors.accent + '20',
+        color: Theme.colors.accent,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+        fontSize: 12,
+        fontWeight: '800',
+        letterSpacing: 1,
+        marginBottom: 16,
+        overflow: 'hidden',
     },
     logo: {
         width: 80,
@@ -179,7 +185,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
         marginLeft: 4,
@@ -201,6 +207,7 @@ const styles = StyleSheet.create({
         flex: 1,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     button: {
         backgroundColor: Theme.colors.accent,
@@ -224,12 +231,12 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     forgotPasswordText: {
         color: Theme.colors.accent,
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     footer: {
         flexDirection: 'row',
@@ -240,11 +247,12 @@ const styles = StyleSheet.create({
     footerText: {
         color: Theme.colors.textSecondary,
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     footerLink: {
         color: Theme.colors.accent,
         fontSize: 15,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
 });
 

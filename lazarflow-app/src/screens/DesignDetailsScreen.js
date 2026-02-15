@@ -12,13 +12,13 @@ const DesignDetailsScreen = ({ route, navigation }) => {
     const { theme } = route.params;
     const [applying, setApplying] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
-    const [tournaments, setTournaments] = useState([]);
-    const [loadingTournaments, setLoadingTournaments] = useState(false);
+    const [lobbies, setLobbies] = useState([]);
+    const [loadingLobbies, setLoadingLobbies] = useState(false);
 
     const imageSource = getDesignImageSource(theme);
 
     const handleUseDesign = () => {
-        Alert.alert('Coming Soon', 'The ability to apply designs directly to your tournaments is coming soon!');
+        Alert.alert('Coming Soon', 'The ability to apply designs directly to your lobbies is coming soon!');
     };
 
     return (
@@ -63,7 +63,12 @@ const DesignDetailsScreen = ({ route, navigation }) => {
                 {/* Content Section */}
                 <View style={styles.contentContainer}>
                     <View style={styles.titleSection}>
-                        <Text style={styles.title}>{theme.name || 'Untitled Design'}</Text>
+                        <View style={styles.titleHeaderRow}>
+                            <Text style={styles.title}>{theme.name || 'Untitled Design'}</Text>
+                            <View style={styles.designIdBadge}>
+                                <Text style={styles.designIdText}>ID: {theme.id?.slice(0, 8)}</Text>
+                            </View>
+                        </View>
                         <View style={styles.authorRow}>
                             <View style={styles.avatar}>
                                 <Text style={styles.avatarText}>{(theme.author || 'C').charAt(0).toUpperCase()}</Text>
@@ -75,12 +80,12 @@ const DesignDetailsScreen = ({ route, navigation }) => {
                     <View style={styles.descriptionSection}>
                         <Text style={styles.sectionTitle}>About this Design</Text>
                         <Text style={styles.description}>
-                            {theme.description || 'A professional tournament standings layout designed for esports competitions. Features a clean look with high readability for live streams and social media posts.'}
+                            {theme.description || 'A professional lobby standings layout designed for esports competitions. Features a clean look with high readability for live streams and social media posts.'}
                         </Text>
                     </View>
 
                     <View style={styles.tagsSection}>
-                        {['Esports', 'Tournament', 'Standings', 'Clean'].map((tag, index) => (
+                        {['Esports', 'Lobby', 'Standings', 'Clean'].map((tag, index) => (
                             <View key={index} style={styles.tag}>
                                 <Text style={styles.tagText}>#{tag}</Text>
                             </View>
@@ -179,9 +184,29 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 28,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
+        flex: 1,
+    },
+    titleHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
         marginBottom: 12,
+        gap: 12,
+    },
+    designIdBadge: {
+        backgroundColor: 'rgba(26, 115, 232, 0.08)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        marginTop: 6,
+    },
+    designIdText: {
+        fontSize: 10,
+        color: Theme.colors.accent,
+        fontFamily: Theme.fonts.monospace,
+        letterSpacing: 0.5,
     },
     authorRow: {
         flexDirection: 'row',
@@ -198,25 +223,26 @@ const styles = StyleSheet.create({
     },
     avatarText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         fontSize: 14,
     },
     authorName: {
         fontSize: 16,
         color: Theme.colors.textSecondary,
-        fontWeight: '500',
+        fontFamily: Theme.fonts.outfit.medium,
     },
     descriptionSection: {
         marginBottom: 24,
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 12,
     },
     description: {
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         lineHeight: 24,
     },
@@ -237,6 +263,7 @@ const styles = StyleSheet.create({
     tagText: {
         color: Theme.colors.textSecondary,
         fontSize: 13,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     bottomBar: {
         position: 'absolute',
@@ -267,7 +294,7 @@ const styles = StyleSheet.create({
     useButtonText: {
         color: '#fff',
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     modalOverlay: {
         flex: 1,
@@ -289,18 +316,19 @@ const styles = StyleSheet.create({
     },
     modalTitle: {
         fontSize: 20,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     modalSubtitle: {
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginBottom: 20,
     },
-    tournamentList: {
+    lobbyList: {
         paddingBottom: 40,
     },
-    tournamentItem: {
+    lobbyItem: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Theme.colors.card,
@@ -310,7 +338,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Theme.colors.border,
     },
-    tournamentIcon: {
+    lobbyIcon: {
         width: 40,
         height: 40,
         borderRadius: 20,
@@ -319,17 +347,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginRight: 16,
     },
-    tournamentInfo: {
+    lobbyInfo: {
         flex: 1,
     },
-    tournamentName: {
+    lobbyName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 4,
     },
-    tournamentGame: {
+    lobbyGame: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
 });

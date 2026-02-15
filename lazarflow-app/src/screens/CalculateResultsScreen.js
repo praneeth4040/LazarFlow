@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
+import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { getLobby, getLobbyTeams, updateTeam, batchUpdateTeams, batchUpdateTeamMembers } from '../lib/dataService';
 import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
-import { extractResultsFromScreenshot } from '../lib/aiResultExtraction';
+import { extractResultsFromScreenshot, processLobbyScreenshots } from '../lib/aiResultExtraction';
 import { fuzzyMatch, fuzzyMatchName } from '../lib/aiUtils';
+import { useSubscription } from '../hooks/useSubscription';
 
 const CalculateResultsScreen = ({ route, navigation }) => {
-    const { tournament } = route.params || {};
+    const { canUseAI, tier } = useSubscription();
+    const [lobby, setLobby] = useState(route.params?.lobby || {});
     const [mode, setMode] = useState('manual');
     const [teams, setTeams] = useState([]);
     const [results, setResults] = useState([]);
@@ -23,30 +25,65 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [mappings, setMappings] = useState({}); // { [rank]: registeredTeamId }
     const [selectedAiTeam, setSelectedAiTeam] = useState(null);
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
+    const [selectedSlotIndex, setSelectedSlotIndex] = useState(null);
+
+    const handleUpdateSlotMapping = (slotIndex, teamId) => {
+        const updatedSlots = [...processedSlots];
+        updatedSlots[slotIndex].mappedTeamId = teamId;
+        setProcessedSlots(updatedSlots);
+    };
+
+    const handleSaveSlotMappings = async () => {
+        setSubmitting(true);
+        try {
+            const updates = [];
+            for (const slot of processedSlots) {
+                if (slot.mappedTeamId) {
+                    updates.push({
+                        id: slot.mappedTeamId,
+                        members: slot.players
+                    });
+                }
+            }
+
+            if (updates.length > 0) {
+                // Use the dedicated batch endpoint for updating members
+                await batchUpdateTeamMembers(lobby.id, updates);
+                
+                Alert.alert('Success', 'Team members updated successfully!');
+                setShowSlotMapping(false);
+                fetchLobbyData();
+            }
+        } catch (err) {
+            console.error('Error saving slot mappings:', err);
+            Alert.alert('Error', 'Failed to save team member mappings');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+    
+    // AI Workflow Steps
+    const [aiStep, setAiStep] = useState(1);
+    const [lobbyImages, setLobbyImages] = useState([]);
+    const [processingLobby, setProcessingLobby] = useState(false);
+    const [lobbyStepExpanded, setLobbyStepExpanded] = useState(true);
+    const [resultsStepExpanded, setResultsStepExpanded] = useState(false);
+    const [processedSlots, setProcessedSlots] = useState([]); // [{ slot: 1, players: [], mappedTeamId: null }]
+    const [showSlotMapping, setShowSlotMapping] = useState(false);
 
     useEffect(() => {
-        if (tournament?.id) {
-            fetchTournamentData();
+        if (lobby?.id) {
+            fetchLobbyData();
         }
-    }, [tournament?.id]);
+    }, [lobby?.id]);
 
-    const fetchTournamentData = async () => {
+    const fetchLobbyData = async () => {
         setLoading(true);
         try {
-            const { data: tData, error: tError } = await supabase
-                .from('tournaments')
-                .select('id, name, game, points_system, kill_points')
-                .eq('id', tournament?.id)
-                .single();
+            const tData = await getLobby(lobby?.id);
+            setLobby(tData);
 
-            if (tError) throw tError;
-            setTournament(tData);
-
-            const { data, error } = await supabase
-                .from('tournament_teams')
-                .select('id, team_name, members, total_points')
-                .eq('tournament_id', tournament.id);
-            if (error) throw error;
+            const data = await getLobbyTeams(lobby.id);
             setTeams(data || []);
         } catch (err) {
             Alert.alert('Error', 'Failed to fetch teams');
@@ -85,12 +122,12 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         const val = (field === 'kills' || field === 'position') ? parseInt(value) || 0 : value;
         updatedResults[index][field] = val;
 
-        if (field === 'position' && tournament.points_system) {
-            const pointsEntry = tournament.points_system.find(p => p.placement === val);
+        if (field === 'position' && lobby.points_system) {
+            const pointsEntry = lobby.points_system.find(p => p.placement === val);
             updatedResults[index].placement_points = pointsEntry ? pointsEntry.points : 0;
         }
 
-        updatedResults[index].kill_points = updatedResults[index].kills * (tournament.kill_points || 0);
+        updatedResults[index].kill_points = updatedResults[index].kills * (lobby.kill_points || 0);
         updatedResults[index].total_points = (updatedResults[index].placement_points || 0) + (updatedResults[index].kill_points || 0);
         setResults(updatedResults);
     };
@@ -105,7 +142,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         updatedResults[resultIndex].kills = totalMemberKills;
 
         // Re-calculate points
-        updatedResults[resultIndex].kill_points = totalMemberKills * (tournament.kill_points || 0);
+        updatedResults[resultIndex].kill_points = totalMemberKills * (lobby.kill_points || 0);
         updatedResults[resultIndex].total_points = (updatedResults[resultIndex].placement_points || 0) + (updatedResults[resultIndex].kill_points || 0);
 
         setResults(updatedResults);
@@ -115,7 +152,85 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         setResults(results.filter((_, i) => i !== index));
     };
 
+    const handlePickLobbyImages = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            quality: 0.8,
+        });
+
+        if (!result.canceled) {
+            setLobbyImages([...lobbyImages, ...result.assets]);
+        }
+    };
+
+    const handleRemoveLobbyImage = (index) => {
+        setLobbyImages(lobbyImages.filter((_, i) => i !== index));
+    };
+
+    const handleProcessLobby = async () => {
+        if (lobbyImages.length === 0) {
+            Alert.alert('Error', 'Please select lobby screenshots first');
+            return;
+        }
+        
+        setProcessingLobby(true);
+        try {
+            const data = await processLobbyScreenshots(lobbyImages, lobby.id);
+            
+            // The API returns an array of teams/slots directly
+            const rawSlots = Array.isArray(data) ? data : (data.teams || []);
+            const isSuccess = rawSlots.length > 0 || data.success;
+            const teamsCount = rawSlots.length;
+            const displayMessage = data.message || `Successfully identified ${teamsCount} slots. You can now map them to teams.`;
+
+            if (isSuccess) {
+                // Map the slots and try to auto-match with registered teams based on slot position
+                const formattedSlots = rawSlots.map((item, index) => {
+                    const slotNum = item.team_number || item.slot || (index + 1);
+                    const players = (item.players || []).map(p => typeof p === 'object' ? p.name : p);
+                    
+                    // Auto-match with registered teams based on respective_slotlist_postion
+                    const matchedTeam = teams.find(t => t.respective_slotlist_postion === slotNum);
+
+                    return {
+                        slot: slotNum,
+                        players: players,
+                        mappedTeamId: matchedTeam ? matchedTeam.id : null
+                    };
+                });
+
+                setProcessedSlots(formattedSlots);
+                setShowSlotMapping(true);
+                setAiStep(2); // Still advance step but we'll show slot mapping
+                setLobbyStepExpanded(false);
+                setResultsStepExpanded(true);
+
+                Alert.alert('Lobby Processed', displayMessage);
+            } else {
+                throw new Error(data.message || 'Failed to process lobby');
+            }
+        } catch (err) {
+            console.error('Lobby Process Error:', err);
+            Alert.alert('Error', 'Failed to process lobby screenshots. Please try again or use manual mode.');
+        } finally {
+            setProcessingLobby(false);
+        }
+    };
+
     const handlePickImage = async () => {
+        if (!canUseAI && tier === 'free') {
+            Alert.alert(
+                'AI Limit Reached',
+                'You have reached your free AI extraction limit for this month. Upgrade to continue using AI features!',
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') }
+                ]
+            );
+            return;
+        }
+
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
@@ -130,57 +245,62 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const handleAIUpload = async (imageAssets) => {
         setExtracting(true);
         try {
-            const extracted = await extractResultsFromScreenshot(imageAssets);
+            // Pass lobby.id as the third argument
+            const extracted = await extractResultsFromScreenshot(imageAssets, {}, lobby.id);
 
             const initialMappings = {};
-            const candidateMatches = {};
 
-            console.log(`🤖 Starting auto-mapping for ${extracted.length} ranks against ${teams.length} teams...`);
+            // Only perform auto-mapping if lobby has been processed (Step 1 completed) or teams already have members
+            const hasExistingMembers = teams.some(t => t.members && t.members.length > 0);
+            if (processedSlots.length > 0 || hasExistingMembers) {
+                const candidateMatches = {};
+                console.log(`🤖 Starting auto-mapping for ${extracted.length} ranks against ${teams.length} teams...`);
 
-            extracted.forEach(res => {
-                let bestTeamId = null;
-                let bestScore = 0;
+                extracted.forEach(res => {
+                    let bestTeamId = null;
+                    let bestScore = 0;
 
-                teams.forEach(registeredTeam => {
-                    const teamMembers = registeredTeam.members || [];
-                    if (teamMembers.length === 0) return;
+                    teams.forEach(registeredTeam => {
+                        const teamMembers = registeredTeam.members || [];
+                        if (teamMembers.length === 0) return;
 
-                    let matchedPlayersCount = 0;
-                    let totalSim = 0;
+                        let matchedPlayersCount = 0;
+                        let totalSim = 0;
 
-                    res.players.forEach(aiPlayer => {
-                        const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.75);
-                        if (pMatch) {
-                            matchedPlayersCount++;
-                            totalSim += pMatch.score;
+                        res.players.forEach(aiPlayer => {
+                            const pMatch = fuzzyMatchName(aiPlayer.name, teamMembers, 0.75);
+                            if (pMatch) {
+                                matchedPlayersCount++;
+                                totalSim += pMatch.score;
+                            }
+                        });
+
+                        if (matchedPlayersCount >= 2) {
+                            const avgSim = totalSim / matchedPlayersCount;
+                            const score = (matchedPlayersCount * 10) + avgSim;
+
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestTeamId = registeredTeam.id;
+                            }
                         }
                     });
 
-                    if (matchedPlayersCount >= 2) {
-                        const avgSim = totalSim / matchedPlayersCount;
-                        const score = (matchedPlayersCount * 10) + avgSim;
-
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestTeamId = registeredTeam.id;
+                    if (bestTeamId) {
+                        const existingClaim = candidateMatches[bestTeamId];
+                        if (!existingClaim || bestScore > existingClaim.score) {
+                            candidateMatches[bestTeamId] = {
+                                rank: res.rank,
+                                score: bestScore
+                            };
                         }
                     }
                 });
 
-                if (bestTeamId) {
-                    const existingClaim = candidateMatches[bestTeamId];
-                    if (!existingClaim || bestScore > existingClaim.score) {
-                        candidateMatches[bestTeamId] = {
-                            rank: res.rank,
-                            score: bestScore
-                        };
-                    }
-                }
-            });
-
-            Object.entries(candidateMatches).forEach(([teamId, data]) => {
-                initialMappings[data.rank] = teamId;
-            });
+                Object.entries(candidateMatches).forEach(([teamId, data]) => {
+                    initialMappings[data.rank] = teamId;
+                });
+            }
 
             setAiResults(extracted);
             setMappings(initialMappings);
@@ -201,9 +321,9 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             if (!team) return null;
 
             const pos = parseInt(res.rank);
-            const pointsEntry = tournament.points_system.find(p => p.placement === pos);
+            const pointsEntry = lobby.points_system.find(p => p.placement === pos);
             const placementPoints = pointsEntry ? pointsEntry.points : 0;
-            const killPoints = (res.kills || 0) * (tournament.kill_points || 0);
+            const killPoints = (res.kills || 0) * (lobby.kill_points || 0);
 
             return {
                 team_id: team.id,
@@ -236,6 +356,8 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
         setSubmitting(true);
         try {
+            const updates = [];
+            
             for (const result of results) {
                 const team = teams.find(t => t.id === result.team_id);
                 if (!team) continue;
@@ -248,53 +370,15 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
                 };
 
-                // Initialize current members as objects
-                let currentMembers = (team.members || []).map(m => {
-                    return typeof m === 'object' ? {
-                        name: m.name || '',
-                        kills: parseInt(m.kills) || 0,
-                        matches_played: parseInt(m.matches_played) || 0,
-                        wwcd: parseInt(m.wwcd) || 0
-                    } : { name: m, kills: 0, matches_played: 0, wwcd: 0 };
+                // Add to batch updates
+                updates.push({
+                    id: team.id,
+                    total_points: newStats
                 });
+            }
 
-                const resultMembers = result.members || [];
-                const seenInCurrentMatch = new Set();
-
-                for (const rm of resultMembers) {
-                    const pMatch = fuzzyMatchName(rm.name, currentMembers, 0.75);
-
-                    if (pMatch) {
-                        const mIdx = currentMembers.findIndex(m => m.name === pMatch.member.name);
-                        if (mIdx !== -1 && !seenInCurrentMatch.has(mIdx)) {
-                            currentMembers[mIdx] = {
-                                ...currentMembers[mIdx],
-                                kills: (currentMembers[mIdx].kills || 0) + (parseInt(rm.kills) || 0),
-                                matches_played: (currentMembers[mIdx].matches_played || 0) + 1,
-                                wwcd: (currentMembers[mIdx].wwcd || 0) + (parseInt(result.position) === 1 ? 1 : 0)
-                            };
-                            seenInCurrentMatch.add(mIdx);
-                        }
-                    } else {
-                        // Roster learning
-                        currentMembers.push({
-                            name: rm.name,
-                            kills: parseInt(rm.kills) || 0,
-                            matches_played: 1,
-                            wwcd: (parseInt(result.position) === 1 ? 1 : 0)
-                        });
-                    }
-                }
-
-                const { error } = await supabase
-                    .from('tournament_teams')
-                    .update({
-                        total_points: newStats,
-                        members: currentMembers
-                    })
-                    .eq('id', result.team_id);
-
-                if (error) throw error;
+            if (updates.length > 0) {
+                await batchUpdateTeams(lobby.id, updates);
             }
 
             Alert.alert('Success', 'Results submitted successfully!', [
@@ -320,7 +404,12 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
                 <View style={styles.headerInfo}>
                     <Text style={styles.headerTitle}>Calculate Results</Text>
-                    <Text style={styles.headerSubtitle} numberOfLines={1}>{tournament?.name}</Text>
+                    <View style={styles.headerSubtitleRow}>
+                        <Text style={styles.headerSubtitle} numberOfLines={1}>{lobby?.name}</Text>
+                        <View style={styles.lobbyIdBadge}>
+                            <Text style={styles.lobbyIdText}>{lobby?.id?.slice(0, 8)}</Text>
+                        </View>
+                    </View>
                 </View>
                 <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting || results.length === 0}>
                     {submitting ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={[styles.submitBtnText, results.length === 0 && { opacity: 0.5 }]}>Submit</Text>}
@@ -369,6 +458,73 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                 <ActivityIndicator size="large" color={Theme.colors.accent} />
                                 <Text style={styles.extractingText}>AI is analyzing screenshots...</Text>
                             </View>
+                        ) : showSlotMapping ? (
+                            <View style={styles.mappingSection}>
+                                <View style={styles.mappingHeader}>
+                                    <Text style={styles.mappingTitle}>Lobby Slot Mapping</Text>
+                                    <Text style={styles.mappingSubtitle}>Map extracted slots to registered teams</Text>
+                                </View>
+
+                                {processedSlots.map((item, index) => (
+                                    <View key={index} style={styles.slotCard}>
+                                        <View style={styles.slotHeader}>
+                                            <Text style={styles.slotLabel}>SLOT {item.slot}</Text>
+                                        </View>
+                                        
+                                        <View style={styles.slotBody}>
+                                            <Text style={styles.slotFieldLabel}>TEAM:</Text>
+                                            <TouchableOpacity 
+                                                style={styles.slotPicker}
+                                                onPress={() => {
+                                                    setSelectedSlotIndex(index);
+                                                    setMappingModalVisible(true);
+                                                }}
+                                            >
+                                                <Text style={[
+                                                    styles.slotPickerText,
+                                                    !item.mappedTeamId && { color: Theme.colors.textSecondary }
+                                                ]}>
+                                                    {teams.find(t => t.id === item.mappedTeamId)?.team_name || 'Select Team'}
+                                                </Text>
+                                                <ChevronDown size={18} color={Theme.colors.textSecondary} />
+                                            </TouchableOpacity>
+
+                                            <Text style={styles.slotFieldLabel}>PLAYERS:</Text>
+                                            <View style={styles.slotPlayerList}>
+                                                {item.players && item.players.length > 0 ? (
+                                                    item.players.map((p, pIdx) => (
+                                                        <View key={pIdx} style={styles.playerBadge}>
+                                                            <Target size={12} color={Theme.colors.textSecondary} style={{ marginRight: 4 }} />
+                                                            <Text style={styles.playerBadgeText}>{p}</Text>
+                                                        </View>
+                                                    ))
+                                                ) : (
+                                                    <Text style={styles.noPlayersText}>No players identified</Text>
+                                                )}
+                                            </View>
+                                        </View>
+                                    </View>
+                                ))}
+
+                                <TouchableOpacity 
+                                    style={[styles.applyBtn, submitting && styles.disabledBtn]} 
+                                    onPress={handleSaveSlotMappings}
+                                    disabled={submitting}
+                                >
+                                    {submitting ? (
+                                        <ActivityIndicator size="small" color="#fff" />
+                                    ) : (
+                                        <>
+                                            <Save size={20} color="#fff" />
+                                            <Text style={styles.applyBtnText}>Save Mappings</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowSlotMapping(false)}>
+                                    <Text style={styles.cancelBtnText}>Go Back</Text>
+                                </TouchableOpacity>
+                            </View>
                         ) : showMapping ? (
                             <View style={styles.mappingSection}>
                                 <View style={styles.mappingHeader}>
@@ -380,7 +536,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         <View style={styles.aiTeamInfo}>
                                             <View style={styles.aiTeamHeader}>
                                                 <Text style={styles.aiTeamLabel}>AI Found:</Text>
-                                                <Text style={styles.aiTeamStats}>Rank #{res.rank} • {res.kills} kills</Text>
+                                                <Text style={[styles.aiTeamStats, { fontFamily: Theme.fonts.monospace }]}>Rank #{res.rank} • {res.kills} kills</Text>
                                             </View>
                                             <Text style={styles.aiTeamName}>{res.team_name}</Text>
 
@@ -389,7 +545,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                                     {res.players.map((p, pIdx) => (
                                                         <View key={pIdx} style={styles.aiPlayerItem}>
                                                             <Text style={styles.aiPlayerName}>{p.name}</Text>
-                                                            <Text style={styles.aiPlayerKills}>{p.kills}k</Text>
+                                                            <Text style={[styles.aiPlayerKills, { fontFamily: Theme.fonts.monospace }]}>{p.kills}k</Text>
                                                         </View>
                                                     ))}
                                                 </View>
@@ -417,25 +573,125 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                                 ]}>
                                                     {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team'}
                                                 </Text>
+                                                <ChevronDown size={16} color={Theme.colors.textSecondary} />
                                             </TouchableOpacity>
                                         </View>
                                     </View>
                                 ))}
-                                <View style={styles.mappingActions}>
-                                    <TouchableOpacity style={styles.cancelMappingBtn} onPress={() => setShowMapping(false)}>
-                                        <Text style={styles.cancelMappingText}>Cancel</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.applyMappingBtn} onPress={handleApplyMapping}>
-                                        <Text style={styles.applyMappingText}>Apply Results</Text>
-                                    </TouchableOpacity>
-                                </View>
+
+                                <TouchableOpacity style={styles.applyBtn} onPress={handleApplyMapping}>
+                                    <Check size={20} color="#fff" />
+                                    <Text style={styles.applyBtnText}>Apply Results</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowMapping(false)}>
+                                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                                </TouchableOpacity>
                             </View>
                         ) : (
-                            <TouchableOpacity style={styles.uploadCard} onPress={handlePickImage}>
-                                <Upload size={48} color={Theme.colors.accent} />
-                                <Text style={styles.uploadTitle}>Upload Screenshot</Text>
-                                <Text style={styles.uploadSubtitle}>AI will auto-fill the standings from Free Fire / BGMI shots</Text>
-                            </TouchableOpacity>
+                            <View style={styles.workflowContainer}>
+                                <View style={styles.workflowHeader}>
+                                    <Sparkles size={24} color={Theme.colors.accent} />
+                                    <Text style={styles.workflowTitle}>LexiView AI Workflow</Text>
+                                </View>
+
+                                {/* Step 1: Process Lobby */}
+                                <View style={[styles.stepCard, lobbyStepExpanded && styles.activeStepCard]}>
+                                    <TouchableOpacity 
+                                        style={styles.stepHeader}
+                                        onPress={() => setLobbyStepExpanded(!lobbyStepExpanded)}
+                                    >
+                                        <View style={styles.stepHeaderLeft}>
+                                            <View style={[styles.stepBadge, styles.activeStepBadge]}>
+                                                <Text style={styles.stepBadgeText}>1</Text>
+                                            </View>
+                                            <View>
+                                                <Text style={styles.stepTitle}>Process Lobby</Text>
+                                                <Text style={styles.stepDescription}>Extract teams & members from lobby</Text>
+                                            </View>
+                                        </View>
+                                        <View style={styles.stepHeaderRight}>
+                                            {(processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0)) && (
+                                                <Check size={16} color="#10b981" />
+                                            )}
+                                            {lobbyStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
+                                        </View>
+                                    </TouchableOpacity>
+
+                                    {lobbyStepExpanded && (
+                                        <View style={styles.stepContent}>
+                                            <View style={styles.imageGrid}>
+                                                {lobbyImages.map((img, idx) => (
+                                                    <View key={idx} style={styles.imagePreviewContainer}>
+                                                        <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+                                                        <TouchableOpacity 
+                                                            style={styles.removeImageBtn}
+                                                            onPress={() => handleRemoveLobbyImage(idx)}
+                                                        >
+                                                            <X size={12} color="#fff" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))}
+                                                <TouchableOpacity style={styles.addImageBtn} onPress={handlePickLobbyImages}>
+                                                    <Camera size={24} color={Theme.colors.textSecondary} />
+                                                    <Text style={styles.addImageText}>Add Lobby Screenshot</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                            
+                                            <TouchableOpacity 
+                                                style={[styles.processBtn, lobbyImages.length === 0 && styles.disabledBtn]}
+                                                onPress={handleProcessLobby}
+                                                disabled={processingLobby || lobbyImages.length === 0}
+                                            >
+                                                {processingLobby ? (
+                                                    <ActivityIndicator size="small" color="#fff" />
+                                                ) : (
+                                                    <>
+                                                        <Upload size={18} color="#fff" style={{ marginRight: 8 }} />
+                                                        <Text style={styles.processBtnText}>Process Lobby</Text>
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Step 2: Extract Results */}
+                                <View style={[styles.stepCard, resultsStepExpanded && styles.activeStepCard]}>
+                                    <TouchableOpacity 
+                                        style={styles.stepHeader}
+                                        onPress={() => setResultsStepExpanded(!resultsStepExpanded)}
+                                    >
+                                        <View style={styles.stepHeaderLeft}>
+                                            <View style={[styles.stepBadge, styles.activeStepBadge]}>
+                                                <Text style={styles.stepBadgeText}>2</Text>
+                                            </View>
+                                            <View>
+                                                <Text style={styles.stepTitle}>Extract Results</Text>
+                                                <Text style={styles.stepDescription}>Calculate points from result screens</Text>
+                                            </View>
+                                        </View>
+                                        {resultsStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
+                                    </TouchableOpacity>
+
+                                    {resultsStepExpanded && (
+                                        <View style={styles.stepContent}>
+                                            <TouchableOpacity style={styles.uploadMainBtn} onPress={handlePickImage}>
+                                                <Upload size={32} color={Theme.colors.accent} />
+                                                <Text style={styles.uploadMainTitle}>Upload Result Screenshots</Text>
+                                                <Text style={styles.uploadMainSubtitle}>Select multiple images for all ranks</Text>
+                                            </TouchableOpacity>
+                                            
+                                            <View style={styles.aiInstructions}>
+                                                <Text style={styles.instructionTitle}>Tips for better results:</Text>
+                                                <Text style={styles.instructionText}>• Ensure screenshots are clear and readable</Text>
+                                                <Text style={styles.instructionText}>• Include all ranks (1 to bottom)</Text>
+                                                <Text style={styles.instructionText}>• Avoid overlapping text or UI elements</Text>
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
                         )}
                     </View>
                 )}
@@ -523,17 +779,36 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
                         <View style={styles.aiSummary}>
                             <Text style={styles.aiSummaryLabel}>AI extracted data for:</Text>
-                            <Text style={styles.aiSummaryName}>{selectedAiTeam?.team_name}</Text>
-                            <Text style={styles.aiSummaryDetail}>#{selectedAiTeam?.rank} • {selectedAiTeam?.kills} kills</Text>
+                            {selectedSlotIndex !== null ? (
+                                <>
+                                    <Text style={styles.aiSummaryName}>SLOT {processedSlots[selectedSlotIndex]?.slot}</Text>
+                                    <Text style={styles.aiSummaryDetail}>{processedSlots[selectedSlotIndex]?.players?.length || 0} players identified</Text>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.aiSummaryName}>{selectedAiTeam?.team_name}</Text>
+                                    <Text style={styles.aiSummaryDetail}>#{selectedAiTeam?.rank} • {selectedAiTeam?.kills} kills</Text>
+                                </>
+                            )}
                         </View>
 
                         <Text style={styles.sectionLabel}>Select Registered Team</Text>
                         <ScrollView style={styles.teamOptionsList}>
                             {teams.map(team => {
-                                const isMappedToOther = Object.entries(mappings).some(
-                                    ([rank, registeredId]) => registeredId === team.id && parseInt(rank) !== selectedAiTeam?.rank
-                                );
-                                const isSelected = mappings[selectedAiTeam?.rank] === team.id;
+                                let isSelected = false;
+                                let isMappedToOther = false;
+
+                                if (selectedSlotIndex !== null) {
+                                    isSelected = processedSlots[selectedSlotIndex].mappedTeamId === team.id;
+                                    isMappedToOther = processedSlots.some(
+                                        (slot, idx) => slot.mappedTeamId === team.id && idx !== selectedSlotIndex
+                                    );
+                                } else {
+                                    isSelected = mappings[selectedAiTeam?.rank] === team.id;
+                                    isMappedToOther = Object.entries(mappings).some(
+                                        ([rank, registeredId]) => registeredId === team.id && parseInt(rank) !== selectedAiTeam?.rank
+                                    );
+                                }
 
                                 return (
                                     <TouchableOpacity
@@ -545,10 +820,14 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         ]}
                                         disabled={isMappedToOther}
                                         onPress={() => {
-                                            setMappings({
-                                                ...mappings,
-                                                [selectedAiTeam.rank]: team.id
-                                            });
+                                            if (selectedSlotIndex !== null) {
+                                                handleUpdateSlotMapping(selectedSlotIndex, team.id);
+                                            } else {
+                                                setMappings({
+                                                    ...mappings,
+                                                    [selectedAiTeam.rank]: team.id
+                                                });
+                                            }
                                             setMappingModalVisible(false);
                                         }}
                                     >
@@ -578,9 +857,13 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                         <TouchableOpacity
                             style={styles.clearMappingBtn}
                             onPress={() => {
-                                const newMappings = { ...mappings };
-                                delete newMappings[selectedAiTeam?.rank];
-                                setMappings(newMappings);
+                                if (selectedSlotIndex !== null) {
+                                    handleUpdateSlotMapping(selectedSlotIndex, null);
+                                } else {
+                                    const newMappings = { ...mappings };
+                                    delete newMappings[selectedAiTeam?.rank];
+                                    setMappings(newMappings);
+                                }
                                 setMappingModalVisible(false);
                             }}
                         >
@@ -614,12 +897,30 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     headerSubtitle: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
+        flexShrink: 1,
+    },
+    headerSubtitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    lobbyIdBadge: {
+        backgroundColor: 'rgba(26, 115, 232, 0.08)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    lobbyIdText: {
+        fontSize: 10,
+        color: Theme.colors.accent,
+        fontFamily: Theme.fonts.monospace,
     },
     submitBtn: {
         paddingHorizontal: 16,
@@ -627,7 +928,7 @@ const styles = StyleSheet.create({
     },
     submitBtnText: {
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         fontSize: 16,
     },
     modeTabs: {
@@ -650,7 +951,7 @@ const styles = StyleSheet.create({
     },
     modeTabText: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
     },
     modeTabTextActive: {
@@ -680,6 +981,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     searchResults: {
         position: 'absolute',
@@ -707,34 +1009,242 @@ const styles = StyleSheet.create({
     },
     searchItemName: {
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
     },
     aiUploadSection: {
         marginBottom: 20,
     },
-    uploadCard: {
+    workflowContainer: {
+        gap: 12,
+    },
+    workflowHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 12,
+        backgroundColor: 'rgba(26, 115, 232, 0.1)',
+        padding: 12,
+        borderRadius: 8,
+    },
+    workflowTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Theme.colors.accent,
+    },
+    stepCard: {
         backgroundColor: Theme.colors.primary,
-        borderWidth: 2,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        overflow: 'hidden',
+    },
+    activeStepCard: {
+        borderColor: Theme.colors.accent,
+        borderWidth: 1.5,
+    },
+    disabledStepCard: {
+        opacity: 0.6,
+    },
+    stepHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 16,
+    },
+    stepHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    stepHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    completedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#10b981', // Success green
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+    },
+    completedBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    stepBadge: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
+    uploadTitle: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    activeStepBadge: {
+        backgroundColor: Theme.colors.accent,
+    },
+    stepBadgeText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    stepTitle: {
+        fontSize: 15,
+        fontWeight: 'bold',
+
+        color: Theme.colors.textPrimary,
+    },
+    stepDescription: {
+        fontSize: 12,
+        color: Theme.colors.textSecondary,
+    },
+    stepContent: {
+        padding: 16,
+        paddingTop: 0,
+        borderTopWidth: 1,
+        borderTopColor: Theme.colors.border,
+        marginTop: 0,
+        paddingBottom: 20,
+    },
+    imageGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginVertical: 12,
+    },
+    imagePreviewContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 8,
+        overflow: 'hidden',
+        position: 'relative',
+    },
+    imagePreview: {
+        width: '100%',
+        height: '100%',
+    },
+    removeImageBtn: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 10,
+        padding: 4,
+    },
+    addImageBtn: {
+        width: 80,
+        height: 80,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 4,
+    },
+    addImageText: {
+        fontSize: 10,
+        color: Theme.colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    processBtn: {
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    disabledBtn: {
+        backgroundColor: Theme.colors.border,
+    },
+    processBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+
+        fontFamily: Theme.fonts.outfit.regular,
+
+    },
+    uploadMainBtn: {
+        backgroundColor: 'rgba(26, 115, 232, 0.05)',
+        borderWidth: 1,
         borderColor: Theme.colors.accent,
         borderStyle: 'dashed',
         borderRadius: 12,
-        padding: 30,
+        padding: 24,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
+        marginVertical: 12,
     },
-    uploadTitle: {
-        fontSize: 18,
+    uploadMainTitle: {
+        fontSize: 16,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
+        marginTop: 8,
     },
-    uploadSubtitle: {
-        fontSize: 14,
+    uploadMainSubtitle: {
+        fontSize: 12,
         color: Theme.colors.textSecondary,
+        marginTop: 4,
+    },
+    aiInstructions: {
+        backgroundColor: Theme.colors.secondary,
+        padding: 12,
+        borderRadius: 8,
+        marginTop: 8,
+    },
+    instructionTitle: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: Theme.colors.textPrimary,
+        marginBottom: 4,
+    },
+    instructionText: {
+        fontSize: 12,
+
+        color: Theme.colors.textSecondary,
+        marginBottom: 2,
+    },
+    applyBtn: {
+        backgroundColor: Theme.colors.accent,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 8,
+        marginTop: 16,
+        gap: 8,
+    },
+    applyBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 16,
+    },
+    cancelBtn: {
+        alignItems: 'center',
+        paddingVertical: 12,
+        marginTop: 8,
+    },
+    cancelBtnText: {
+        color: Theme.colors.textSecondary,
+        fontSize: 14,
     },
     sectionTitle: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 12,
     },
@@ -756,7 +1266,7 @@ const styles = StyleSheet.create({
     },
     resultTeamName: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     resultInputs: {
@@ -769,6 +1279,7 @@ const styles = StyleSheet.create({
     },
     inputLabel: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginBottom: 4,
     },
@@ -778,7 +1289,7 @@ const styles = StyleSheet.create({
         padding: 8,
         color: Theme.colors.textPrimary,
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         textAlign: 'center',
     },
     pointsDisplay: {
@@ -792,11 +1303,11 @@ const styles = StyleSheet.create({
     pointsLabel: {
         fontSize: 10,
         color: Theme.colors.accent,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     pointsValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 16,
+        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.accent,
     },
     extractingLoader: {
@@ -811,7 +1322,7 @@ const styles = StyleSheet.create({
     },
     extractingText: {
         color: Theme.colors.textPrimary,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     mappingSection: {
         backgroundColor: Theme.colors.primary,
@@ -825,11 +1336,12 @@ const styles = StyleSheet.create({
     },
     mappingTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     mappingSubtitle: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
     mappingRow: {
@@ -845,16 +1357,18 @@ const styles = StyleSheet.create({
     },
     aiTeamLabel: {
         fontSize: 10,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textTransform: 'uppercase',
     },
     aiTeamName: {
         fontSize: 14,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     aiTeamStats: {
         fontSize: 11,
+        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.accent,
     },
     teamPickerContainer: {
@@ -870,11 +1384,11 @@ const styles = StyleSheet.create({
     selectedTeamName: {
         fontSize: 13,
         color: Theme.colors.textPrimary,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     unselectedText: {
         color: Theme.colors.textSecondary,
-        fontWeight: 'normal',
+        fontFamily: Theme.fonts.outfit.regular,
     },
     teamPickerEmpty: {
         borderColor: Theme.colors.danger,
@@ -909,12 +1423,13 @@ const styles = StyleSheet.create({
     },
     aiPlayerName: {
         fontSize: 10,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
         maxWidth: 60,
     },
     aiPlayerKills: {
         fontSize: 10,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
     },
     mappingArrow: {
@@ -934,13 +1449,87 @@ const styles = StyleSheet.create({
     },
     modalHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 20,
+    },
+    // Slot Card Styles
+    slotCard: {
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        marginBottom: 16,
+        overflow: 'hidden',
+    },
+    slotHeader: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: Theme.colors.border,
+        backgroundColor: 'rgba(0,0,0,0.02)',
+    },
+    slotLabel: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        letterSpacing: 1,
+    },
+    slotBody: {
+        padding: 16,
+    },
+    slotFieldLabel: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textSecondary,
+        marginBottom: 8,
+        letterSpacing: 0.5,
+    },
+    slotPicker: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 16,
+    },
+    slotPickerText: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: Theme.colors.textPrimary,
+    },
+    slotPlayerList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    playerBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f1f5f9',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    playerBadgeText: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: Theme.colors.textPrimary,
+    },
+    noPlayersText: {
+        fontSize: 13,
+        fontStyle: 'italic',
+        color: Theme.colors.textSecondary,
     },
     modalTitle: {
         fontSize: 20,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     aiSummary: {
@@ -951,22 +1540,23 @@ const styles = StyleSheet.create({
     },
     aiSummaryLabel: {
         fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginBottom: 4,
     },
     aiSummaryName: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
     aiSummaryDetail: {
         fontSize: 14,
         color: Theme.colors.accent,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     sectionLabel: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textSecondary,
         marginBottom: 12,
         textTransform: 'uppercase',
@@ -990,6 +1580,7 @@ const styles = StyleSheet.create({
     },
     teamOptionText: {
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
     },
     teamOptionTextSelected: {
@@ -1006,6 +1597,7 @@ const styles = StyleSheet.create({
     },
     alreadyMappedText: {
         fontSize: 10,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         fontStyle: 'italic',
     },
@@ -1018,7 +1610,7 @@ const styles = StyleSheet.create({
     },
     clearMappingText: {
         color: Theme.colors.danger,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
     },
     mappingActions: {
         flexDirection: 'row',
@@ -1057,7 +1649,7 @@ const styles = StyleSheet.create({
     },
     memberKillsTitle: {
         fontSize: 12,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textSecondary,
         marginBottom: 8,
         textTransform: 'uppercase',
@@ -1070,6 +1662,7 @@ const styles = StyleSheet.create({
     },
     memberKillName: {
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textPrimary,
     },
     memberKillInput: {
@@ -1079,8 +1672,8 @@ const styles = StyleSheet.create({
         width: 40,
         textAlign: 'center',
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
-        fontWeight: 'bold',
     },
     emptyState: {
         alignItems: 'center',

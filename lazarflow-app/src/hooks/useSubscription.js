@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { useState, useEffect, useContext } from 'react';
+import { UserContext } from '../context/UserContext';
 
 export const useSubscription = () => {
-    const [user, setUser] = useState(null);
+    const { user, loading: userLoading } = useContext(UserContext);
     const [tier, setTier] = useState('free');
-    const [tournamentsCreated, setTournamentsCreated] = useState(0);
+    const [status, setStatus] = useState('active');
+    const [expiresAt, setExpiresAt] = useState(null);
+    const [lobbiesCreated, setLobbiesCreated] = useState(0);
     const [loading, setLoading] = useState(true);
 
     // Feature Flags & Limits
@@ -15,34 +17,22 @@ export const useSubscription = () => {
     const [isCasual, setIsCasual] = useState(true);
 
     useEffect(() => {
-        const initUser = async () => {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-            setUser(authUser);
-            if (!authUser) setLoading(false);
-        };
-        initUser();
-    }, []);
-
-    useEffect(() => {
         if (!user) {
             return;
         }
 
         const fetchSubscription = async () => {
             try {
-                const { data: profile, error } = await supabase
-                    .from('profiles')
-                    .select('subscription_tier, tournaments_created_count')
-                    .eq('id', user.id)
-                    .single();
-
-                if (error) throw error;
-
-                const currentTier = profile?.subscription_tier?.toLowerCase() || 'free';
-                const count = profile?.tournaments_created_count || 0;
+                // Use the user data directly from context (already fetched)
+                const currentTier = user?.subscription_tier?.toLowerCase() || 'free';
+                const currentStatus = user?.subscription_status || 'active';
+                const currentExpiresAt = user?.subscription_expires_at;
+                const count = user?.lobbies_created_count || 0;
 
                 setTier(currentTier);
-                setTournamentsCreated(count);
+                setStatus(currentStatus);
+                setExpiresAt(currentExpiresAt);
+                setLobbiesCreated(count);
 
                 // Define Limits based on Tier
                 let aiLimit = 2; // Default for Free
@@ -50,6 +40,7 @@ export const useSubscription = () => {
                 let customSocial = false;
 
                 switch (currentTier) {
+                    case 'masters':
                     case 'developer':
                         aiLimit = Infinity;
                         layoutLimit = Infinity;
@@ -73,13 +64,9 @@ export const useSubscription = () => {
                     case 'free':
                     default:
                         aiLimit = 2;
-                        if (count < aiLimit) {
-                            layoutLimit = 3; // Trial perks
-                            customSocial = true;
-                        } else {
-                            layoutLimit = 1;
-                            customSocial = false;
-                        }
+                        // Always 1 layout for casual/free
+                        layoutLimit = 1;
+                        customSocial = false;
                         break;
                 }
 
@@ -98,29 +85,24 @@ export const useSubscription = () => {
 
         fetchSubscription();
 
-        // Realtime subscription for profile updates
-        const channel = supabase
-            .channel(`profile-${user.id}`)
-            .on('postgres_changes', {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'profiles',
-                filter: `id=eq.${user.id}`
-            }, () => {
-                fetchSubscription();
-            })
-            .subscribe();
-
+        // Realtime subscription removed as part of migration
         return () => {
-            supabase.removeChannel(channel);
+            
         };
     }, [user]);
 
     return {
         user,
         tier,
-        tournamentsCreated,
-        loading,
+        status,
+        expiresAt,
+        lobbiesCreated,
+        loading: userLoading || loading,
+        maxAILobbies,
+        maxLayouts,
+        canUseAI,
+        canCustomSocial,
+        isCasual,
         limits: {
             maxAILobbies,
             maxLayouts,

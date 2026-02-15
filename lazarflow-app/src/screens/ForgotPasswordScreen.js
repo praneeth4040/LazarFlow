@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Mail, ArrowRight, ArrowLeft } from 'lucide-react-native';
-import { supabase } from '../lib/supabaseClient';
 import { Theme } from '../styles/theme';
 
 const ForgotPasswordScreen = ({ navigation }) => {
@@ -17,17 +16,19 @@ const ForgotPasswordScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'lazarflow://reset-password',
-            });
+            // Temporary replacement:
+            Alert.alert('Notice', 'Password reset is currently being updated. Please contact support.');
+            // const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            //     redirectTo: 'lazarflow://reset-password',
+            // });
 
-            if (error) throw error;
+            // if (error) throw error;
 
-            Alert.alert(
-                'Check your email',
-                'We have sent a password reset link to your email address.',
-                [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-            );
+            // Alert.alert(
+            //     'Check your email',
+            //     'We have sent a password reset link to your email address.',
+            //     [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+            // );
         } catch (error) {
             Alert.alert('Reset Failed', error.message || 'An error occurred');
         } finally {
@@ -135,12 +136,13 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 32,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         textAlign: 'center',
     },
@@ -161,7 +163,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 14,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
         marginBottom: 8,
         marginLeft: 4,
@@ -183,6 +185,7 @@ const styles = StyleSheet.create({
         flex: 1,
         color: Theme.colors.textPrimary,
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     button: {
         backgroundColor: Theme.colors.accent,
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
     buttonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     footer: {
         flexDirection: 'row',
@@ -217,11 +220,12 @@ const styles = StyleSheet.create({
     footerText: {
         color: Theme.colors.textSecondary,
         fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
     },
     footerLink: {
         color: Theme.colors.accent,
         fontSize: 15,
-        fontWeight: 'bold',
+        fontFamily: Theme.fonts.outfit.bold,
     },
 });
 

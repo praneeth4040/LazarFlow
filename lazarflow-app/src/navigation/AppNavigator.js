@@ -6,19 +6,22 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import DashboardScreen from '../screens/DashboardScreen';
-import LiveTournamentScreen from '../screens/LiveTournamentScreen';
+import LiveLobbyScreen from '../screens/LiveLobbyScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import TermsAndConditionsScreen from '../screens/TermsAndConditionsScreen';
-import CreateTournamentScreen from '../screens/CreateTournamentScreen';
+import CreateLobbyScreen from '../screens/CreateLobbyScreen';
 import ManageTeamsScreen from '../screens/ManageTeamsScreen';
 import CalculateResultsScreen from '../screens/CalculateResultsScreen';
-import EditTournamentScreen from '../screens/EditTournamentScreen';
+import EditLobbyScreen from '../screens/EditLobbyScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import DesignDetailsScreen from '../screens/DesignDetailsScreen';
+import SubscriptionPlansScreen from '../screens/SubscriptionPlansScreen';
+import PaymentStatusScreen from '../screens/PaymentStatusScreen';
 import * as Linking from 'expo-linking';
 import { Theme } from '../styles/theme';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
+import { authEvents } from '../lib/authEvents';
 
 const Stack = createStackNavigator();
 
@@ -29,32 +32,35 @@ export default function AppNavigator() {
 
     useEffect(() => {
         // Check for initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setIsLoading(false);
-        });
+        const checkSession = async () => {
+            try {
+                const { data: { session } } = await authService.getSession();
+                setSession(session);
+            } catch (e) {
+                console.error('Session check failed', e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        checkSession();
 
         // Listen for auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            console.log('🔔 AUTH EVENT:', event);
-            setSession(session);
-
-            if (event === 'PASSWORD_RECOVERY') {
-                console.log('🔑 Recovery mode activated');
-                setIsRecovering(true);
-            } else if (event === 'SIGNED_IN') {
-                // Check if we are in recovery mode; if so, don't reset yet
-                // The ResetPassword screen will handle resetting this state after success
-                if (!isRecovering) {
-                    console.log('👤 Normal sign-in detected');
-                    setIsRecovering(false);
-                }
-            } else if (event === 'SIGNED_OUT') {
-                setIsRecovering(false);
-            }
+        const unsubscribeSignIn = authEvents.on('SIGNED_IN', (data) => {
+             console.log('👤 User signed in');
+             setSession(data.session || { access_token: 'valid' }); // Ensure session is truthy
+             if (!isRecovering) setIsRecovering(false);
         });
 
-        return () => subscription.unsubscribe();
+        const unsubscribeSignOut = authEvents.on('SIGNED_OUT', () => {
+             console.log('🚪 User signed out');
+             setSession(null);
+             setIsRecovering(false);
+        });
+
+        return () => {
+            unsubscribeSignIn();
+            unsubscribeSignOut();
+        };
     }, [isRecovering]);
 
     if (isLoading) {
@@ -99,8 +105,8 @@ export default function AppNavigator() {
                     <>
                         <Stack.Screen name="Dashboard" component={DashboardScreen} />
                         <Stack.Screen
-                            name="LiveTournament"
-                            component={LiveTournamentScreen}
+                            name="LiveLobby"
+                            component={LiveLobbyScreen}
                             options={{ headerShown: true, title: 'Live Standings', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
                         />
                         <Stack.Screen
@@ -114,8 +120,8 @@ export default function AppNavigator() {
                             options={{ headerShown: true, title: 'Terms & Conditions', headerStyle: { backgroundColor: Theme.colors.primary }, headerTintColor: Theme.colors.textPrimary }}
                         />
                         <Stack.Screen
-                            name="CreateTournament"
-                            component={CreateTournamentScreen}
+                            name="CreateLobby"
+                            component={CreateLobbyScreen}
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
@@ -129,13 +135,23 @@ export default function AppNavigator() {
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
-                            name="EditTournament"
-                            component={EditTournamentScreen}
+                            name="EditLobby"
+                            component={EditLobbyScreen}
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
                             name="DesignDetails"
                             component={DesignDetailsScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="SubscriptionPlans"
+                            component={SubscriptionPlansScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="PaymentStatus"
+                            component={PaymentStatusScreen}
                             options={{ headerShown: false }}
                         />
                     </>

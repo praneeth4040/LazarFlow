@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, Text, ImageBackground, StyleSheet, Dimensions, Platform } from 'react-native';
+import { Theme } from '../styles/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /**
- * Renders a tournament design based on a theme and its mapping configuration.
+ * Renders a lobby design based on a theme and its mapping configuration.
  * 
  * Config Structure Example:
  * {
@@ -16,7 +17,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
  *   "activeStyle": "Default" // or uses "Default" as fallback
  * }
  */
-const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
+const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
     // Detailed logging for debugging
     console.log('DesignRenderer DEBUG:', {
         themeId: theme?.id,
@@ -24,7 +25,7 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         themeUrl: theme?.url,
         hasMappingConfig: !!theme?.mapping_config,
         dataCount: data?.length,
-        tournamentName: tournament?.name
+        lobbyName: lobby?.name
     });
 
     if (!theme) {
@@ -101,10 +102,11 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
 
 
     /**
-     * Resolves the value for a specific mapping key from the tournament data.
+     * Resolves the value for a specific mapping key from the lobby data.
      * Supported formats:
      * - team_{n}_{field} (e.g. team_1_name, team_2_points)
-     * - tournament_{field} (e.g. tournament_name)
+     * - lobby_{field} (e.g. lobby_name)
+     * - tournament_{field} (legacy support)
      */
     const getMappedValue = (mappingKey, fallbackValue) => {
         if (!mappingKey) return fallbackValue || '';
@@ -112,12 +114,12 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         const key = mappingKey.toLowerCase().trim();
         console.log(`Mapping key: ${key}`);
 
-        // 1. Tournament Metadata
-        if (key.includes('tournament')) {
-            if (key.includes('name')) return tournament?.name || fallbackValue || '';
-            if (key.includes('game')) return tournament?.game || fallbackValue || '';
-            if (key.includes('date')) return tournament?.date || fallbackValue || '';
-            if (key.includes('organizer')) return tournament?.organizer || fallbackValue || '';
+        // 1. Lobby Metadata
+        if (key.includes('lobby') || key.includes('tournament')) {
+            if (key.includes('name')) return lobby?.name || fallbackValue || '';
+            if (key.includes('game')) return lobby?.game || fallbackValue || '';
+            if (key.includes('date')) return lobby?.date || fallbackValue || '';
+            if (key.includes('organizer')) return lobby?.organizer || fallbackValue || '';
         }
 
         // 2. Team Data
@@ -136,6 +138,9 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
             if (field.includes('wins')) return (team.wins || 0).toString();
             if (field.includes('placement')) return (team.placement_points || 0).toString();
             if (field.includes('rank')) return (index + 1).toString();
+            if (field.includes('slot') || field.includes('position')) {
+                return (team.respective_slotlist_postion || (index + 1)).toString();
+            }
             
             return team[field] || team.team_name || '';
         }
@@ -143,7 +148,7 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         // 3. Direct field match in team if no prefix (for some configs)
         if (data && data[0]) {
             const field = key.replace(/[_\s-]/g, '');
-            if (field === 'tournamentname') return tournament?.name || '';
+            if (field === 'lobbyname' || field === 'tournamentname') return lobby?.name || '';
             // If it's just "name", "points", etc., it might be intended for the first team or a general label
             // but usually these are prefixed.
         }
@@ -165,7 +170,7 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         // Check if it's already a Supabase storage path or relative path
         if (cleanUrl.includes('storage/v1/object/public/themes/')) {
             if (cleanUrl.startsWith('http')) return cleanUrl;
-            return `https://xsxwzwcfaflzynsyryzq.supabase.co/${cleanUrl.startsWith('/') ? cleanUrl.substring(1) : cleanUrl}`;
+            return `https://api.lazarflow.app/storage/themes/${cleanUrl.startsWith('/') ? cleanUrl.substring(1) : cleanUrl}`;
         }
 
         // If it looks like a relative path or filename
@@ -174,17 +179,17 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
         // CRITICAL FIX: If path starts with 'optimized/', it's almost certainly a Supabase asset
         // even if theme.user_id is null (e.g. Admin/Community designs)
         if (cleanPath.startsWith('optimized/')) {
-            return `https://xsxwzwcfaflzynsyryzq.supabase.co/storage/v1/object/public/themes/${cleanPath}`;
+            return `https://api.lazarflow.app/storage/themes/${cleanPath}`;
         }
 
         // Determine if it's a Supabase theme or a community API theme
         // Supabase themes typically have a user_id
         if (theme.user_id || theme.is_user_theme) {
-            return `https://xsxwzwcfaflzynsyryzq.supabase.co/storage/v1/object/public/themes/${cleanPath}`;
+            return `https://api.lazarflow.app/storage/themes/${cleanPath}`;
         }
         
         // Fallback for community API (lazarflow.app)
-        return `https://www.api.lazarflow.app/${cleanPath}`;
+        return `https://api.lazarflow.app/${cleanPath}`;
     };
 
     // Try multiple fields for the URL
@@ -209,10 +214,10 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
                 <Text style={{ color: '#555', fontSize: 10 }}>ID: {theme.id}</Text>
                 
                 <View style={{ backgroundColor: '#000', padding: 10, borderRadius: 5, marginTop: 20, width: '90%' }}>
-                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>
+                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Theme.fonts.monospace }}>
                         Available Keys: {Object.keys(theme).join(', ')}
                     </Text>
-                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginTop: 5 }}>
+                    <Text style={{ color: '#0f0', fontSize: 10, fontFamily: Theme.fonts.monospace, marginTop: 5 }}>
                         Raw URL Value: {JSON.stringify(themeUrl)}
                     </Text>
                 </View>
@@ -241,10 +246,10 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
                 {/* Add a semi-transparent overlay if image is missing/dark to ensure text is visible during debug */}
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.1)' }]} pointerEvents="none" />
 
+                {/* Remove distracting error message in preview mode */}
                 {configItems.length === 0 && rowItems.length === 0 && overlays.length === 0 && (
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: '#fff' }}>No layout configuration found for this design.</Text>
-                        <Text style={{ color: '#aaa', fontSize: 12 }}>Theme ID: {theme.id}</Text>
+                        {/* Empty view instead of error text */}
                     </View>
                 )}
 
@@ -253,11 +258,11 @@ const DesignRenderer = ({ theme, data, tournament, width = SCREEN_WIDTH }) => {
                     let displayText = overlay.text || '';
                     const name = (overlay.name || '').toLowerCase();
                     
-                    // Map common overlay names to tournament data
-                    if (name.includes('event') || name.includes('tournament')) displayText = tournament?.name || displayText;
-                    else if (name.includes('organiser') || name.includes('organizer')) displayText = tournament?.organizer || displayText;
-                    else if (name.includes('game')) displayText = tournament?.game || displayText;
-                    else if (name.includes('date')) displayText = tournament?.date || displayText;
+                    // Map common overlay names to lobby data
+                    if (name.includes('event') || name.includes('lobby')) displayText = lobby?.name || displayText;
+                    else if (name.includes('organiser') || name.includes('organizer')) displayText = lobby?.organizer || displayText;
+                    else if (name.includes('game')) displayText = lobby?.game || displayText;
+                    else if (name.includes('date')) displayText = lobby?.date || displayText;
 
                     if (!displayText && !overlay.text) return null;
 

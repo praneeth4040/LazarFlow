@@ -1,10 +1,12 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { supabase } from '../lib/supabaseClient';
+import { authService } from '../lib/authService';
+import { UserContext } from '../context/UserContext';
+import { updateUserProfile } from '../lib/dataService';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -38,17 +40,13 @@ async function registerForPushNotificationsAsync() {
             return;
         }
 
-        // Learn more about projectId:
-        // https://docs.expo.dev/push-notifications/push-notifications-setup/#configure-projectid
         try {
-            const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-            if (!projectId) {
-                console.error('Project ID not found in Constants');
-            }
-            token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-            console.log("Expo Push Token:", token);
+            // Fetch the native device token (FCM for Android, APNs for iOS)
+            // for the Direct Push method.
+            token = (await Notifications.getDevicePushTokenAsync()).data;
+            console.log('📱 Native Device Push Token:', token);
         } catch (e) {
-            console.error("Error getting push token:", e);
+            console.error("❌ Error getting native push token:", e);
         }
 
     } else {
@@ -59,41 +57,40 @@ async function registerForPushNotificationsAsync() {
 }
 
 export const usePushNotifications = () => {
+    const { user } = useContext(UserContext);
     const [expoPushToken, setExpoPushToken] = useState('');
     const [notification, setNotification] = useState(false);
+    const tokenRef = useRef('');
     const notificationListener = useRef();
     const responseListener = useRef();
 
     useEffect(() => {
-        registerForPushNotificationsAsync().then(async (token) => {
+        let isMounted = true;
+
+        const setupNotifications = async () => {
+            const token = await registerForPushNotificationsAsync();
+            if (!isMounted) return;
+            
             setExpoPushToken(token);
+            tokenRef.current = token;
 
-            if (token) {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { error } = await supabase
-                        .from('profiles')
-                        .update({ expo_push_token: token })
-                        .eq('id', user.id);
-
-                    if (error) {
-                        console.error('Error saving push token to Supabase:', error);
-                    } else {
-                        console.log('Push token saved to Supabase');
-                    }
-                }
+            if (token && user?.id) {
+                await saveTokenToProfile(user.id, token, user?.expo_push_token);
             }
-        });
+        };
+
+        setupNotifications();
 
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             setNotification(notification);
         });
 
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-            console.log("Notification Response:", response);
+            // Handle notification response here if needed
         });
 
         return () => {
+            isMounted = false;
             if (notificationListener.current) {
                 notificationListener.current.remove();
             }
@@ -102,6 +99,29 @@ export const usePushNotifications = () => {
             }
         };
     }, []);
+
+    const saveTokenToProfile = async (userId, token, currentExpoToken = null) => {
+        try {
+            console.log('🔄 Checking if push token needs update for user:', userId);
+            
+            // Only update if the token is different or doesn't exist
+            if (currentExpoToken === token) {
+                console.log('✅ Push token is already up to date. Skipping update.');
+                return;
+            }
+
+            console.log('📤 Token is new or changed. Updating Profile...');
+            
+            // Send only expo_push_token as per API spec
+            await updateUserProfile({ 
+                expo_push_token: token
+            });
+
+            console.log('✅ Push token successfully updated in Profile');
+        } catch (err) {
+            console.error('❌ Failed to save token:', err);
+        }
+    };
 
     return {
         expoPushToken,
