@@ -10,7 +10,7 @@ import { createLobby } from '../lib/dataService';
 
 const CreateLobbyScreen = ({ navigation }) => {
     const { canUseAI, tier, maxAILobbies, lobbiesCreated, loading: subLoading } = useSubscription();
-    const { user } = useContext(UserContext);
+    const { user, refreshUser } = useContext(UserContext);
     const defaultPointsSystems = {
         freeFire: [
             { placement: 1, points: 12 },
@@ -93,6 +93,9 @@ const CreateLobbyScreen = ({ navigation }) => {
                 points_system: pointsSystem,
                 kill_points: killPoints
             });
+
+            // Update user stats
+            if (refreshUser) await refreshUser();
 
             Alert.alert('Success', 'Lobby created successfully!');
             navigation.navigate('ManageTeams', { lobbyId: data.id, lobbyName: data.name });

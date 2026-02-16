@@ -1,12 +1,21 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, BackHandler } from 'react-native';
 import { CheckCircle, XCircle, ArrowLeft, Home, RefreshCcw } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../styles/theme';
+import { UserContext } from '../context/UserContext';
 
 const PaymentStatusScreen = ({ route, navigation }) => {
     const { status, orderId, message, planName } = route.params || {};
     const isSuccess = status === 'success';
+    const { refreshUser } = useContext(UserContext);
+
+    // Refresh user data on success
+    useEffect(() => {
+        if (isSuccess && refreshUser) {
+            refreshUser();
+        }
+    }, [isSuccess]);
 
     // Prevent going back to the payment process
     useEffect(() => {

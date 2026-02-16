@@ -122,21 +122,12 @@ export const authService = {
                 return response.data.user;
             }
             
-            // If empty, return minimal user object to continue
-            console.log('👤 Empty response from /api/auth/me, using minimal user');
-            return {
-                id: 'user',
-                email: 'user@lazarflow.app',
-                subscription_tier: 'free'
-            };
+            // If empty, return null
+            console.log('👤 Empty response from /api/auth/me');
+            return null;
         } catch (error) {
             console.error('👤 getMe failed:', error.message);
-            // Fallback
-            return {
-                id: 'user',
-                email: 'user@lazarflow.app',
-                subscription_tier: 'free'
-            };
+            throw error;
         }
     },
 
