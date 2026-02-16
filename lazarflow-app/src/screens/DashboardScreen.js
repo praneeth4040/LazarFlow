@@ -13,12 +13,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
 import SubscriptionPlansScreen from './SubscriptionPlansScreen';
 
-const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false }) => {
+const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false, onPress }) => {
     const imageSource = getDesignImageSource(theme);
     const height = isRightColumn ? 180 + (index % 3) * 50 : 200 + (index % 3) * 40;
     
     return (
-        <View style={styles.pinCard}>
+        <TouchableOpacity style={styles.pinCard} onPress={onPress} activeOpacity={0.9}>
             <View style={styles.pinImageContainer}>
                 {imageSource ? (
                     <Image 
@@ -44,16 +44,16 @@ const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false })
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 });
 
-const UserThemeCard = React.memo(({ theme, index, isRightColumn = false }) => {
+const UserThemeCard = React.memo(({ theme, index, isRightColumn = false, onPress }) => {
     const imageSource = getDesignImageSource(theme);
     const height = isRightColumn ? 180 + (index % 3) * 50 : 200 + (index % 3) * 40;
     
     return (
-        <View style={styles.pinCard}>
+        <TouchableOpacity style={styles.pinCard} onPress={onPress} activeOpacity={0.9}>
             <View style={styles.pinImageContainer}>
                 {imageSource ? (
                     <Image 
@@ -93,13 +93,13 @@ const UserThemeCard = React.memo(({ theme, index, isRightColumn = false }) => {
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 });
 
 const DashboardScreen = ({ navigation, route }) => {
     const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
-    const { user, loading: userLoading } = useContext(UserContext);
+    const { user, loading: userLoading, refreshUser } = useContext(UserContext);
     
     const [activeTab, setActiveTab] = useState('home');
 
@@ -130,6 +130,7 @@ const DashboardScreen = ({ navigation, route }) => {
     const [loadingCommunity, setLoadingCommunity] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [uploadModalVisible, setUploadModalVisible] = useState(false);
+    const [previewImage, setPreviewImage] = useState(null);
     const [showPromoModal, setShowPromoModal] = useState(false);
 
     useEffect(() => {
@@ -278,11 +279,14 @@ const DashboardScreen = ({ navigation, route }) => {
     const onRefresh = () => {
         setRefreshing(true);
         // Force refresh all data on pull-to-refresh
-        Promise.all([
+        const promises = [
             fetchLobbies(),
             getUserThemes(true),
             getCommunityDesigns(true)
-        ]).finally(() => {
+        ];
+        if (refreshUser) promises.push(refreshUser());
+        
+        Promise.all(promises).finally(() => {
             setRefreshing(false);
         });
     };
@@ -387,6 +391,7 @@ const DashboardScreen = ({ navigation, route }) => {
                             await endLobby(lobby.id);
                             // Realtime sub will update list, but we can also fetch manually to be sure
                             fetchLobbies();
+                            if (refreshUser) refreshUser();
                         } catch (err) {
                             Alert.alert("Error", "Failed to end lobby");
                         }
@@ -409,6 +414,7 @@ const DashboardScreen = ({ navigation, route }) => {
                         try {
                             await deleteLobby(lobby.id);
                             fetchLobbies();
+                            if (refreshUser) refreshUser();
                         } catch (err) {
                             Alert.alert("Error", "Failed to delete lobby");
                         }
@@ -583,6 +589,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                         key={theme.id || `own-left-${index}`} 
                                         theme={theme} 
                                         index={index} 
+                                        onPress={() => setPreviewImage(getDesignImageSource(theme))}
                                     />
                                 ))}
                             </View>
@@ -593,6 +600,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                         theme={theme} 
                                         index={index} 
                                         isRightColumn={true}
+                                        onPress={() => setPreviewImage(getDesignImageSource(theme))}
                                     />
                                 ))}
                             </View>
@@ -619,6 +627,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                         key={themes.id || `left-${index}`} 
                                         theme={themes} 
                                         index={index} 
+                                        onPress={() => setPreviewImage(getDesignImageSource(themes))}
                                     />
                                 ))}
                             </View>
@@ -629,6 +638,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                         theme={themes} 
                                         index={index} 
                                         isRightColumn={true}
+                                        onPress={() => setPreviewImage(getDesignImageSource(themes))}
                                     />
                                 ))}
                             </View>
@@ -789,20 +799,6 @@ const DashboardScreen = ({ navigation, route }) => {
 
                         {expandedSections.account && (
                             <View style={styles.groupContent}>
-                                <TouchableOpacity 
-                                    style={styles.infoRow}
-                                    onPress={() => setActiveTab('plans')}
-                                >
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                        <Sparkles size={16} color={Theme.colors.accent} />
-                                        <Text style={[styles.infoLabel, { color: Theme.colors.accent, fontWeight: '700' }]}>Current Plan</Text>
-                                    </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                        <Text style={[styles.infoValue, { textTransform: 'capitalize', color: Theme.colors.accent }]}>{subTier}</Text>
-                                        <ArrowRight size={14} color={Theme.colors.accent} />
-                                    </View>
-                                </TouchableOpacity>
-
                                 <View style={styles.infoRow}>
                                     <Text style={styles.infoLabel}>Username</Text>
                                     <Text style={styles.infoValue}>{username}</Text>
@@ -1164,6 +1160,30 @@ const DashboardScreen = ({ navigation, route }) => {
                                 </TouchableOpacity>
                             </View>
                         </View>
+                    </View>
+                </Modal>
+
+                {/* Image Preview Modal */}
+                <Modal
+                    visible={!!previewImage}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => setPreviewImage(null)}
+                >
+                    <View style={styles.imagePreviewOverlay}>
+                        <TouchableOpacity 
+                            style={styles.imagePreviewClose} 
+                            onPress={() => setPreviewImage(null)}
+                        >
+                            <X size={24} color="#fff" />
+                        </TouchableOpacity>
+                        {previewImage && (
+                            <Image
+                                source={previewImage}
+                                style={styles.imagePreviewFull}
+                                resizeMode="contain"
+                            />
+                        )}
                     </View>
                 </Modal>
             </View>
@@ -2252,6 +2272,27 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: Theme.fonts.outfit.bold,
         letterSpacing: 1,
+    },
+    // Image Preview Modal Styles
+    imagePreviewOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    imagePreviewClose: {
+        position: 'absolute',
+        top: 50,
+        right: 20,
+        zIndex: 10,
+        padding: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        borderRadius: 20,
+    },
+    imagePreviewFull: {
+        width: '100%',
+        height: '80%',
     },
 });
 
