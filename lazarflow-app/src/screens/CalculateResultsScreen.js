@@ -531,53 +531,71 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                     <Text style={styles.mappingTitle}>Verify AI Extraction</Text>
                                     <Text style={styles.mappingSubtitle}>Map extracted teams to your registered teams</Text>
                                 </View>
-                                {aiResults.map((res, index) => (
-                                    <View key={index} style={styles.mappingRow}>
-                                        <View style={styles.aiTeamInfo}>
-                                            <View style={styles.aiTeamHeader}>
-                                                <Text style={styles.aiTeamLabel}>AI Found:</Text>
-                                                <Text style={[styles.aiTeamStats, { fontFamily: Theme.fonts.monospace }]}>Rank #{res.rank} • {res.kills} kills</Text>
+                                {aiResults.map((res, index) => {
+                                    // Calculate points for display
+                                    const placementPoints = lobby.points_system?.find(p => p.placement === parseInt(res.rank))?.points || 0;
+                                    const killPoints = (res.kills || 0) * (lobby.kill_points || 0);
+                                    const totalPoints = placementPoints + killPoints;
+
+                                    return (
+                                        <View key={index} style={styles.resultCard}>
+                                            <View style={styles.rankHeader}>
+                                                <Text style={styles.rankPrefix}>#</Text>
+                                                <Text style={styles.rankTitle}>{res.rank}</Text>
                                             </View>
-                                            <Text style={styles.aiTeamName}>{res.team_name}</Text>
 
-                                            {res.players && res.players.length > 0 && (
-                                                <View style={styles.aiPlayerList}>
-                                                    {res.players.map((p, pIdx) => (
-                                                        <View key={pIdx} style={styles.aiPlayerItem}>
-                                                            <Text style={styles.aiPlayerName}>{p.name}</Text>
-                                                            <Text style={[styles.aiPlayerKills, { fontFamily: Theme.fonts.monospace }]}>{p.kills}k</Text>
-                                                        </View>
-                                                    ))}
-                                                </View>
-                                            )}
-                                        </View>
-
-                                        <View style={styles.mappingArrow}>
-                                            <ChevronRight size={16} color={Theme.colors.textSecondary} />
-                                        </View>
-
-                                        <View style={styles.teamPickerContainer}>
                                             <TouchableOpacity
-                                                style={[
-                                                    styles.teamPicker,
-                                                    mappings[res.rank] ? styles.teamPickerFilled : styles.teamPickerEmpty
-                                                ]}
+                                                style={styles.teamSelectorBox}
                                                 onPress={() => {
                                                     setSelectedAiTeam(res);
                                                     setMappingModalVisible(true);
                                                 }}
                                             >
                                                 <Text style={[
-                                                    styles.selectedTeamName,
-                                                    !mappings[res.rank] && styles.unselectedText
-                                                ]}>
-                                                    {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team'}
+                                                    styles.teamNameText,
+                                                    !mappings[res.rank] && { color: Theme.colors.textSecondary }
+                                                ]} numberOfLines={1}>
+                                                    {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team...'}
                                                 </Text>
-                                                <ChevronDown size={16} color={Theme.colors.textSecondary} />
+                                                <ChevronDown size={20} color={Theme.colors.textPrimary} />
                                             </TouchableOpacity>
+
+                                            {res.players && res.players.length > 0 ? (
+                                                <View style={styles.membersList}>
+                                                    {res.players.map((player, pIdx) => (
+                                                        <View key={pIdx} style={styles.memberRow}>
+                                                            <View style={styles.memberNameBox}>
+                                                                <Text style={styles.memberNameText} numberOfLines={1}>{player.name}</Text>
+                                                            </View>
+                                                            <View style={styles.memberScoreBox}>
+                                                                <Text style={styles.memberScoreText}>{player.kills}</Text>
+                                                            </View>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            ) : (
+                                                <View style={styles.noMembersBox}>
+                                                    <Text style={styles.noMembersText}>No players found</Text>
+                                                </View>
+                                            )}
+
+                                            <View style={styles.statsFooter}>
+                                                <View style={styles.statBox}>
+                                                    <Text style={styles.statLabel}>POSITION{'\n'}POINTS</Text>
+                                                    <Text style={styles.statValue}>{placementPoints}</Text>
+                                                </View>
+                                                <View style={styles.statBox}>
+                                                    <Text style={styles.statLabel}>KILL{'\n'}POINTS</Text>
+                                                    <Text style={styles.statValue}>{killPoints}</Text>
+                                                </View>
+                                                <View style={[styles.statBox, styles.totalStatBox]}>
+                                                    <Text style={[styles.statLabel, styles.totalStatLabel]}>TOTAL{'\n'}POINTS</Text>
+                                                    <Text style={[styles.statValue, styles.totalStatValue]}>{totalPoints}</Text>
+                                                </View>
+                                            </View>
                                         </View>
-                                    </View>
-                                ))}
+                                    );
+                                })}
 
                                 <TouchableOpacity style={styles.applyBtn} onPress={handleApplyMapping}>
                                     <Check size={20} color="#fff" />
@@ -706,56 +724,65 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                     <View style={styles.resultsList}>
                         {results.map((item, index) => (
                             <View key={item.team_id} style={styles.resultCard}>
-                                <View style={styles.resultHeader}>
-                                    <Text style={styles.resultTeamName}>{item.team_name}</Text>
-                                    <TouchableOpacity onPress={() => handleRemoveResult(index)}>
-                                        <X size={18} color={Theme.colors.danger} />
+                                <View style={styles.rankHeader}>
+                                    <Text style={styles.rankPrefix}>#</Text>
+                                    <TextInput
+                                        style={styles.rankInput}
+                                        keyboardType="numeric"
+                                        value={String(item.position)}
+                                        onChangeText={(v) => handleUpdateResult(index, 'position', v)}
+                                        placeholder="1"
+                                        placeholderTextColor={Theme.colors.accent + '80'}
+                                    />
+                                    <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveResult(index)}>
+                                        <X size={16} color={Theme.colors.textSecondary} />
                                     </TouchableOpacity>
                                 </View>
-                                <View style={styles.resultInputs}>
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>Position</Text>
-                                        <TextInput
-                                            style={styles.fieldInput}
-                                            keyboardType="numeric"
-                                            value={String(item.position)}
-                                            onChangeText={(v) => handleUpdateResult(index, 'position', v)}
-                                            placeholder="Rank"
-                                        />
-                                    </View>
-                                    <View style={styles.inputGroup}>
-                                        <Text style={styles.inputLabel}>Team Kills</Text>
-                                        <TextInput
-                                            style={styles.fieldInput}
-                                            keyboardType="numeric"
-                                            value={String(item.kills)}
-                                            onChangeText={(v) => handleUpdateResult(index, 'kills', v)}
-                                            placeholder="0"
-                                        />
-                                    </View>
-                                    <View style={styles.pointsDisplay}>
-                                        <Text style={styles.pointsLabel}>Total</Text>
-                                        <Text style={styles.pointsValue}>{item.total_points}</Text>
-                                    </View>
+
+                                <View style={styles.teamSelectorBox}>
+                                    <Text style={styles.teamNameText} numberOfLines={1}>{item.team_name}</Text>
+                                    <ChevronDown size={20} color={Theme.colors.textPrimary} />
                                 </View>
 
-                                {item.members && item.members.length > 0 && (
-                                    <View style={styles.memberKillsSection}>
-                                        <Text style={styles.memberKillsTitle}>Individual Player Kills</Text>
+                                {item.members && item.members.length > 0 ? (
+                                    <View style={styles.membersList}>
                                         {item.members.map((member, mIdx) => (
-                                            <View key={mIdx} style={styles.memberKillRow}>
-                                                <Text style={styles.memberKillName}>{member.name}</Text>
-                                                <TextInput
-                                                    style={styles.memberKillInput}
-                                                    keyboardType="numeric"
-                                                    value={String(member.kills || 0)}
-                                                    onChangeText={(v) => handleUpdateMemberKills(index, mIdx, v)}
-                                                    placeholder="0"
-                                                />
+                                            <View key={mIdx} style={styles.memberRow}>
+                                                <View style={styles.memberNameBox}>
+                                                    <Text style={styles.memberNameText} numberOfLines={1}>{member.name}</Text>
+                                                </View>
+                                                <View style={styles.memberScoreBox}>
+                                                    <TextInput
+                                                        style={styles.memberScoreInput}
+                                                        keyboardType="numeric"
+                                                        value={String(member.kills || 0)}
+                                                        onChangeText={(v) => handleUpdateMemberKills(index, mIdx, v)}
+                                                        placeholder="0"
+                                                    />
+                                                </View>
                                             </View>
                                         ))}
                                     </View>
+                                ) : (
+                                    <View style={styles.noMembersBox}>
+                                        <Text style={styles.noMembersText}>No members found</Text>
+                                    </View>
                                 )}
+
+                                <View style={styles.statsFooter}>
+                                    <View style={styles.statBox}>
+                                        <Text style={styles.statLabel}>POSITION{'\n'}POINTS</Text>
+                                        <Text style={styles.statValue}>{item.placement_points || 0}</Text>
+                                    </View>
+                                    <View style={styles.statBox}>
+                                        <Text style={styles.statLabel}>KILL{'\n'}POINTS</Text>
+                                        <Text style={styles.statValue}>{item.kill_points || 0}</Text>
+                                    </View>
+                                    <View style={[styles.statBox, styles.totalStatBox]}>
+                                        <Text style={[styles.statLabel, styles.totalStatLabel]}>TOTAL{'\n'}POINTS</Text>
+                                        <Text style={[styles.statValue, styles.totalStatValue]}>{item.total_points || 0}</Text>
+                                    </View>
+                                </View>
                             </View>
                         ))}
                     </View>
@@ -1252,63 +1279,66 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     resultCard: {
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
+        backgroundColor: '#fff',
+        borderRadius: 16,
         padding: 16,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    resultHeader: {
+    rankHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        justifyContent: 'center',
+        marginBottom: 16,
+        position: 'relative',
     },
-    resultTeamName: {
-        fontSize: 16,
+    rankPrefix: {
+        fontSize: 24,
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
+        color: Theme.colors.accent,
+        marginRight: 2,
     },
-    resultInputs: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 12,
-    },
-    inputGroup: {
-        flex: 1,
-    },
-    inputLabel: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        marginBottom: 4,
-    },
-    fieldInput: {
-        backgroundColor: Theme.colors.secondary,
-        borderRadius: 6,
-        padding: 8,
-        color: Theme.colors.textPrimary,
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.semibold,
+    rankInput: {
+        fontSize: 24,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+        minWidth: 30,
         textAlign: 'center',
     },
-    pointsDisplay: {
-        backgroundColor: 'rgba(26, 115, 232, 0.05)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 6,
-        alignItems: 'center',
-        minWidth: 60,
-    },
-    pointsLabel: {
-        fontSize: 10,
-        color: Theme.colors.accent,
+    rankTitle: {
+        fontSize: 24,
         fontFamily: Theme.fonts.outfit.bold,
-    },
-    pointsValue: {
-        fontSize: 16,
-        fontFamily: Theme.fonts.monospace,
         color: Theme.colors.accent,
+        textAlign: 'center',
+    },
+    removeBtn: {
+        position: 'absolute',
+        right: 0,
+        top: 4,
+        padding: 4,
+    },
+    teamSelectorBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        marginBottom: 16,
+        backgroundColor: '#fff',
+    },
+    teamNameText: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        flex: 1,
+        marginRight: 8,
     },
     extractingLoader: {
         backgroundColor: Theme.colors.primary,
@@ -1325,115 +1355,30 @@ const styles = StyleSheet.create({
         fontFamily: Theme.fonts.outfit.semibold,
     },
     mappingSection: {
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 20,
         borderWidth: 1,
         borderColor: Theme.colors.border,
-        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
     mappingHeader: {
-        marginBottom: 20,
+        marginBottom: 24,
     },
     mappingTitle: {
-        fontSize: 18,
+        fontSize: 20,
         fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
+        marginBottom: 4,
     },
     mappingSubtitle: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-    },
-    mappingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-        gap: 10,
-    },
-    aiTeamInfo: {
-        flex: 1,
-    },
-    aiTeamLabel: {
-        fontSize: 10,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        textTransform: 'uppercase',
-    },
-    aiTeamName: {
         fontSize: 14,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-    },
-    aiTeamStats: {
-        fontSize: 11,
-        fontFamily: Theme.fonts.monospace,
-        color: Theme.colors.accent,
-    },
-    teamPickerContainer: {
-        flex: 1,
-    },
-    teamPicker: {
-        backgroundColor: Theme.colors.secondary,
-        padding: 10,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    selectedTeamName: {
-        fontSize: 13,
-        color: Theme.colors.textPrimary,
-        fontFamily: Theme.fonts.outfit.bold,
-    },
-    unselectedText: {
+        fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
-        fontFamily: Theme.fonts.outfit.regular,
-    },
-    teamPickerEmpty: {
-        borderColor: Theme.colors.danger,
-        backgroundColor: 'rgba(239, 68, 68, 0.02)',
-    },
-    teamPickerFilled: {
-        borderColor: Theme.colors.accent,
-        backgroundColor: 'rgba(26, 115, 232, 0.05)',
-    },
-    aiTeamHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 2,
-    },
-    aiPlayerList: {
-        marginTop: 6,
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 4,
-    },
-    aiPlayerItem: {
-        flexDirection: 'row',
-        backgroundColor: Theme.colors.secondary,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-        alignItems: 'center',
-        gap: 4,
-        borderWidth: 0.5,
-        borderColor: Theme.colors.border,
-    },
-    aiPlayerName: {
-        fontSize: 10,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textPrimary,
-        maxWidth: 60,
-    },
-    aiPlayerKills: {
-        fontSize: 10,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.accent,
-    },
-    mappingArrow: {
-        paddingHorizontal: 4,
     },
     modalOverlay: {
         flex: 1,
@@ -1641,39 +1586,104 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
     },
-    memberKillsSection: {
-        marginTop: 16,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.05)',
+    membersList: {
+        gap: 12,
+        marginBottom: 20,
     },
-    memberKillsTitle: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textSecondary,
-        marginBottom: 8,
-        textTransform: 'uppercase',
-    },
-    memberKillRow: {
+    memberRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 6,
+        gap: 12,
     },
-    memberKillName: {
+    memberNameBox: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: '#fff',
+    },
+    memberNameText: {
         fontSize: 14,
-        fontFamily: Theme.fonts.outfit.regular,
+        fontFamily: Theme.fonts.outfit.medium,
         color: Theme.colors.textPrimary,
+        textTransform: 'uppercase',
     },
-    memberKillInput: {
-        backgroundColor: Theme.colors.secondary,
-        borderRadius: 4,
-        padding: 4,
-        width: 40,
+    memberScoreBox: {
+        width: 60,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 8,
+        overflow: 'hidden',
+        backgroundColor: '#f8fafc',
+    },
+    memberScoreInput: {
         textAlign: 'center',
-        fontSize: 14,
+        paddingVertical: 12,
+        fontSize: 16,
         fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
+    },
+    memberScoreText: {
+        textAlign: 'center',
+        paddingVertical: 12,
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+    },
+    noMembersBox: {
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderStyle: 'dashed',
+        borderRadius: 8,
+        marginBottom: 20,
+    },
+    noMembersText: {
+        color: Theme.colors.textSecondary,
+        fontStyle: 'italic',
+    },
+    statsFooter: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 8,
+    },
+    statBox: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 12,
+        padding: 12,
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+        height: 80,
+    },
+    statLabel: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textSecondary,
+        textTransform: 'uppercase',
+        lineHeight: 14,
+    },
+    statValue: {
+        fontSize: 20,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        alignSelf: 'flex-start',
+    },
+    totalStatBox: {
+        backgroundColor: Theme.colors.accent,
+        borderColor: Theme.colors.accent,
+    },
+    totalStatLabel: {
+        color: 'rgba(255,255,255,0.8)',
+    },
+    totalStatValue: {
+        color: '#fff',
+        fontSize: 24,
     },
     emptyState: {
         alignItems: 'center',
