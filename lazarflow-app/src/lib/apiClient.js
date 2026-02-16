@@ -3,13 +3,14 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 
-const BASE_URL = 'https://392ba69f651b.ngrok-free.app';  // Local backend via ngrok
+const BASE_URL = 'https://www.api.lazarflow.app';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
     timeout: 300000,
     headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
     },
 });
 
@@ -38,6 +39,11 @@ apiClient.interceptors.request.use(
                 let cleanToken = token.trim();
                 if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
                     cleanToken = cleanToken.substring(1, cleanToken.length - 1);
+                }
+                
+                // Strip 'Bearer ' prefix if present to avoid duplication
+                if (cleanToken.toLowerCase().startsWith('bearer ')) {
+                    cleanToken = cleanToken.substring(7).trim();
                 }
                 
                 // Send EXACTLY as backend expects: Authorization: Bearer <token>
