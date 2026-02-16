@@ -228,7 +228,7 @@ const ManageTeamsScreen = ({ route, navigation }) => {
                     <View style={styles.aiContainer}>
                         <TextInput
                             style={styles.aiInput}
-                            placeholder="Paste text with team names (one per line)..."
+                            placeholder="Paste your team list here. Our AI engine will automatically detect and extract team names from any format."
                             value={aiText}
                             onChangeText={setAiText}
                             multiline

@@ -198,6 +198,10 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                         players: players,
                         mappedTeamId: matchedTeam ? matchedTeam.id : null
                     };
+                }).sort((a, b) => {
+                    const slotA = parseInt(a.slot) || 0;
+                    const slotB = parseInt(b.slot) || 0;
+                    return slotA - slotB;
                 });
 
                 setProcessedSlots(formattedSlots);
@@ -494,7 +498,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                                 {item.players && item.players.length > 0 ? (
                                                     item.players.map((p, pIdx) => (
                                                         <View key={pIdx} style={styles.playerBadge}>
-                                                            <Target size={12} color={Theme.colors.textSecondary} style={{ marginRight: 4 }} />
                                                             <Text style={styles.playerBadgeText}>{p}</Text>
                                                         </View>
                                                     ))
@@ -657,12 +660,17 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                             </View>
                                             
                                             <TouchableOpacity 
-                                                style={[styles.processBtn, lobbyImages.length === 0 && styles.disabledBtn]}
+                                                style={[styles.processBtn, (lobbyImages.length === 0 || (processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0))) && styles.disabledBtn]}
                                                 onPress={handleProcessLobby}
-                                                disabled={processingLobby || lobbyImages.length === 0}
+                                                disabled={processingLobby || lobbyImages.length === 0 || (processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0))}
                                             >
                                                 {processingLobby ? (
                                                     <ActivityIndicator size="small" color="#fff" />
+                                                ) : (processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0)) ? (
+                                                    <>
+                                                        <Check size={18} color="#fff" style={{ marginRight: 8 }} />
+                                                        <Text style={styles.processBtnText}>Lobby Already Processed</Text>
+                                                    </>
                                                 ) : (
                                                     <>
                                                         <Upload size={18} color="#fff" style={{ marginRight: 8 }} />
