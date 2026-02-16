@@ -44,3 +44,5 @@ firebase-key.json
 # generated native folders
 /ios
 /android
+.expo-cache
+.user-home
