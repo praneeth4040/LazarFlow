@@ -8,6 +8,7 @@ const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -87,8 +88,18 @@ const LoginScreen = ({ navigation }) => {
                                 placeholderTextColor={Theme.colors.textSecondary}
                                 value={password}
                                 onChangeText={setPassword}
-                                secureTextEntry
+                                secureTextEntry={!showPassword}
                             />
+                            <TouchableOpacity
+                                onPress={() => setShowPassword(!showPassword)}
+                                style={styles.eyeIcon}
+                            >
+                                {showPassword ? (
+                                    <EyeOff size={20} color={Theme.colors.textSecondary} />
+                                ) : (
+                                    <Eye size={20} color={Theme.colors.textSecondary} />
+                                )}
+                            </TouchableOpacity>
                         </View>
                     </View>
 
@@ -202,6 +213,9 @@ const styles = StyleSheet.create({
     },
     inputIcon: {
         marginRight: 12,
+    },
+    eyeIcon: {
+        padding: 8,
     },
     input: {
         flex: 1,
