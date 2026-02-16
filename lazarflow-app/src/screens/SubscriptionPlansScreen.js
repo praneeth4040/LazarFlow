@@ -256,7 +256,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                 // --- CASHFREE FLOW (FALLBACK) ---
                                 console.log('🔄 Initiating Cashfree fallback...');
                                 // 1. Create Cashfree Order via Backend
-                                const cfResponse = await fetch('https://api.lazarflow.app/create-order-cashfree', {
+                                const cfResponse = await fetch('https://www.api.lazarflow.app/create-order-cashfree', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ user_id: user.id, tier: plan.id }),

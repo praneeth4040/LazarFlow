@@ -170,7 +170,7 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
         // Check if it's already a Supabase storage path or relative path
         if (cleanUrl.includes('storage/v1/object/public/themes/')) {
             if (cleanUrl.startsWith('http')) return cleanUrl;
-            return `https://api.lazarflow.app/storage/themes/${cleanUrl.startsWith('/') ? cleanUrl.substring(1) : cleanUrl}`;
+            return `https://www.api.lazarflow.app/storage/themes/${cleanUrl.startsWith('/') ? cleanUrl.substring(1) : cleanUrl}`;
         }
 
         // If it looks like a relative path or filename
@@ -179,17 +179,17 @@ const DesignRenderer = ({ theme, data, lobby, width = SCREEN_WIDTH }) => {
         // CRITICAL FIX: If path starts with 'optimized/', it's almost certainly a Supabase asset
         // even if theme.user_id is null (e.g. Admin/Community designs)
         if (cleanPath.startsWith('optimized/')) {
-            return `https://api.lazarflow.app/storage/themes/${cleanPath}`;
+            return `https://www.api.lazarflow.app/storage/themes/${cleanPath}`;
         }
 
         // Determine if it's a Supabase theme or a community API theme
         // Supabase themes typically have a user_id
         if (theme.user_id || theme.is_user_theme) {
-            return `https://api.lazarflow.app/storage/themes/${cleanPath}`;
+            return `https://www.api.lazarflow.app/storage/themes/${cleanPath}`;
         }
         
         // Fallback for community API (lazarflow.app)
-        return `https://api.lazarflow.app/${cleanPath}`;
+        return `https://www.api.lazarflow.app/${cleanPath}`;
     };
 
     // Try multiple fields for the URL
