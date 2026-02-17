@@ -209,21 +209,25 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
 
                                 console.log('🚀 Initiating Razorpay flow...');
                                 // 1. Create Order via Backend
-                                // Using new endpoint structure: /api/payments/create-order
-                                const orderResponse = await apiClient.post('/api/payments/create-order', {
-                                    tier: plan.id,
-                                    amount: amount,
-                                    gateway: 'razorpay'
-                                });
+                            // Using new endpoint structure: /api/payments/create-order
+                            // Backend requires customer_phone for Razorpay/Cashfree
+                            const customerPhone = user?.phone || '9999999999';
+                            
+                            const orderResponse = await apiClient.post('/api/payments/create-order', {
+                                tier: plan.id,
+                                amount: amount,
+                                gateway: 'razorpay',
+                                customer_phone: customerPhone
+                            });
 
                                 const { id: order_id, amount: amountInPaise, currency, key_id } = orderResponse.data;
 
                                 // 2. Open Razorpay SDK
                                 const options = {
                                     description: `LazarFlow ${plan.name} Subscription`,
-                                    image: 'https://api.lazarflow.app/logo.png', // Replace with actual logo
+                                    image: 'https://api.lazarflow.app/logo.png', 
                                     currency: currency || 'INR',
-                                    key: key_id, // Backend should provide the public key
+                                    key: key_id, 
                                     amount: amountInPaise,
                                     name: 'LazarFlow',
                                     order_id: order_id,
@@ -280,14 +284,15 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                 // --- CASHFREE FLOW (FALLBACK) ---
                                 console.log('🔄 Initiating Cashfree fallback...');
                                 // 1. Create Cashfree Order via Backend
-                                // Use the amount parsed earlier
-                                const amount = parseAmount(plan.price);
-                                
-                                const cfResponse = await apiClient.post('/api/payments/create-order', {
-                                    tier: plan.id,
-                                    amount: amount,
-                                    gateway: 'cashfree'
-                                });
+                            // Use the amount parsed earlier
+                            const amount = parseAmount(plan.price);
+                            
+                            const cfResponse = await apiClient.post('/api/payments/create-order', {
+                                tier: plan.id,
+                                amount: amount,
+                                gateway: 'cashfree',
+                                customer_phone: user?.phone || '9999999999'
+                            });
 
                                 const cfData = cfResponse.data;
                                 const { payment_session_id, order_id: cf_order_id, cf_order_id: cf_order_id_num } = cfData;
