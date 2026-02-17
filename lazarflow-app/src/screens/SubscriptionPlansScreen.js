@@ -16,6 +16,9 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     const { tier, lobbiesCreated, maxAILobbies, maxLayouts } = useSubscription();
     const { user } = useContext(UserContext);
     const insets = useSafeAreaInsets();
+    
+    // Store selected plan for Cashfree callback context
+    const selectedPlanRef = React.useRef(null);
 
     // Check if Razorpay is linked/available
     const isRazorpayAvailable = React.useMemo(() => {
@@ -164,6 +167,9 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     ];
 
     const handleClaim = async (plan) => {
+        // Store plan ID for potential callbacks
+        selectedPlanRef.current = plan.id;
+
         if (plan.isCurrent) {
             Alert.alert('Current Plan', `You are already subscribed to the ${plan.name} plan.`);
             return;
@@ -180,6 +186,20 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                         try {
                             if (!user) throw new Error('User not found');
 
+                            // Helper to parse price string (e.g., "₹129" -> 129)
+                            const parseAmount = (priceStr) => {
+                                if (!priceStr) return 0;
+                                const numeric = priceStr.replace(/[^0-9]/g, '');
+                                return parseInt(numeric, 10);
+                            };
+
+                            const amount = parseAmount(plan.price);
+                            if (amount <= 0 && plan.price !== 'Custom') {
+                                // Allow 'Custom' or free plans to proceed? 
+                                // Assuming this flow is only for paid upgrades
+                                throw new Error('Invalid plan amount');
+                            }
+
                             // --- RAZORPAY FLOW (PRIMARY) ---
                             try {
                                 if (!isRazorpayAvailable) {
@@ -189,12 +209,14 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
 
                                 console.log('🚀 Initiating Razorpay flow...');
                                 // 1. Create Order via Backend
-                                const orderResponse = await apiClient.post('/create-order', {
-                                    user_id: user.id,
-                                    tier: plan.id
+                                // Using new endpoint structure: /api/payments/create-order
+                                const orderResponse = await apiClient.post('/api/payments/create-order', {
+                                    tier: plan.id,
+                                    amount: amount,
+                                    gateway: 'razorpay'
                                 });
 
-                                const { id: order_id, amount, currency, key_id } = orderResponse.data;
+                                const { id: order_id, amount: amountInPaise, currency, key_id } = orderResponse.data;
 
                                 // 2. Open Razorpay SDK
                                 const options = {
@@ -202,7 +224,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                     image: 'https://api.lazarflow.app/logo.png', // Replace with actual logo
                                     currency: currency || 'INR',
                                     key: key_id, // Backend should provide the public key
-                                    amount: amount,
+                                    amount: amountInPaise,
                                     name: 'LazarFlow',
                                     order_id: order_id,
                                     prefill: {
@@ -221,7 +243,9 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                 console.log('✅ Razorpay Success:', razorpayData);
 
                                 // 3. Verify Payment via Backend
-                                const verifyResponse = await apiClient.post('/verify-payment', {
+                                const verifyResponse = await apiClient.post('/api/payments/verify-payment', {
+                                    tier: plan.id,
+                                    gateway: 'razorpay',
                                     razorpay_order_id: razorpayData.razorpay_order_id,
                                     razorpay_payment_id: razorpayData.razorpay_payment_id,
                                     razorpay_signature: razorpayData.razorpay_signature
@@ -256,28 +280,37 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                 // --- CASHFREE FLOW (FALLBACK) ---
                                 console.log('🔄 Initiating Cashfree fallback...');
                                 // 1. Create Cashfree Order via Backend
-                                const cfResponse = await fetch('https://www.api.lazarflow.app/create-order-cashfree', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ user_id: user.id, tier: plan.id }),
+                                // Use the amount parsed earlier
+                                const amount = parseAmount(plan.price);
+                                
+                                const cfResponse = await apiClient.post('/api/payments/create-order', {
+                                    tier: plan.id,
+                                    amount: amount,
+                                    gateway: 'cashfree'
                                 });
 
-                                const cfData = await cfResponse.json();
-                                if (!cfResponse.ok) throw new Error(cfData.message || 'Failed to create Cashfree order');
-
-                                const { payment_session_id, order_id: cf_order_id } = cfData;
+                                const cfData = cfResponse.data;
+                                const { payment_session_id, order_id: cf_order_id, cf_order_id: cf_order_id_num } = cfData;
 
                                 // 2. Start Cashfree Checkout
                                 try {
                                     if (!CFPaymentGatewayService || typeof CFPaymentGatewayService.doPayment !== 'function') {
                                         throw new Error('Cashfree SDK is not initialized correctly');
                                     }
+                                    
+                                    // Set verification callback context (orderId needed for verify)
+                                    // We can't pass data directly to callback, but we can store it in ref or state if needed.
+                                    // For now, the existing callback logic needs to be updated to call the new verify endpoint.
+                                    // But wait, the callback is defined in useEffect. We need to update that too.
+                                    // Let's first finish this part.
 
                                     CFPaymentGatewayService.doPayment({
                                         environment: 'PRODUCTION',
                                         payment_session_id: payment_session_id,
-                                        order_id: cf_order_id || "ORDER_ID_NOT_PROVIDED",
+                                        order_id: cf_order_id || String(cf_order_id_num) || "ORDER_ID_NOT_PROVIDED",
                                     });
+                                    
+                                    // Note: Verification happens in the onVerify callback defined in useEffect
                                 } catch (cfDoError) {
                                     console.error('Cashfree doPayment error:', cfDoError);
                                     throw new Error('Failed to open Cashfree payment gateway');

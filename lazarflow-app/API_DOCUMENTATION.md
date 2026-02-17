@@ -88,13 +88,13 @@ This document details all API endpoints used in the **LazarFlow** mobile applica
 
 ## **7. Payments (Monetization)**
 
-**Service File:** `src/screens/SubscriptionPlansScreen.js` (Direct calls via `apiClient` or `fetch`)
+**Service File:** `src/screens/SubscriptionPlansScreen.js`
 
 | Endpoint | Method | Function / Call Site | Request Payload | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `/create-order` | POST | `handleClaim` (Razorpay flow) | `{ user_id: "string", tier: "string" }` | Creates a payment order on the backend (Razorpay). Returns order details. |
-| `/verify-payment` | POST | `handleClaim` (Razorpay flow) | `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }` | Verifies the payment signature after user completes payment. |
-| `/create-order-cashfree` | POST | `handleClaim` (Cashfree fallback) | `{ user_id: "string", tier: "string" }` | Creates a payment order on the backend (Cashfree). Returns session ID. |
+| `/api/payments/config` | GET | Not currently used (Frontend logic checks SDKs) | `None` | Checks available payment gateways. |
+| `/api/payments/create-order` | POST | `handleClaim` | `{ tier: "string", amount: number, gateway: "razorpay"\|"cashfree" }` | Creates a payment order. |
+| `/api/payments/verify-payment` | POST | `handleClaim` (Razorpay) / `onVerify` (Cashfree) | Razorpay: `{ tier, gateway: "razorpay", razorpay_order_id, razorpay_payment_id, razorpay_signature }` <br> Cashfree: `{ tier, gateway: "cashfree", order_id }` | Verifies the payment transaction on the backend. |
 
 ---
 

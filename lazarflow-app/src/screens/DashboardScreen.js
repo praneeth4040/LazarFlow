@@ -147,7 +147,6 @@ const DashboardScreen = ({ navigation, route }) => {
     const [designDetails, setDesignDetails] = useState({
         name: ''
     });
-    const [isUsernameExpanded, setIsUsernameExpanded] = useState(false);
 
     useEffect(() => {
         if (user?.id) {
@@ -739,7 +738,6 @@ const DashboardScreen = ({ navigation, route }) => {
         const createdAt = formatDate(user?.created_at);
         const lobbiesCreatedCount = user?.lobbies_created_count ?? 0;
 
-        const truncatedName = displayName.length > 10 ? displayName.substring(0, 10) + '...' : displayName;
 
         return (
             <ScrollView style={styles.content}>
@@ -749,20 +747,11 @@ const DashboardScreen = ({ navigation, route }) => {
                         <View style={styles.avatarCircle}>
                             <Text style={styles.avatarInitial}>{displayName.charAt(0).toUpperCase()}</Text>
                         </View>
-                        <TouchableOpacity 
-                            style={styles.profileNameContainer} 
-                            onPress={() => setIsUsernameExpanded(!isUsernameExpanded)}
-                            activeOpacity={0.7}
-                        >
+                        <View style={styles.profileNameContainer}>
                             <Text style={styles.profileName}>
-                                {isUsernameExpanded ? displayName : truncatedName}
+                                {displayName}
                             </Text>
-                            {displayName.length > 10 && (
-                                <Text style={styles.expandHint}>
-                                    {isUsernameExpanded ? '(tap to collapse)' : '(tap to expand)'}
-                                </Text>
-                            )}
-                        </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
 
@@ -1563,11 +1552,6 @@ const styles = StyleSheet.create({
         fontSize: 22,
         fontWeight: 'bold',
         color: Theme.colors.textPrimary,
-    },
-    expandHint: {
-        fontSize: 10,
-        color: Theme.colors.textSecondary,
-        marginTop: 2,
     },
     profileContent: {
         paddingHorizontal: 20,
