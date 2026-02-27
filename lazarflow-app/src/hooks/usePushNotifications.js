@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { authService } from '../lib/authService';
 import { UserContext } from '../context/UserContext';
-import { updateUserProfile } from '../lib/dataService';
+import { registerPushToken } from '../lib/dataService';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -75,7 +75,7 @@ export const usePushNotifications = () => {
             tokenRef.current = token;
 
             if (token && user?.id) {
-                await saveTokenToProfile(user.id, token, user?.expo_push_token);
+                await saveTokenToProfile(user.id, token);
             }
         };
 
@@ -100,24 +100,13 @@ export const usePushNotifications = () => {
         };
     }, []);
 
-    const saveTokenToProfile = async (userId, token, currentExpoToken = null) => {
+    const saveTokenToProfile = async (userId, token) => {
         try {
-            console.log('🔄 Checking if push token needs update for user:', userId);
+            console.log('📤 Registering push token...');
             
-            // Only update if the token is different or doesn't exist
-            if (currentExpoToken === token) {
-                console.log('✅ Push token is already up to date. Skipping update.');
-                return;
-            }
+            await registerPushToken(userId, token);
 
-            console.log('📤 Token is new or changed. Updating Profile...');
-            
-            // Send only expo_push_token as per API spec
-            await updateUserProfile({ 
-                expo_push_token: token
-            });
-
-            console.log('✅ Push token successfully updated in Profile');
+            console.log('✅ Push token successfully registered');
         } catch (err) {
             console.error('❌ Failed to save token:', err);
         }

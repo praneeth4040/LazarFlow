@@ -57,15 +57,17 @@ export const getDesignImageSource = (theme) => {
  * @param {Object} updates - Data to update (only expo_push_token supported)
  * @returns {Promise<boolean>} Success status
  */
-export const updateUserProfile = async (updates) => {
+export const registerPushToken = async (userId, token) => {
     try {
-        // API only allows expo_push_token field per spec
-        const payload = { expo_push_token: updates.expo_push_token };
-        const response = await apiClient.put('/api/auth/me', payload);
-        console.log('Profile update response:', response.data);
+        const payload = { 
+            user_id: userId, 
+            token: token 
+        };
+        const response = await apiClient.post('/api/notifications/register-token', payload);
+        console.log('Push token registration response:', response.data);
         return true;
     } catch (error) {
-        console.error('Error updating profile:', error);
+        console.error('Error registering push token:', error);
         throw error;
     }
 };

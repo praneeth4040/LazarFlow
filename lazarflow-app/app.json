@@ -42,6 +42,7 @@
       "favicon": "./assets/logo.png"
     },
     "plugins": [
+      "./plugins/withAndroidRepositories.js",
       [
         "expo-media-library",
         {
