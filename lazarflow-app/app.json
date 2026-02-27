@@ -5,10 +5,17 @@
     "owner": "praneeth4400",
     "scheme": "lazarflow",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/padded_icon.png",
     "userInterfaceStyle": "light",
     "jsEngine": "hermes",
+    "updates": {
+      "enabled": true,
+      "checkOnLaunch": "ALWAYS"
+    },
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
