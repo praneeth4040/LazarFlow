@@ -72,6 +72,22 @@ export const registerPushToken = async (userId, token) => {
     }
 };
 
+/**
+ * Unregisters a push token for the authenticated user (on logout)
+ * This endpoint identifies the user from the Authorization header.
+ * @returns {Promise<boolean>} Success status
+ */
+export const unregisterPushToken = async () => {
+    try {
+        const response = await apiClient.post('/api/notifications/unregister-token');
+        console.log('Push token unregistration response:', response.data);
+        return true;
+    } catch (error) {
+        console.error('Error unregistering push token:', error);
+        return false;
+    }
+};
+
 export const getUserThemes = async (userId, forceRefresh = false) => {
     if (!userId) return [];
 

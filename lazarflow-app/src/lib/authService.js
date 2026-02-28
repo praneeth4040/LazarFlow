@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
+import { unregisterPushToken } from './dataService';
 
 export const authService = {
     async register(email, password, data = null) {
@@ -101,6 +102,10 @@ export const authService = {
 
     async logout() {
         try {
+            // Unregister push token before logout (identifies user via access_token)
+            console.log('🧹 authService: Unregistering push token before logout...');
+            await unregisterPushToken();
+            
             await apiClient.post('/api/auth/logout');
         } catch (error) {
             console.error('Logout error:', error);
@@ -108,6 +113,7 @@ export const authService = {
             await AsyncStorage.removeItem('access_token');
             await AsyncStorage.removeItem('refresh_token');
             await AsyncStorage.removeItem('expires_in');
+            await AsyncStorage.removeItem('last_push_token');
             authEvents.emit('SIGNED_OUT');
         }
     },
