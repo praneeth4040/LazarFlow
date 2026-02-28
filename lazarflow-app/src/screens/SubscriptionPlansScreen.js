@@ -102,7 +102,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
         {
             id: 'ranked',
             name: 'Ranked',
-            price: '₹129',
+            price: '₹150',
             period: 'Monthly',
             icon: <ShieldCheck size={24} color="#3b82f6" />,
             features: [
@@ -118,7 +118,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
         {
             id: 'competitive',
             name: 'Competitive',
-            price: '₹229',
+            price: '₹250',
             period: 'Monthly',
             icon: <Award size={24} color="#f59e0b" />,
             features: [
@@ -135,7 +135,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
         {
             id: 'premier',
             name: 'Premier',
-            price: '₹329',
+            price: '₹399',
             period: 'Monthly',
             icon: <Crown size={24} color="#8b5cf6" />,
             features: [
