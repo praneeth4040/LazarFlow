@@ -18,6 +18,7 @@ import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 import DesignDetailsScreen from '../screens/DesignDetailsScreen';
 import SubscriptionPlansScreen from '../screens/SubscriptionPlansScreen';
 import PaymentStatusScreen from '../screens/PaymentStatusScreen';
+import GenericErrorScreen from '../screens/GenericErrorScreen';
 import * as Linking from 'expo-linking';
 import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
@@ -154,6 +155,12 @@ export default function AppNavigator() {
                             component={PaymentStatusScreen}
                             options={{ headerShown: false }}
                         />
+                         <Stack.Screen
+                            name="GenericError"
+                            component={GenericErrorScreen}
+                            options={{ headerShown: false }}
+                        />
+
                     </>
                 )}
             </Stack.Navigator>
