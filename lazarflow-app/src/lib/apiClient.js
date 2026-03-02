@@ -14,7 +14,8 @@ const apiClient = axios.create({
     },
 });
 
-// Flag to prevent multiple simultaneous refresh attempts
+// --- Start of Refresh Logic ---
+
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -35,22 +36,13 @@ apiClient.interceptors.request.use(
             const token = await AsyncStorage.getItem('access_token');
             
             if (token) {
-                // Clean token
-                let cleanToken = token.trim();
-                if (cleanToken.startsWith('"') && cleanToken.endsWith('"')) {
-                    cleanToken = cleanToken.substring(1, cleanToken.length - 1);
-                }
-                
-                // Strip 'Bearer ' prefix if present to avoid duplication
+                let cleanToken = token.trim().replace(/^"|"$/g, '');
                 if (cleanToken.toLowerCase().startsWith('bearer ')) {
                     cleanToken = cleanToken.substring(7).trim();
                 }
-                
-                // Send EXACTLY as backend expects: Authorization: Bearer <token>
                 config.headers.Authorization = `Bearer ${cleanToken}`;
                 
                 console.log(`🔐 [${config.method.toUpperCase()}] ${config.url}`);
-                console.log(`   Token sent: Bearer ${cleanToken.substring(0, 30)}...`);
             } else {
                 console.log(`⚠️ [${config.method.toUpperCase()}] ${config.url} - No token`);
             }
@@ -65,75 +57,69 @@ apiClient.interceptors.request.use(
 );
 
 apiClient.interceptors.response.use(
-    (response) => {
-        console.log(`✅ [${response.status}] ${response.config.method.toUpperCase()} ${response.config.url}`);
-        console.log(`   Response data:`, JSON.stringify(response.data).substring(0, 100));
-        return response;
-    },
+    (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        // Log error details with request headers
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isRefreshing) {
+                // If a refresh is already in progress, queue this request
+                return new Promise((resolve, reject) => {
+                    failedQueue.push({ resolve, reject });
+                }).then(token => {
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    return apiClient(originalRequest); // Retry the original request
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
+            originalRequest._retry = true;
+            isRefreshing = true;
+
+            try {
+                // Use require here to avoid circular dependencies
+                const { authService } = require('./authService');
+                
+                console.log('🔄 Token expired. Attempting refresh...');
+                const result = await authService.refreshToken();
+                
+                const newToken = result.session?.access_token;
+
+                if (!newToken) {
+                    throw new Error('No new token received from refresh endpoint');
+                }
+
+                // Update the default headers and the original request
+                apiClient.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                
+                // Process the queue with the new token
+                processQueue(null, newToken);
+
+                // Retry the original request that initiated the refresh
+                return apiClient(originalRequest);
+
+            } catch (refreshError) {
+                console.error('❌ Token refresh failed:', refreshError.message);
+                processQueue(refreshError, null);
+                
+                // If refresh fails, emit a global sign-out event
+                authEvents.emit('SIGNED_OUT');
+                return Promise.reject(refreshError);
+            } finally {
+                isRefreshing = false;
+            }
+        }
+
+        // Log other errors
         if (error.response) {
             console.error(`❌ [${error.response.status}] ${originalRequest.method.toUpperCase()} ${originalRequest.url}`);
-            console.error(`   Request Headers Sent:`, JSON.stringify({
-                Authorization: originalRequest.headers.Authorization?.substring(0, 50),
-                'Content-Type': originalRequest.headers['Content-Type'],
-                'X-Token': originalRequest.headers['X-Token']
-            }));
             console.error(`   Response Error:`, error.response.data);
-
-            // Handle 401 Unauthorized - attempt token refresh
-            if (error.response.status === 401 && !originalRequest._retry) {
-                if (isRefreshing) {
-                    // Queue this request to retry after refresh completes
-                    return new Promise((resolve, reject) => {
-                        failedQueue.push({ resolve, reject });
-                    }).then(token => {
-                        originalRequest.headers.Authorization = `Bearer ${token}`;
-                        return apiClient(originalRequest);
-                    }).catch(err => {
-                        return Promise.reject(err);
-                    });
-                }
-
-                // Mark as retry attempt
-                originalRequest._retry = true;
-                isRefreshing = true;
-
-                try {
-                    // Import authService here to avoid circular dependency
-                    const { authService } = require('./authService');
-                    
-                    console.log('🔄 Token expired. Attempting refresh...');
-                    const result = await authService.refreshToken();
-                    
-                    const newToken = result.session?.access_token;
-                    if (newToken) {
-                        apiClient.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                        processQueue(null, newToken);
-                        isRefreshing = false;
-                        
-                        console.log('🔄 Retrying original request with new token...');
-                        return apiClient(originalRequest);
-                    } else {
-                        throw new Error('No token in refresh response');
-                    }
-                } catch (refreshError) {
-                    console.error('❌ Token refresh failed:', refreshError.message);
-                    processQueue(refreshError, null);
-                    isRefreshing = false;
-                    
-                    // Emit logout event to trigger app navigation to login
-                    authEvents.emit('SIGNED_OUT');
-                    return Promise.reject(refreshError);
-                }
-            }
         } else if (error.request) {
             console.error(`❌ No response received:`, error.message);
         } else {
-            console.error(`❌ Error:`, error.message);
+            console.error(`❌ Error setting up request:`, error.message);
         }
 
         return Promise.reject(error);

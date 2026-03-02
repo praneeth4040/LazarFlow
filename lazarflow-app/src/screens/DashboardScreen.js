@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap } from 'lucide-react-native';
+import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap, LogOut } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -132,6 +132,14 @@ const DashboardScreen = ({ navigation, route }) => {
     const [uploadModalVisible, setUploadModalVisible] = useState(false);
     const [previewImage, setPreviewImage] = useState(null);
     const [showPromoModal, setShowPromoModal] = useState(false);
+    const [historyPage, setHistoryPage] = useState(1);
+
+    // Reset page on history collapse
+    useEffect(() => {
+        if (!expandedSections.history) {
+            setHistoryPage(1);
+        }
+    }, [expandedSections.history]);
 
     useEffect(() => {
         // Show promo modal for free users on load (once per session)
@@ -658,31 +666,74 @@ const DashboardScreen = ({ navigation, route }) => {
             );
         }
 
-        return pastLobbies.map(lobby => (
-            <TouchableOpacity
-                key={lobby.id}
-                style={[styles.card, { marginHorizontal: 0 }]}
-                onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
-            >
-                <View style={styles.cardInfo}>
-                    <Text style={styles.cardTitle}>{lobby.name}</Text>
-                    <Text style={styles.cardMeta}>
-                        {lobby.game || 'Game'} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
-                    </Text>
-                </View>
-                <View style={styles.cardActions}>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Leaderboard">
-                        <BarChart2 size={16} color={Theme.colors.textSecondary} />
+        const LOBBIES_PER_PAGE = 5;
+        const totalPages = Math.ceil(pastLobbies.length / LOBBIES_PER_PAGE);
+        const startIndex = (historyPage - 1) * LOBBIES_PER_PAGE;
+        const endIndex = startIndex + LOBBIES_PER_PAGE;
+        const paginatedLobbies = pastLobbies.slice(startIndex, endIndex);
+
+        const goToNextPage = () => {
+            if (historyPage < totalPages) {
+                setHistoryPage(historyPage + 1);
+            }
+        };
+
+        const goToPrevPage = () => {
+            if (historyPage > 1) {
+                setHistoryPage(historyPage - 1);
+            }
+        };
+
+        return (
+            <>
+                {paginatedLobbies.map(lobby => (
+                    <TouchableOpacity
+                        key={lobby.id}
+                        style={[styles.card, { marginHorizontal: 0 }]}
+                        onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
+                    >
+                        <View style={styles.cardInfo}>
+                            <Text style={styles.cardTitle}>{lobby.name}</Text>
+                            <Text style={styles.cardMeta}>
+                                {lobby.game || 'Game'} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
+                            </Text>
+                        </View>
+                        <View style={styles.cardActions}>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Leaderboard">
+                                <BarChart2 size={16} color={Theme.colors.textSecondary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteLobby(lobby)} title="Delete">
+                                <Trash2 size={16} color="#ef4444" />
+                            </TouchableOpacity>
+                        </View>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id, view: 'mvp' })} title="MVPs">
-                        <Award size={16} color={Theme.colors.accent} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteLobby(lobby)} title="Delete">
-                        <Trash2 size={16} color="#ef4444" />
-                    </TouchableOpacity>
-                </View>
-            </TouchableOpacity>
-        ));
+                ))}
+
+                {totalPages > 1 && (
+                    <View style={styles.paginationControls}>
+                        <TouchableOpacity
+                            style={[styles.paginationBtn, historyPage === 1 && styles.paginationBtnDisabled]}
+                            onPress={goToPrevPage}
+                            disabled={historyPage === 1}
+                        >
+                            <Text style={styles.paginationBtnText}>Prev</Text>
+                        </TouchableOpacity>
+
+                        <Text style={styles.paginationText}>
+                            Page {historyPage} of {totalPages}
+                        </Text>
+
+                        <TouchableOpacity
+                            style={[styles.paginationBtn, historyPage === totalPages && styles.paginationBtnDisabled]}
+                            onPress={goToNextPage}
+                            disabled={historyPage === totalPages}
+                        >
+                            <Text style={styles.paginationBtnText}>Next</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </>
+        );
     };
 
     const formatDate = (dateString) => {
@@ -970,8 +1021,16 @@ const DashboardScreen = ({ navigation, route }) => {
                         )}
                     </View>
 
-                    <TouchableOpacity style={styles.mobileLogoutBtn} onPress={handleLogout}>
-                        <Text style={styles.mobileLogoutBtnText}>⤴ Log Out</Text>
+                    <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                        <LinearGradient
+                            colors={['#EF4444', '#DC2626']}
+                            style={styles.logoutButtonGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <LogOut size={20} color="#fff" />
+                            <Text style={styles.logoutButtonText}>Log Out</Text>
+                        </LinearGradient>
                     </TouchableOpacity>
 
                     <View style={{ height: 40 }} />
@@ -1697,17 +1756,30 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    mobileLogoutBtn: {
+    logoutButton: {
+        marginTop: 30,
+        marginBottom: 20,
+        width: '100%',
+        borderRadius: 12,
+        overflow: 'hidden',
+        shadowColor: '#EF4444',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    logoutButtonGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 16,
-        marginTop: 10,
+        paddingVertical: 14,
+        gap: 10,
+        borderRadius: 12,
     },
-    mobileLogoutBtnText: {
-        color: Theme.colors.danger,
+    logoutButtonText: {
+        color: '#fff',
         fontSize: 16,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.bold,
     },
     tabBar: {
         flexDirection: 'row',
@@ -2277,6 +2349,34 @@ const styles = StyleSheet.create({
     imagePreviewFull: {
         width: '100%',
         height: '80%',
+    },
+    paginationControls: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 16,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: Theme.colors.border,
+    },
+    paginationBtn: {
+        backgroundColor: Theme.colors.accent,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    paginationBtnDisabled: {
+        backgroundColor: Theme.colors.border,
+    },
+    paginationBtnText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    paginationText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Theme.colors.textSecondary,
     },
 });
 

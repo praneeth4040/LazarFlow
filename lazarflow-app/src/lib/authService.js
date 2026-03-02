@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
+import axios from 'axios';
 
 export const authService = {
     async register(email, password, data = null) {
@@ -71,7 +72,17 @@ export const authService = {
                 throw new Error('No refresh token available');
             }
 
-            const response = await apiClient.post('/api/auth/refresh', {
+            // Use a plain axios instance to avoid recursion with the interceptor
+            const refreshApiClient = axios.create({
+                baseURL: apiClient.defaults.baseURL, // Use the same base URL as the main client
+                timeout: apiClient.defaults.timeout, // Use the same timeout
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+            });
+
+            const response = await refreshApiClient.post('/api/auth/refresh', {
                 refresh_token: refreshToken
             });
 
@@ -93,8 +104,7 @@ export const authService = {
             }
         } catch (error) {
             console.error('❌ Token refresh failed:', error.message);
-            // If refresh fails, logout the user
-            await this.logout();
+            // Re-throw the error so the interceptor can handle it and trigger a logout.
             throw error;
         }
     },
