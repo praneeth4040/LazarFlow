@@ -14,7 +14,6 @@ import {
     Image,
     StatusBar,
     Platform,
-    Alert,
     Linking
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -30,6 +29,8 @@ import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
 import { getUserThemes, getCommunityDesigns, renderResults, uploadLogo, getLobby, getLobbyTeams, getDesignImageSource } from '../lib/dataService';
 import { useSubscription } from '../hooks/useSubscription';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 

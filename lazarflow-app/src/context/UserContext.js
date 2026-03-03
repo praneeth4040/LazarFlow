@@ -36,10 +36,12 @@ export const UserProvider = ({ children }) => {
             setError(null);
         } catch (err) {
             console.error('❌ UserContext: Failed to initialize user session:', err.message);
-            // Any error during user initialization means the session is invalid.
-            // This could be an expired refresh token or a network error.
-            // Force a logout to clear the bad state and return to the login screen.
-            authService.logout();
+            // We no longer force a logout here. 
+            // If the token is truly expired and refresh fails, the apiClient interceptor 
+            // will automatically emit 'SIGNED_OUT' and handle the logout process.
+            // A 404 here just means the profile isn't found, but the auth session is still valid.
+            setError(err);
+            setUser(null);
         } finally {
             setLoading(false);
         }

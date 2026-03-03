@@ -10,7 +10,8 @@ import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { UserProvider } from './src/context/UserContext';
 import { Theme } from './src/styles/theme';
 import { AlertTriangle } from 'lucide-react-native';
-
+import GlobalAlert from './src/components/GlobalAlert';
+import { globalAlertRef } from './src/lib/AlertService';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -89,6 +90,7 @@ export default function App() {
             <AppNavigator />
             <PushNotificationHandler />
           </UserProvider>
+          <GlobalAlert ref={globalAlertRef} />
           <StatusBar style="auto" />
         </SafeAreaProvider>
       </ErrorBoundary>

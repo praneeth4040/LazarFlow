@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const ResetPasswordScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');

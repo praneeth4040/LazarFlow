@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap, LogOut } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ import { useSubscription } from '../hooks/useSubscription';
 import { useFocusEffect } from '@react-navigation/native';
 import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
 import SubscriptionPlansScreen from './SubscriptionPlansScreen';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const CommunityDesignCard = React.memo(({ theme, index, isRightColumn = false, onPress }) => {
     const imageSource = getDesignImageSource(theme);
@@ -157,7 +159,7 @@ const DashboardScreen = ({ navigation, route }) => {
     });
 
     useEffect(() => {
-        if (user?.id) {
+        if (activeTab === 'profile' && expandedSections.stats && user?.id) {
             const fetchLayoutsCount = async () => {
                 try {
                     const themes = await getUserThemes(user.id);
@@ -168,7 +170,7 @@ const DashboardScreen = ({ navigation, route }) => {
             };
             fetchLayoutsCount();
         }
-    }, [user?.id]);
+    }, [activeTab, expandedSections.stats, user?.id]);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -188,12 +190,13 @@ const DashboardScreen = ({ navigation, route }) => {
             const data = await getLobbies();
             console.log(`Found ${data?.length || 0} lobbies`);
 
-            // Fetch team counts for each lobby
-            const lobbiesWithCounts = await Promise.all((data || []).map(async (lobby) => {
+            const activeData = (data || []).filter(t => t.status !== 'completed');
+            const pastData = (data || []).filter(t => t.status === 'completed');
+
+            // Fetch team counts ONLY for active lobbies
+            const activeWithCounts = await Promise.all(activeData.map(async (lobby) => {
                 try {
                     const teams = await getLobbyTeams(lobby.id);
-                    console.log(`Lobby ${lobby.id} (${lobby.name}) response:`, teams);
-                    
                     let count = 0;
                     if (Array.isArray(teams)) {
                         count = teams.length;
@@ -212,11 +215,8 @@ const DashboardScreen = ({ navigation, route }) => {
                 }
             }));
 
-            const active = lobbiesWithCounts.filter(t => t.status !== 'completed');
-            const past = lobbiesWithCounts.filter(t => t.status === 'completed');
-
-            setLobbies(active);
-            setPastLobbies(past);
+            setLobbies(activeWithCounts);
+            setPastLobbies(pastData);
         } catch (error) {
             console.error('Error fetching lobbies:', error);
         } finally {
@@ -285,12 +285,22 @@ const DashboardScreen = ({ navigation, route }) => {
 
     const onRefresh = () => {
         setRefreshing(true);
-        // Force refresh all data on pull-to-refresh
-        const promises = [
-            fetchLobbies(),
-            getUserThemes(true),
-            getCommunityDesigns(true)
-        ];
+        
+        const promises = [];
+        
+        // Context-aware refresh
+        if (activeTab === 'home' || activeTab === 'profile') {
+            promises.push(fetchLobbies());
+        }
+        
+        if (activeTab === 'design') {
+            if (designTab === 'own') {
+                promises.push(getUserThemes(user?.id, true).then(themes => setUserThemesList(themes || [])));
+            } else {
+                promises.push(getCommunityDesigns(true).then(themes => setCommunityThemesList(themes || [])));
+            }
+        }
+        
         if (refreshUser) promises.push(refreshUser());
         
         Promise.all(promises).finally(() => {

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Plus, Bot, User, Trash2, ArrowLeft, Loader2, Sparkles, Send } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { extractTeamsFromText } from '../lib/aiExtraction';
 import { getLobbyTeams, addLobbyTeams, deleteTeam, updateLobby } from '../lib/dataService';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const ManageTeamsScreen = ({ route, navigation }) => {
     const { lobbyId, lobbyName } = route.params || {};

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { getLobby, getLobbyTeams, updateTeam, batchUpdateTeams, batchUpdateTeamMembers } from '../lib/dataService';
@@ -8,6 +8,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { extractResultsFromScreenshot, processLobbyScreenshots } from '../lib/aiResultExtraction';
 import { fuzzyMatch, fuzzyMatchName } from '../lib/aiUtils';
 import { useSubscription } from '../hooks/useSubscription';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const CalculateResultsScreen = ({ route, navigation }) => {
     const { canUseAI, tier } = useSubscription();

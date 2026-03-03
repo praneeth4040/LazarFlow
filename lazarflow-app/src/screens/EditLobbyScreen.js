@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, Alert, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { X, Sparkles, Save, ArrowLeft, Trash2, Plus } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { getLobby, updateLobby, deleteLobby } from '../lib/dataService';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const EditLobbyScreen = ({ route, navigation }) => {
     const { lobbyId } = route.params || {};
