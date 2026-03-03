@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../lib/authService';
 import { UserContext } from '../context/UserContext';
 import { registerPushToken } from '../lib/dataService';
@@ -68,14 +69,23 @@ export const usePushNotifications = () => {
         let isMounted = true;
 
         const setupNotifications = async () => {
+            console.log('📱 usePushNotifications: Setting up notifications...');
             const token = await registerForPushNotificationsAsync();
             if (!isMounted) return;
             
             setExpoPushToken(token);
             tokenRef.current = token;
 
+            // Store token for logout cleanup
+            if (token) {
+                await AsyncStorage.setItem('last_push_token', token);
+            }
+
             if (token && user?.id) {
+                console.log('📱 usePushNotifications: User ID found, saving token to profile...', user.id);
                 await saveTokenToProfile(user.id, token);
+            } else if (token) {
+                console.log('📱 usePushNotifications: Token generated but no user ID found yet.');
             }
         };
 
@@ -98,11 +108,12 @@ export const usePushNotifications = () => {
                 responseListener.current.remove();
             }
         };
-    }, []);
+    }, [user?.id]);
 
     const saveTokenToProfile = async (userId, token) => {
         try {
-            console.log('📤 Registering push token...');
+            console.log('📤 Registering push token for user:', userId);
+            console.log('📤 Token:', token);
             
             await registerPushToken(userId, token);
 
