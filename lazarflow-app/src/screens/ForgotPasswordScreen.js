@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Mail, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const ForgotPasswordScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');

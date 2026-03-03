@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, Circle } from 'lucide-react-native';
 import { authService } from '../lib/authService';
 import { Theme } from '../styles/theme';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const SignUpScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');

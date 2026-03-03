@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Alert, StatusBar, Platform, Dimensions, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, StatusBar, Platform, Dimensions, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Check, Share2, Heart, Download, Info, Palette, X, Trophy } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getDesignImageSource } from '../lib/dataService';
+import { CustomAlert as Alert } from '../lib/AlertService';
+
 
 const { width } = Dimensions.get('window');
 
