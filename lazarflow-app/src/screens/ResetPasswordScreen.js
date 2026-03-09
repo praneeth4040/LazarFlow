@@ -31,21 +31,16 @@ const ResetPasswordScreen = ({ navigation }) => {
         setLoading(true);
 
         try {
-            Alert.alert('Notice', 'Password update is currently unavailable. Please contact support.');
-            // const { error } = await supabase.auth.updateUser({
-            //     password: password
-            // });
+            await authService.updatePassword(password);
 
-            // if (error) throw error;
+            // Log out after reset to ensure a clean session for the user
+            await authService.logout();
 
-            // // Log out after reset to ensure a clean session for the user
-            // await authService.logout();
-
-            // Alert.alert(
-            //     'Success',
-            //     'Your password has been updated. Please login with your new password.',
-            //     [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-            // );
+            Alert.alert(
+                'Success',
+                'Your password has been updated. Please login with your new password.',
+                [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+            );
         } catch (error) {
             Alert.alert('Update Failed', error.message || 'An error occurred');
         } finally {

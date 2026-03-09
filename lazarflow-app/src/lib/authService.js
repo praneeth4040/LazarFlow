@@ -181,5 +181,23 @@ export const authService = {
         const token = await AsyncStorage.getItem('access_token');
         if (!token) return { data: { session: null } };
         return { data: { session: { access_token: token } } };
+    },
+
+    async resetPasswordForEmail(email) {
+        console.log('🔄 authService: Requesting password reset for:', email);
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: 'lazarflow://reset-password',
+        });
+        if (error) throw error;
+        return data;
+    },
+
+    async updatePassword(newPassword) {
+        console.log('🔄 authService: Updating user password...');
+        const { data, error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+        if (error) throw error;
+        return data;
     }
 };

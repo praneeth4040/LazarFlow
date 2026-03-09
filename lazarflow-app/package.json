@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "build:dev": "eas build --platform android --profile development",
     "build:preview": "eas build --platform android --profile preview",
-    "build:prod": "eas build --platform android --profile production"
+    "build:prod": "eas build --platform android --profile production",
+    "update:prod": "eas update --branch production"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
