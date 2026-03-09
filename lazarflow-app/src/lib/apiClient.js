@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 
-const BASE_URL = 'https://6817-2401-4900-1cb2-fecc-681a-3d8e-6a49-ec5f.ngrok-free.app';
+const BASE_URL = 'https://www.api.lazarflow.app';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
