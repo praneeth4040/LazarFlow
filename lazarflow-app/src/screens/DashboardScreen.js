@@ -175,15 +175,16 @@ const DashboardScreen = ({ navigation, route }) => {
     useFocusEffect(
         React.useCallback(() => {
             if (user?.id && !userLoading) {
-                fetchLobbies();
+                // Only show full loading if we have no lobbies yet
+                fetchLobbies(lobbies.length === 0);
             }
             return () => {};
         }, [user?.id, userLoading])
     );
 
-    const fetchLobbies = async () => {
+    const fetchLobbies = async (showLoadingIndicator = false) => {
         try {
-            setLoading(true);
+            if (showLoadingIndicator) setLoading(true);
             if (!user?.id) return;
 
             console.log('Fetching lobbies...');
@@ -1269,24 +1270,7 @@ const DashboardScreen = ({ navigation, route }) => {
                 )}
             </View>
 
-            {/* Floating PRO Badge for Free Users */}
-            {tier === 'free' && activeTab === 'home' && (
-                <TouchableOpacity 
-                    style={styles.floatingProBadge} 
-                    onPress={() => setActiveTab('plans')}
-                    activeOpacity={0.9}
-                >
-                    <LinearGradient
-                        colors={['#f59e0b', '#d97706']}
-                        style={styles.proBadgeGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                    >
-                        <Crown size={16} color="#fff" fill="#fff" />
-                        <Text style={styles.proBadgeText}>PRO</Text>
-                    </LinearGradient>
-                </TouchableOpacity>
-            )}
+
 
             <View style={styles.tabBar}>
                 <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('home')}>

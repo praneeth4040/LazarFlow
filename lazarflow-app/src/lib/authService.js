@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 import { unregisterPushToken } from './dataService';
 import axios from 'axios';
+import { supabase } from './supabaseClient';
 
 
 export const authService = {
@@ -12,17 +13,24 @@ export const authService = {
             payload.data = data;
         }
         const response = await apiClient.post('/api/auth/register', payload);
-        // Auto login after register if backend returns session, else user needs to login
-        if (response.data?.session?.access_token) {
-            console.log('💾 Storing access token from register...');
+        
+        // Use Supabase to handle the session session if provided
+        if (response.data?.session?.access_token && response.data?.session?.refresh_token) {
+            console.log('💾 Syncing register session with Supabase...');
+            const { error } = await supabase.auth.setSession({
+                access_token: response.data.session.access_token,
+                refresh_token: response.data.session.refresh_token
+            });
+            
+            if (error) console.error('Supabase setSession error:', error);
+
+            // Keep local backups if still needed for interceptors, but Supabase is primary now
             await AsyncStorage.setItem('access_token', response.data.session.access_token);
-            if (response.data.session.refresh_token) {
-                console.log('💾 Storing refresh token from register...');
-                await AsyncStorage.setItem('refresh_token', response.data.session.refresh_token);
-            }
+            await AsyncStorage.setItem('refresh_token', response.data.session.refresh_token);
+            
             if (response.data.session.expires_in) {
-                console.log('💾 Storing expiry from register...');
-                await AsyncStorage.setItem('expires_in', String(response.data.session.expires_in));
+                const expiryTime = Date.now() + (response.data.session.expires_in * 1000);
+                await AsyncStorage.setItem('token_expiry', String(expiryTime));
             }
             authEvents.emit('SIGNED_IN', response.data);
         }
@@ -31,117 +39,122 @@ export const authService = {
 
     async login(email, password) {
         const response = await apiClient.post('/api/auth/login', { email, password });
-        if (response.data?.session?.access_token) {
-            const token = response.data.session.access_token;
+        if (response.data?.session?.access_token && response.data?.session?.refresh_token) {
+            const { access_token, refresh_token, expires_in } = response.data.session;
             
-            console.log('💾 LOGIN RESPONSE:');
-            console.log('   Full Token:', token);
-            console.log('   Token Length:', token.length);
-            console.log('   Token Parts:', token.split('.').length);
-            console.log('   Token Preview:', token.substring(0, 50));
-            console.log('   Token End:', token.substring(token.length - 30));
+            console.log('💾 Syncing login session with Supabase...');
+            const { error } = await supabase.auth.setSession({
+                access_token,
+                refresh_token
+            });
+
+            if (error) console.error('Supabase setSession error:', error);
             
-            await AsyncStorage.setItem('access_token', token);
+            await AsyncStorage.setItem('access_token', access_token);
+            await AsyncStorage.setItem('refresh_token', refresh_token);
             
-            const savedToken = await AsyncStorage.getItem('access_token');
-            console.log('💾 STORED TOKEN VERIFICATION:');
-            console.log('   Stored:', savedToken?.substring(0, 50));
-            console.log('   Match:', token === savedToken ? 'YES ✅' : 'NO ❌');
-            
-            if (response.data.session.refresh_token) {
-                console.log('💾 Storing refresh token...');
-                await AsyncStorage.setItem('refresh_token', response.data.session.refresh_token);
-            }
-            if (response.data.session.expires_in) {
-                console.log('💾 Storing expiry:', response.data.session.expires_in);
-                await AsyncStorage.setItem('expires_in', String(response.data.session.expires_in));
+            if (expires_in) {
+                const expiryTime = Date.now() + (expires_in * 1000);
+                await AsyncStorage.setItem('token_expiry', String(expiryTime));
             }
             authEvents.emit('SIGNED_IN', response.data);
-        } else {
-            console.warn('⚠️ No access token found in login response');
-            console.warn('   Response data:', response.data);
         }
         return response.data;
     },
 
     async refreshToken() {
         try {
-            console.log('🔄 Attempting to refresh token...');
-            const refreshToken = await AsyncStorage.getItem('refresh_token');
+            console.log('🔄 Attempting to refresh token via Supabase...');
             
-            if (!refreshToken) {
-                console.error('❌ No refresh token available');
-                throw new Error('No refresh token available');
+            const { data, error } = await supabase.auth.refreshSession();
+            
+            if (error) {
+                console.warn('Supabase refresh failed, falling back to manual refresh...');
+                // Fallback to manual if supabase fails for some reason
+                const refreshToken = await AsyncStorage.getItem('refresh_token');
+                if (!refreshToken) throw new Error('No refresh token available');
+
+                const refreshApiClient = axios.create({
+                    baseURL: apiClient.defaults.baseURL,
+                    timeout: apiClient.defaults.timeout,
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                });
+
+                const response = await refreshApiClient.post('/api/auth/refresh', {
+                    refresh_token: refreshToken
+                });
+
+                if (response.data?.session?.access_token) {
+                    const session = response.data.session;
+                    await supabase.auth.setSession({
+                        access_token: session.access_token,
+                        refresh_token: session.refresh_token
+                    });
+                    
+                    await AsyncStorage.setItem('access_token', session.access_token);
+                    await AsyncStorage.setItem('refresh_token', session.refresh_token);
+                    if (session.expires_in) {
+                        const expiryTime = Date.now() + (session.expires_in * 1000);
+                        await AsyncStorage.setItem('token_expiry', String(expiryTime));
+                    }
+                    return response.data;
+                }
+                throw error;
             }
 
-            // Use a plain axios instance to avoid recursion with the interceptor
-            const refreshApiClient = axios.create({
-                baseURL: apiClient.defaults.baseURL, // Use the same base URL as the main client
-                timeout: apiClient.defaults.timeout, // Use the same timeout
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-            });
-
-            const response = await refreshApiClient.post('/api/auth/refresh', {
-                refresh_token: refreshToken
-            });
-
-            if (response.data?.session?.access_token) {
-                console.log('✅ Token refreshed successfully');
-                await AsyncStorage.setItem('access_token', response.data.session.access_token);
+            if (data?.session) {
+                console.log('✅ Token refreshed successfully via Supabase');
+                const { access_token, refresh_token, expires_in } = data.session;
                 
-                if (response.data.session.refresh_token) {
-                    await AsyncStorage.setItem('refresh_token', response.data.session.refresh_token);
+                await AsyncStorage.setItem('access_token', access_token);
+                await AsyncStorage.setItem('refresh_token', refresh_token);
+                if (expires_in) {
+                    const expiryTime = Date.now() + (expires_in * 1000);
+                    await AsyncStorage.setItem('token_expiry', String(expiryTime));
                 }
                 
-                if (response.data.session.expires_in) {
-                    await AsyncStorage.setItem('expires_in', String(response.data.session.expires_in));
-                }
-                
-                return response.data;
-            } else {
-                throw new Error('No access token in refresh response');
+                return data;
             }
+            throw new Error('No session after refresh');
         } catch (error) {
             console.error('❌ Token refresh failed:', error.message);
-            // Re-throw the error so the interceptor can handle it and trigger a logout.
             throw error;
         }
     },
 
     async logout() {
         try {
-            // Unregister push token before logout (identifies user via access_token)
-            console.log('🧹 authService: Unregistering push token before logout...');
-            await unregisterPushToken();
+            console.log('🧹 authService: Logging out...');
+            await unregisterPushToken().catch(e => console.warn('Push unregistration failed'));
             
-            await apiClient.post('/api/auth/logout');
+            // Logout from Supabase
+            await supabase.auth.signOut();
+            
+            await apiClient.post('/api/auth/logout').catch(e => console.warn('Backend logout call failed'));
         } catch (error) {
-            console.error('Logout error:', error);
+            console.error('Logout process error:', error);
         } finally {
-            await AsyncStorage.removeItem('access_token');
-            await AsyncStorage.removeItem('refresh_token');
-            await AsyncStorage.removeItem('expires_in');
-            await AsyncStorage.removeItem('last_push_token');
+            const keysToRemove = [
+                'access_token', 
+                'refresh_token', 
+                'token_expiry', 
+                'expires_in', 
+                'last_push_token'
+            ];
+            await Promise.all(keysToRemove.map(key => AsyncStorage.removeItem(key)));
             authEvents.emit('SIGNED_OUT');
         }
     },
 
     async getMe() {
         try {
-            const response = await apiClient.get('/api/auth/me');
-            console.log('👤 User response:', JSON.stringify(response.data, null, 2));
+            const { data: { user: sbUser } } = await supabase.auth.getUser();
             
-            // Handle empty response
+            const response = await apiClient.get('/api/auth/me');
             if (response.data?.user && Object.keys(response.data.user).length > 0) {
                 return response.data.user;
             }
-            
-            // If empty, return null
-            console.log('👤 Empty response from /api/auth/me');
-            return null;
+            return sbUser;
         } catch (error) {
             console.error('👤 getMe failed:', error.message);
             throw error;
@@ -149,29 +162,24 @@ export const authService = {
     },
 
     async refreshSession() {
-        const refreshToken = await AsyncStorage.getItem('refresh_token');
-        if (!refreshToken) throw new Error('No refresh token');
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) throw error;
         
-        const response = await apiClient.post('/api/auth/refresh', { refresh_token: refreshToken });
-        if (response.data?.session?.access_token) {
-            await AsyncStorage.setItem('access_token', response.data.session.access_token);
-            if (response.data.session.refresh_token) {
-                await AsyncStorage.setItem('refresh_token', response.data.session.refresh_token);
-            }
-            if (response.data.session.expires_in) {
-                await AsyncStorage.setItem('expires_in', String(response.data.session.expires_in));
-            }
+        if (data?.session) {
+            await AsyncStorage.setItem('access_token', data.session.access_token);
+            await AsyncStorage.setItem('refresh_token', data.session.refresh_token);
         }
-        return response.data;
+        return data;
     },
     
     async getSession() {
-        const token = await AsyncStorage.getItem('access_token');
-        if (!token) {
-            console.log('🔍 getSession: No token found');
-            return { data: { session: null } };
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            return { data: { session } };
         }
-        console.log('🔍 getSession: Token retrieved successfully');
+        
+        const token = await AsyncStorage.getItem('access_token');
+        if (!token) return { data: { session: null } };
         return { data: { session: { access_token: token } } };
     }
 };
