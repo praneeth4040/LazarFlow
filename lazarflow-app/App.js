@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Outfit_300Light, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppNavigator from './src/navigation/AppNavigator';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { UserProvider } from './src/context/UserContext';
@@ -12,6 +13,8 @@ import { Theme } from './src/styles/theme';
 import { AlertTriangle } from 'lucide-react-native';
 import GlobalAlert from './src/components/GlobalAlert';
 import { globalAlertRef } from './src/lib/AlertService';
+
+const queryClient = new QueryClient();
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -85,14 +88,16 @@ export default function App() {
   try {
     return (
       <ErrorBoundary>
-        <SafeAreaProvider onLayout={onLayoutRootView}>
-          <UserProvider>
-            <AppNavigator />
-            <PushNotificationHandler />
-          </UserProvider>
-          <GlobalAlert ref={globalAlertRef} />
-          <StatusBar style="auto" />
-        </SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <SafeAreaProvider onLayout={onLayoutRootView}>
+            <UserProvider>
+              <AppNavigator />
+              <PushNotificationHandler />
+            </UserProvider>
+            <GlobalAlert ref={globalAlertRef} />
+            <StatusBar style="auto" />
+          </SafeAreaProvider>
+        </QueryClientProvider>
       </ErrorBoundary>
     );
     
