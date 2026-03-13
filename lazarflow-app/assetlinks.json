@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.lazarflow.app",
+      "sha256_cert_fingerprints": [
+        "80:E5:AC:32:CB:B7:62:AC:81:23:A7:EF:0A:E5:CC:85:63:CF:C1:09:2F:57:DF:51:79:6C:E2:5D:F5:AA:70:8F"
+      ]
+    }
+  }
+]
