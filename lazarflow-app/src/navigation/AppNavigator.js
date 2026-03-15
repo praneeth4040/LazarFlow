@@ -23,6 +23,7 @@ import * as Linking from 'expo-linking';
 import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
 import { authEvents } from '../lib/authEvents';
+import { supabase } from '../lib/supabaseClient';
 
 const Stack = createStackNavigator();
 
@@ -45,11 +46,31 @@ export default function AppNavigator() {
         };
         checkSession();
 
-        // Listen for auth state changes
+        // Listen for Supabase auth state changes (Crucial for Forgot Password)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log('🔔 Supabase Auth Event:', event);
+            
+            if (event === 'PASSWORD_RECOVERY') {
+                console.log('🔑 Password recovery mode detected!');
+                setIsRecovering(true);
+                setSession(session);
+            } else if (event === 'SIGNED_IN') {
+                console.log('✅ Supabase SIGNED_IN Event');
+                setSession(session);
+                // DO NOT reset isRecovering here, as it might override recovery mode
+            } else if (event === 'SIGNED_OUT') {
+                console.log('🚪 Supabase SIGNED_OUT Event');
+                setSession(null);
+                setIsRecovering(false);
+            }
+        });
+
+        // Listen for internal auth events
         const unsubscribeSignIn = authEvents.on('SIGNED_IN', (data) => {
-             console.log('👤 User signed in');
-             setSession(data.session || { access_token: 'valid' }); // Ensure session is truthy
-             if (!isRecovering) setIsRecovering(false);
+             console.log('👤 Internal SIGNED_IN Event');
+             setSession(data.session || { access_token: 'valid' });
+             // Only reset if we're not in a recovery flow
+             setIsRecovering(prev => prev ? prev : false);
         });
 
         const unsubscribeSignOut = authEvents.on('SIGNED_OUT', () => {
@@ -59,6 +80,7 @@ export default function AppNavigator() {
         });
 
         return () => {
+            subscription.unsubscribe();
             unsubscribeSignIn();
             unsubscribeSignOut();
         };
@@ -105,6 +127,7 @@ export default function AppNavigator() {
                 ) : (
                     <>
                         <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
                         <Stack.Screen
                             name="LiveLobby"
                             component={LiveLobbyScreen}
