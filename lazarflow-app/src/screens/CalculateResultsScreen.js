@@ -28,6 +28,14 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [selectedAiTeam, setSelectedAiTeam] = useState(null);
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
     const [selectedSlotIndex, setSelectedSlotIndex] = useState(null);
+    const [expandedResults, setExpandedResults] = useState({}); // { [team_id]: boolean }
+
+    const toggleResultExpansion = (teamId) => {
+        setExpandedResults(prev => ({
+            ...prev,
+            [teamId]: !prev[teamId]
+        }));
+    };
 
     const handleUpdateSlotMapping = (slotIndex, teamId) => {
         const updatedSlots = [...processedSlots];
@@ -100,21 +108,25 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             return;
         }
 
+        const nextPosition = results.length + 1;
+        const pointsEntry = lobby.points_system?.find(p => p.placement === nextPosition);
+        const placementPoints = pointsEntry ? pointsEntry.points : 0;
+
         const newResult = {
             team_id: team.id,
             team_name: team.team_name,
-            position: '',
+            position: String(nextPosition),
             kills: 0,
-            placement_points: 0,
+            placement_points: placementPoints,
             kill_points: 0,
-            total_points: 0,
+            total_points: placementPoints,
             members: (team.members || []).map(m => ({
                 name: typeof m === 'object' ? m.name : m,
                 kills: 0
             }))
         };
 
-        setResults([newResult, ...results]);
+        setResults([...results, newResult]);
         setTeamSearch('');
         setFilteredTeams([]);
     };
@@ -151,7 +163,20 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     };
 
     const handleRemoveResult = (index) => {
-        setResults(results.filter((_, i) => i !== index));
+        const filtered = results.filter((_, i) => i !== index);
+        // Recalculate positions for all remaining results
+        const updated = filtered.map((res, i) => {
+            const pos = i + 1;
+            const pointsEntry = lobby.points_system?.find(p => p.placement === pos);
+            const placementPoints = pointsEntry ? pointsEntry.points : 0;
+            return {
+                ...res,
+                position: String(pos),
+                placement_points: placementPoints,
+                total_points: (placementPoints || 0) + (res.kill_points || 0)
+            };
+        });
+        setResults(updated);
     };
 
     const handlePickLobbyImages = async () => {
@@ -549,40 +574,62 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                                 <Text style={styles.rankTitle}>{res.rank}</Text>
                                             </View>
 
-                                            <TouchableOpacity
-                                                style={styles.teamSelectorBox}
-                                                onPress={() => {
-                                                    setSelectedAiTeam(res);
-                                                    setMappingModalVisible(true);
-                                                }}
-                                            >
-                                                <Text style={[
-                                                    styles.teamNameText,
-                                                    !mappings[res.rank] && { color: Theme.colors.textSecondary }
-                                                ]} numberOfLines={1}>
-                                                    {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team...'}
-                                                </Text>
-                                                <ChevronDown size={20} color={Theme.colors.textPrimary} />
-                                            </TouchableOpacity>
+                                            <View style={styles.teamSelectorBox}>
+                                                <TouchableOpacity 
+                                                    style={styles.teamNameContainer}
+                                                    onPress={() => {
+                                                        setSelectedAiTeam(res);
+                                                        setMappingModalVisible(true);
+                                                    }}
+                                                >
+                                                    <Text style={[
+                                                        styles.teamNameText,
+                                                        !mappings[res.rank] && { color: Theme.colors.textSecondary }
+                                                    ]} numberOfLines={1}>
+                                                        {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team...'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity 
+                                                    style={styles.dropdownToggle}
+                                                    onPress={() => toggleResultExpansion(res.rank)}
+                                                >
+                                                    {expandedResults[res.rank] ? (
+                                                        <ChevronUp size={20} color={Theme.colors.textPrimary} />
+                                                    ) : (
+                                                        <ChevronDown size={20} color={Theme.colors.textPrimary} />
+                                                    )}
+                                                </TouchableOpacity>
+                                            </View>
 
-                                            {res.players && res.players.length > 0 ? (
-                                                <View style={styles.membersList}>
-                                                    {res.players.map((player, pIdx) => (
-                                                        <View key={pIdx} style={styles.memberRow}>
-                                                            <View style={styles.memberNameBox}>
-                                                                <Text style={styles.memberNameText} numberOfLines={1}>{player.name}</Text>
-                                                            </View>
-                                                            <View style={styles.memberScoreBox}>
-                                                                <Text style={styles.memberScoreText}>{player.kills}</Text>
-                                                            </View>
+                                            {expandedResults[res.rank] && (
+                                                <View style={styles.expandedMembersContainer}>
+                                                    {res.players && res.players.length > 0 ? (
+                                                        <View style={styles.membersList}>
+                                                            {res.players.map((player, pIdx) => (
+                                                                <View key={pIdx} style={styles.memberRow}>
+                                                                    <View style={styles.memberNameBox}>
+                                                                        <Text style={styles.memberNameText} numberOfLines={1}>{player.name}</Text>
+                                                                    </View>
+                                                                    <View style={styles.memberScoreBox}>
+                                                                        <Text style={styles.memberScoreText}>{player.kills}</Text>
+                                                                    </View>
+                                                                </View>
+                                                            ))}
                                                         </View>
-                                                    ))}
-                                                </View>
-                                            ) : (
-                                                <View style={styles.noMembersBox}>
-                                                    <Text style={styles.noMembersText}>No players found</Text>
+                                                    ) : (
+                                                        <View style={styles.noMembersBox}>
+                                                            <Text style={styles.noMembersText}>No players identified</Text>
+                                                        </View>
+                                                    )}
                                                 </View>
                                             )}
+
+                                            <View style={styles.killsInputContainer}>
+                                                <Text style={styles.killsLabel}>Total Extracted Kills</Text>
+                                                <View style={styles.killsInputBox}>
+                                                    <Text style={styles.killsInput}>{res.kills || 0}</Text>
+                                                </View>
+                                            </View>
 
                                             <View style={styles.statsFooter}>
                                                 <View style={styles.statBox}>
@@ -750,34 +797,55 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                 </View>
 
                                 <View style={styles.teamSelectorBox}>
-                                    <Text style={styles.teamNameText} numberOfLines={1}>{item.team_name}</Text>
-                                    <ChevronDown size={20} color={Theme.colors.textPrimary} />
+                                    <View style={styles.teamNameContainer}>
+                                        <Text style={styles.teamNameText} numberOfLines={1}>{item.team_name}</Text>
+                                    </View>
+                                    <TouchableOpacity 
+                                        style={styles.dropdownToggle}
+                                        onPress={() => toggleResultExpansion(item.team_id)}
+                                    >
+                                        {expandedResults[item.team_id] ? (
+                                            <ChevronUp size={20} color={Theme.colors.textPrimary} />
+                                        ) : (
+                                            <ChevronDown size={20} color={Theme.colors.textPrimary} />
+                                        )}
+                                    </TouchableOpacity>
                                 </View>
 
-                                {item.members && item.members.length > 0 ? (
-                                    <View style={styles.membersList}>
-                                        {item.members.map((member, mIdx) => (
-                                            <View key={mIdx} style={styles.memberRow}>
-                                                <View style={styles.memberNameBox}>
-                                                    <Text style={styles.memberNameText} numberOfLines={1}>{member.name}</Text>
-                                                </View>
-                                                <View style={styles.memberScoreBox}>
-                                                    <TextInput
-                                                        style={styles.memberScoreInput}
-                                                        keyboardType="numeric"
-                                                        value={String(member.kills || 0)}
-                                                        onChangeText={(v) => handleUpdateMemberKills(index, mIdx, v)}
-                                                        placeholder="0"
-                                                    />
-                                                </View>
+                                {expandedResults[item.team_id] && (
+                                    <View style={styles.expandedMembersContainer}>
+                                        {item.members && item.members.length > 0 ? (
+                                            <View style={styles.membersList}>
+                                                {item.members.map((member, mIdx) => (
+                                                    <View key={mIdx} style={styles.memberRow}>
+                                                        <View style={styles.memberNameBox}>
+                                                            <Text style={styles.memberNameText} numberOfLines={1}>{member.name}</Text>
+                                                        </View>
+                                                        {/* Optional: Read-only display of member kills if you track them elsewhere, otherwise just the name is fine based on "member names should be seen" */}
+                                                    </View>
+                                                ))}
                                             </View>
-                                        ))}
-                                    </View>
-                                ) : (
-                                    <View style={styles.noMembersBox}>
-                                        <Text style={styles.noMembersText}>No members found</Text>
+                                        ) : (
+                                            <View style={styles.noMembersBox}>
+                                                <Text style={styles.noMembersText}>No team members</Text>
+                                            </View>
+                                        )}
                                     </View>
                                 )}
+
+                                <View style={styles.killsInputContainer}>
+                                    <Text style={styles.killsLabel}>Total Team Kills</Text>
+                                    <View style={styles.killsInputBox}>
+                                        <TextInput
+                                            style={styles.killsInput}
+                                            keyboardType="numeric"
+                                            value={String(item.kills || 0)}
+                                            onChangeText={(v) => handleUpdateResult(index, 'kills', v)}
+                                            placeholder="0"
+                                            placeholderTextColor={Theme.colors.textSecondary}
+                                        />
+                                    </View>
+                                </View>
 
                                 <View style={styles.statsFooter}>
                                     <View style={styles.statBox}>
@@ -1343,6 +1411,13 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         backgroundColor: '#fff',
     },
+    teamNameContainer: {
+        flex: 1,
+    },
+    dropdownToggle: {
+        padding: 4,
+        marginLeft: 8,
+    },
     teamNameText: {
         fontSize: 16,
         fontFamily: Theme.fonts.outfit.bold,
@@ -1599,6 +1674,38 @@ const styles = StyleSheet.create({
     membersList: {
         gap: 12,
         marginBottom: 20,
+    },
+    expandedMembersContainer: {
+        backgroundColor: '#f1f5f9',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    killsInputContainer: {
+        marginBottom: 20,
+    },
+    killsLabel: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textSecondary,
+        marginBottom: 8,
+        textTransform: 'uppercase',
+    },
+    killsInputBox: {
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        borderRadius: 8,
+        backgroundColor: '#f8fafc',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+    },
+    killsInput: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+        textAlign: 'center',
     },
     memberRow: {
         flexDirection: 'row',
