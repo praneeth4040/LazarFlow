@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, StatusBar, Platform } from 'react-native';
 import { Shield, Mail, ArrowLeft } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
+import { formatAlphanumericDate } from '../lib/dateUtils';
 
 const PrivacyPolicyScreen = ({ navigation }) => {
     return (
@@ -12,7 +13,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
                         <Shield size={40} color={Theme.colors.accent} />
                     </View>
                     <Text style={styles.title}>Privacy Policy</Text>
-                    <Text style={styles.lastUpdated}>Last Updated: {new Date().toLocaleDateString()}</Text>
+                    <Text style={styles.lastUpdated}>Last Updated: {formatAlphanumericDate(new Date())}</Text>
                 </View>
 
                 <Section title="1. Introduction">

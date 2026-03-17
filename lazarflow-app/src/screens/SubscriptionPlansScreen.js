@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Sparkles, ArrowLeft, Award, Crown, Zap, ShieldCheck, Star } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { useSubscription } from '../hooks/useSubscription';
@@ -319,7 +320,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     };
 
     return (
-        <View style={[styles.container, { paddingTop: isTab ? 0 : insets.top, paddingBottom: isTab ? 0 : insets.bottom }]}>
+        <SafeAreaView style={[styles.container, isTab && { paddingTop: 0, paddingBottom: 0 }]} edges={isTab ? [] : ['top', 'bottom']}>
             <StatusBar barStyle="dark-content" />
             {!isTab && (
                 <View style={styles.topHeader}>
@@ -441,14 +442,14 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                     </View>
                 </View>
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.secondary,
+        backgroundColor: Theme.colors.primary,
     },
     topHeader: {
         flexDirection: 'row',
@@ -471,6 +472,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: 20,
         paddingBottom: 40,
+        backgroundColor: Theme.colors.secondary,
     },
     header: {
         marginBottom: 32,

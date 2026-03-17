@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Sparkles, Save, ArrowLeft, Trash2, Plus } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { getLobby, updateLobby, deleteLobby } from '../lib/dataService';
@@ -209,8 +210,7 @@ const EditLobbyScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.secondary,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        backgroundColor: Theme.colors.primary,
     },
     loadingContainer: {
         flex: 1,
@@ -240,6 +240,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 20,
+        backgroundColor: Theme.colors.secondary,
     },
     section: {
         marginBottom: 24,

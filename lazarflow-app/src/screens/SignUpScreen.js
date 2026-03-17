@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, Circle } from 'lucide-react-native';
 import { authService } from '../lib/authService';
 import { Theme } from '../styles/theme';
@@ -51,122 +52,124 @@ const SignUpScreen = ({ navigation }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : null}
-            style={styles.container}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                style={{ backgroundColor: Theme.colors.secondary }}
-                keyboardShouldPersistTaps="handled"
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : null}
+                style={{ flex: 1 }}
             >
-                <View style={styles.header}>
-                    <Text style={styles.topBadge}>SIGN UP</Text>
-                    <Image
-                        source={require('../../assets/logo.png')}
-                        style={styles.logo}
-                        resizeMode="contain"
-                    />
-                    <Text style={styles.title}>Get Started</Text>
-                    <Text style={styles.subtitle}>Join thousands of lobby organizers</Text>
-                </View>
-
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email Address</Text>
-                        <View style={styles.inputWrapper}>
-                            <Mail size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="name@company.com"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
-                        </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    style={{ backgroundColor: Theme.colors.secondary }}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.header}>
+                        <Text style={styles.topBadge}>SIGN UP</Text>
+                        <Image
+                            source={require('../../assets/logo.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.title}>Get Started</Text>
+                        <Text style={styles.subtitle}>Join thousands of lobby organizers</Text>
                     </View>
 
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Password</Text>
-                        <View style={styles.inputWrapper}>
-                            <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="••••••••"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                            />
-                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                {showPassword ? <EyeOff size={20} color={Theme.colors.textSecondary} /> : <Eye size={20} color={Theme.colors.textSecondary} />}
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Email Address</Text>
+                            <View style={styles.inputWrapper}>
+                                <Mail size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="name@company.com"
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                />
+                            </View>
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Password</Text>
+                            <View style={styles.inputWrapper}>
+                                <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="••••••••"
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <EyeOff size={20} color={Theme.colors.textSecondary} /> : <Eye size={20} color={Theme.colors.textSecondary} />}
+                                </TouchableOpacity>
+                            </View>
+                            <Text style={styles.hint}>Must be at least 6 characters</Text>
+                        </View>
+
+                        <View style={styles.checkboxContainer}>
+                            <TouchableOpacity 
+                                style={styles.checkboxWrapper} 
+                                onPress={() => setAgreeTerms(!agreeTerms)}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.checkbox}>
+                                    {agreeTerms ? (
+                                        <CheckCircle size={20} color={Theme.colors.accent} fill={Theme.colors.accent + '20'} />
+                                    ) : (
+                                        <Circle size={20} color={Theme.colors.border} />
+                                    )}
+                                </View>
+                                <Text style={styles.checkboxLabel}>
+                                    I agree to the <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/terms')}>Terms</Text> and <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/privacy')}>Privacy Policy</Text>
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={styles.checkboxWrapper} 
+                                onPress={() => setSubscribeEmail(!subscribeEmail)}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.checkbox}>
+                                    {subscribeEmail ? (
+                                        <CheckCircle size={20} color={Theme.colors.accent} fill={Theme.colors.accent + '20'} />
+                                    ) : (
+                                        <Circle size={20} color={Theme.colors.border} />
+                                    )}
+                                </View>
+                                <Text style={styles.checkboxLabel}>Subscribe to receive updates and news</Text>
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.hint}>Must be at least 6 characters</Text>
-                    </View>
 
-                    <View style={styles.checkboxContainer}>
-                        <TouchableOpacity 
-                            style={styles.checkboxWrapper} 
-                            onPress={() => setAgreeTerms(!agreeTerms)}
-                            activeOpacity={0.7}
+                        <TouchableOpacity
+                            style={[styles.button, (loading || email === '' || password === '' || !agreeTerms) && styles.buttonDisabled]}
+                            onPress={handleSignUp}
+                            disabled={loading || email === '' || password === '' || !agreeTerms}
                         >
-                            <View style={styles.checkbox}>
-                                {agreeTerms ? (
-                                    <CheckCircle size={20} color={Theme.colors.accent} fill={Theme.colors.accent + '20'} />
-                                ) : (
-                                    <Circle size={20} color={Theme.colors.border} />
-                                )}
-                            </View>
-                            <Text style={styles.checkboxLabel}>
-                                I agree to the <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/terms')}>Terms</Text> and <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/privacy')}>Privacy Policy</Text>
-                            </Text>
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.buttonText}>Get Started</Text>
+                                    <ArrowRight size={20} color="#fff" />
+                                </>
+                            )}
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
-                            style={styles.checkboxWrapper} 
-                            onPress={() => setSubscribeEmail(!subscribeEmail)}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.checkbox}>
-                                {subscribeEmail ? (
-                                    <CheckCircle size={20} color={Theme.colors.accent} fill={Theme.colors.accent + '20'} />
-                                ) : (
-                                    <Circle size={20} color={Theme.colors.border} />
-                                )}
-                            </View>
-                            <Text style={styles.checkboxLabel}>Subscribe to receive updates and news</Text>
-                        </TouchableOpacity>
+
+
+                        <View style={styles.footer}>
+                            <Text style={styles.footerText}>Already have an account?</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                                <Text style={styles.footerLink}>Sign in</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-
-                    <TouchableOpacity
-                        style={[styles.button, (loading || email === '' || password === '' || !agreeTerms) && styles.buttonDisabled]}
-                        onPress={handleSignUp}
-                        disabled={loading || email === '' || password === '' || !agreeTerms}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Text style={styles.buttonText}>Get Started</Text>
-                                <ArrowRight size={20} color="#fff" />
-                            </>
-                        )}
-                    </TouchableOpacity>
-
-
-
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>Already have an account?</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                            <Text style={styles.footerLink}>Sign in</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 

@@ -19,7 +19,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Buffer } from 'buffer';
-import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Check, X, RefreshCw, Edit, Image as ImageIcon, Camera, Instagram, Youtube, Play, User, ArrowLeft } from 'lucide-react-native';
+import { Trophy, Award, Share2, Download, Search, Palette, Layout, Settings, Check, X, RefreshCw, Edit, Image as ImageIcon, Camera, Instagram, Youtube, Play, User, ArrowLeft, Info } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
@@ -167,6 +167,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
 
     const [error, setError] = useState(null);
     const [designTab, setDesignTab] = useState('community'); // 'community' or 'user'
+    const [renderType, setRenderType] = useState('standings'); // 'standings' or 'mvps'
     const [selectedThemeId, setSelectedThemeId] = useState(null);
 
     // Filter themes based on tab
@@ -242,7 +243,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
 
         try {
             setIsGenerating(true);
-            const result = await renderResults(id, selectedThemeId);
+            const result = await renderResults(id, selectedThemeId, renderType);
             
             if (result) {
                 if (result instanceof ArrayBuffer || (result && result.constructor && result.constructor.name === 'ArrayBuffer')) {
@@ -306,6 +307,14 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     const renderThemeItem = ({ item }) => {
         const isSelected = item.id === selectedThemeId;
         const imageSource = getDesignImageSource(item);
+        
+        // Mock status based on index for variety
+        const getStatus = (id) => {
+            if (isSelected) return 'Active now';
+            const index = themes.findIndex(t => t.id === id);
+            const statuses = ['Available', 'Template', 'Premium', 'Template'];
+            return statuses[index % statuses.length];
+        };
 
         return (
             <TouchableOpacity 
@@ -325,14 +334,17 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                             <Palette size={32} color={Theme.colors.textSecondary} />
                         </View>
                     )}
-                </View>
-                <View style={styles.designCardFooter}>
-                    <Text style={styles.designCardName} numberOfLines={1}>{item.name || 'Unnamed Design'}</Text>
                     {isSelected && (
-                        <View style={styles.selectedCheck}>
+                        <View style={styles.activeDesignCheck}>
                             <Check size={14} color="#fff" />
                         </View>
                     )}
+                </View>
+                <View style={styles.designCardFooter}>
+                    <Text style={styles.designCardName} numberOfLines={1}>{item.name || 'Unnamed Design'}</Text>
+                    <Text style={[styles.designCardStatus, isSelected && styles.activeStatusText]}>
+                        {getStatus(item.id)}
+                    </Text>
                 </View>
             </TouchableOpacity>
         );
@@ -375,97 +387,101 @@ const LiveLobbyScreen = ({ route, navigation }) => {
         <SafeAreaView style={styles.mainContainer}>
             <StatusBar barStyle="dark-content" />
             
-            <View style={styles.newHeader}>
-                <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-                        <ArrowLeft size={24} color="#333" />
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+                    <ArrowLeft size={24} color="#0f172a" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Design Render</Text>
+                <TouchableOpacity style={styles.infoButton}>
+                    <Info size={24} color="#0f172a" />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.segmentedControlContainer}>
+                <View style={styles.segmentedControl}>
+                    <TouchableOpacity 
+                        style={[styles.segmentBtn, renderType === 'standings' && styles.segmentBtnActive]} 
+                        onPress={() => setRenderType('standings')}
+                    >
+                        <Text style={[styles.segmentText, renderType === 'standings' && styles.segmentTextActive]}>Standings</Text>
                     </TouchableOpacity>
-                    <View style={styles.headerTextContainer}>
-                        <Text style={styles.headerTitle}>Design Render: {lobby?.name || 'Lobby'}</Text>
-                        <Text style={styles.headerSubtitle}>Select a design for your tournament and click render</Text>
-                    </View>
+                    <TouchableOpacity 
+                        style={[styles.segmentBtn, renderType === 'mvps' && styles.segmentBtnActive]} 
+                        onPress={() => setRenderType('mvps')}
+                    >
+                        <Text style={[styles.segmentText, renderType === 'mvps' && styles.segmentTextActive]}>MVPs</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
-            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Choose Design</Text>
-                        <View style={styles.tabSwitcher}>
-                            <TouchableOpacity 
-                                style={[styles.tabItem, designTab === 'community' && styles.activeTabItem]}
-                                onPress={() => setDesignTab('community')}
-                            >
-                                <Share2 size={16} color={designTab === 'community' ? Theme.colors.accent : '#666'} />
-                                <Text style={[styles.tabItemText, designTab === 'community' && styles.activeTabItemText]}>Community</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={[styles.tabItem, designTab === 'user' && styles.activeTabItem]}
-                                onPress={() => setDesignTab('user')}
-                            >
-                                <User size={16} color={designTab === 'user' ? Theme.colors.accent : '#666'} />
-                                <Text style={[styles.tabItemText, designTab === 'user' && styles.activeTabItemText]}>Your Themes</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+            <View style={styles.tabsContainer}>
+                <TouchableOpacity 
+                    style={[styles.tabBtn, designTab === 'community' && styles.tabBtnActive]} 
+                    onPress={() => setDesignTab('community')}
+                >
+                    <Text style={[styles.tabBtnText, designTab === 'community' && styles.tabBtnTextActive]}>Community</Text>
+                    {designTab === 'community' && <View style={styles.tabIndicator} />}
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.tabBtn, designTab === 'user' && styles.tabBtnActive]} 
+                    onPress={() => setDesignTab('user')}
+                >
+                    <Text style={[styles.tabBtnText, designTab === 'user' && styles.tabBtnTextActive]}>Your Themes</Text>
+                    {designTab === 'user' && <View style={styles.tabIndicator} />}
+                </TouchableOpacity>
+            </View>
 
-                    {filteredThemes.length > 0 ? (
-                        <View style={styles.designGrid}>
-                            {filteredThemes.map(item => (
-                                <View key={item.id} style={styles.gridItemWrapper}>
-                                    {renderThemeItem({ item })}
-                                </View>
-                            ))}
+            <FlatList
+                data={filteredThemes}
+                renderItem={({ item }) => (
+                    <View style={styles.gridItemWrapper}>
+                        {renderThemeItem({ item })}
+                    </View>
+                )}
+                keyExtractor={item => item.id}
+                numColumns={2}
+                contentContainerStyle={styles.flatListContent}
+                ListEmptyComponent={
+                    designTab === 'user' ? (
+                        <View style={styles.personalEmptyContainer}>
+                            <View style={styles.personalEmptyIconWrapper}>
+                                <Layout size={32} color={Theme.colors.accent} />
+                            </View>
+                            <Text style={styles.personalEmptyTitle}>No Personal Designs Found</Text>
+                            <Text style={styles.personalEmptySub}>You haven't uploaded any custom designs yet. Create unique themes in the Design section to use them in your tournaments.</Text>
+                            <TouchableOpacity 
+                                style={styles.goDesignBtn} 
+                                onPress={() => navigation.navigate('Dashboard', { tab: 'design' })}
+                            >
+                                <Text style={styles.goDesignBtnText}>Go to Design Section</Text>
+                                <Play size={14} color="#fff" />
+                            </TouchableOpacity>
                         </View>
                     ) : (
-                        designTab === 'user' ? (
-                            <View style={styles.personalEmptyContainer}>
-                                <View style={styles.personalEmptyIconWrapper}>
-                                    <Layout size={32} color={Theme.colors.accent} />
-                                </View>
-                                <Text style={styles.personalEmptyTitle}>No Personal Designs Found</Text>
-                                <Text style={styles.personalEmptySub}>You haven't uploaded any custom designs yet. Create unique themes in the Design section to use them in your tournaments.</Text>
-                                <TouchableOpacity 
-                                    style={styles.goDesignBtn} 
-                                    onPress={() => navigation.navigate('Dashboard', { tab: 'design' })}
-                                >
-                                    <Text style={styles.goDesignBtnText}>Go to Design Section</Text>
-                                    <Play size={14} color="#fff" />
-                                </TouchableOpacity>
-                            </View>
-                        ) : (
-                            <View style={styles.emptyDesigns}>
-                                <Palette size={48} color={Theme.colors.border} />
-                                <Text style={styles.emptyDesignsText}>No designs found in this category</Text>
-                            </View>
-                        )
-                    )}
-                </View>
-            </ScrollView>
+                        <View style={styles.emptyDesigns}>
+                            <Palette size={48} color={Theme.colors.border} />
+                            <Text style={styles.emptyDesignsText}>No designs found in this category</Text>
+                        </View>
+                    )
+                }
+                showsVerticalScrollIndicator={false}
+            />
 
-            <View style={styles.bottomBar}>
-                <View style={styles.selectedDesignInfo}>
-                    <Text style={styles.selectedDesignLabel}>Selected Design: <Text style={styles.selectedDesignValue}>{selectedThemeName}</Text></Text>
-                </View>
-                <View style={styles.bottomButtons}>
-                    <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
-                        <Text style={styles.cancelBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={[styles.renderBtn, isGenerating && styles.disabledBtn]} 
-                        onPress={handleGenerateTable}
-                        disabled={isGenerating}
-                    >
-                        {isGenerating ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Play size={20} color="#fff" fill="#fff" />
-                                <Text style={styles.renderBtnText}>Render Design</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-                </View>
+            <View style={styles.footer}>
+                <TouchableOpacity 
+                    style={[styles.renderBtnNew, isGenerating && styles.disabledBtn]} 
+                    onPress={handleGenerateTable}
+                    disabled={isGenerating}
+                >
+                    {isGenerating ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.renderBtnTextNew}>Render Design</Text>
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelBtnNew} onPress={() => navigation.goBack()}>
+                    <Text style={styles.cancelBtnTextNew}>Cancel</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Results Bottom Sheet */}
@@ -606,842 +622,190 @@ const LiveLobbyScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-    container: {
+    mainContainer: {
         flex: 1,
-        backgroundColor: Theme.colors.secondary,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.secondary,
-    },
-    lobbyInfo: {
-        padding: 20,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 20,
-        backgroundColor: Theme.colors.primary,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-    },
-    headerTop: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-    },
-    actionButtons: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    iconButton: {
-        padding: 8,
-        backgroundColor: 'rgba(0,0,0,0.03)',
-        borderRadius: 8,
-    },
-    lobbyNameText: {
-        fontSize: 24,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-    },
-    lobbyGameText: {
-        fontSize: 14,
-        color: Theme.colors.accent,
-        marginTop: 4,
-        fontFamily: Theme.fonts.outfit.semibold,
-    },
-    designViewContainer: {
-        flex: 1,
-        backgroundColor: '#f8f9fa',
-    },
-    designCardContainer: {
-        backgroundColor: '#fff',
-        marginHorizontal: 15,
-        marginVertical: 10,
-        borderRadius: 15,
-        padding: 15,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-    },
-    designHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    designTitle: {
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-    },
-    imageWrapper: {
-        width: '100%',
-        aspectRatio: 0.7,
-        backgroundColor: '#f0f0f0',
-        borderRadius: 10,
-        overflow: 'hidden',
-    },
-    renderedImage: {
-        width: '100%',
-        height: '100%',
-    },
-    placeholderContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    placeholderText: {
-        marginTop: 10,
-        color: Theme.colors.textSecondary,
-        fontSize: 14,
-    },
-    shareDesignButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: Theme.colors.accent,
-        marginTop: 15,
-        paddingVertical: 12,
-        borderRadius: 8,
-        gap: 8,
-    },
-    shareDesignText: {
-        color: '#fff',
-        fontFamily: Theme.fonts.outfit.bold,
-        fontSize: 14,
-    },
-    scrollContainer: {
-        flex: 1,
-        backgroundColor: '#f8fafc',
-    },
-    tableHeader: {
-        flexDirection: 'row',
-        backgroundColor: Theme.colors.secondary,
-        paddingVertical: 12,
-        paddingHorizontal: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-    },
-    headerCell: {
-        color: Theme.colors.textSecondary,
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.bold,
-        textAlign: 'center',
-    },
-    row: {
-        flexDirection: 'row',
-        paddingVertical: 14,
-        paddingHorizontal: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-        alignItems: 'center',
-    },
-    evenRow: {
         backgroundColor: Theme.colors.primary,
     },
-    oddRow: {
-        backgroundColor: Theme.colors.secondary,
-    },
-    cell: {
-        color: Theme.colors.textPrimary,
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.regular,
-        textAlign: 'center',
-    },
-    rankCell: { width: 30 },
-    teamCell: { flex: 1, textAlign: 'left', paddingLeft: 10 },
-    pointCell: { width: 45 },
-    totalCell: { color: Theme.colors.accent, fontFamily: Theme.fonts.outfit.bold },
-    teamName: {
-        color: Theme.colors.textPrimary,
-        fontFamily: Theme.fonts.outfit.medium,
-        textAlign: 'left',
-    },
-    topRank: {
-        color: Theme.colors.accent,
-        fontFamily: Theme.fonts.outfit.bold,
-    },
-    tabContainer: {
-        flexDirection: 'row',
-        marginTop: 20,
-        gap: 12,
-    },
-    tab: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        backgroundColor: Theme.colors.secondary,
-        gap: 8,
-    },
-    activeTab: {
-        backgroundColor: 'rgba(26, 115, 232, 0.1)',
-        borderWidth: 1,
-        borderColor: Theme.colors.accent,
-    },
-    tabText: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.semibold,
-        color: Theme.colors.textSecondary,
-    },
-    activeTabText: {
-        color: Theme.colors.accent,
-    },
-    mvpPlayerName: {
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        textAlign: 'left',
-    },
-    mvpTeamName: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        textAlign: 'left',
-    },
-    mvpKills: {
-        width: 60,
-        color: Theme.colors.accent,
-        fontFamily: Theme.fonts.outfit.bold,
-        fontSize: 18,
-    },
-    // Design Selector Styles
-    designSelectorContainer: {
-        flex: 1,
-        backgroundColor: Theme.colors.secondary,
-    },
-    designSelectorHeader: {
+    header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
         paddingVertical: 15,
-    },
-    designSelectorTitle: {
-        fontSize: 22,
-        fontFamily: Theme.fonts.outfit.bold, 
-        color: Theme.colors.textPrimary,
-    },
-    closeButton: {
-        padding: 8,
-    },
-    searchBarContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        marginTop: 10,
-        gap: 12,
-    },
-    searchBar: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
         backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
-        paddingHorizontal: 15,
-        height: 45,
-        gap: 10,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    searchInput: {
-        flex: 1,
-        color: Theme.colors.textPrimary,
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.regular,
-    },
-    infoButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: Theme.colors.primary,
-        alignItems: 'center', 
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    infoIcon: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: Theme.colors.textSecondary,
-        alignItems: 'center',
-        justifyContent: 'center', 
-    },
-    infoText: {
-        color: Theme.colors.textSecondary,
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.bold,
-    },
-    filterButtonsContainer: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        marginTop: 20,
-        gap: 10,
-    },
-    filterButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        gap: 8,
-    },
-    filterButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.medium,
-    },
-    designCarousel: {
-        paddingHorizontal: 20,
-        paddingVertical: 30,
-        gap: 20,
-    },
-    designCard: {
-        width: Dimensions.get('window').width * 0.75,
-        height: Dimensions.get('window').width * 0.75,
-        borderRadius: 20,
-        overflow: 'hidden',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    activeDesignCard: {
-        borderColor: Theme.colors.accent,
-    },
-    designCardImage: {
-        width: '100%',
-        height: '100%',
-    },
-    designCardPlaceholder: {
-        width: Dimensions.get('window').width * 0.75,
-        height: Dimensions.get('window').width * 0.75,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    selectionIndicatorContainer: {
-        alignItems: 'center',
-        marginTop: -10,
-    },
-    selectionPill: {
-        flexDirection: 'row', 
-        alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        gap: 8, 
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-    },
-    selectionPillText: {
-        color: '#fff',
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.medium,
-    },
-    categoriesContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 30,
-        gap: 30,
-    },
-    categoryOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    radioButton: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.3)',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    radioButtonActive: {
-        borderColor: '#a855f7', // Purple as in image
-    },
-    radioButtonInner: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: '#a855f7', 
-    },
-    categoryText: {
-        color: 'rgba(255,255,255,0.6)',
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.medium,
-    },
-    categoryTextActive: {
-        color: '#fff',
-    },
-    downloadButton: {
-        marginHorizontal: 20,
-        marginTop: 40, 
-        marginBottom: 30,
-        backgroundColor: '#e2d5f7', // Light purple as in image
-        borderRadius: 30,
-        paddingVertical: 18,
-        alignItems: 'center',
-    },
-    downloadButtonText: {
-        color: '#1e1b4b', // Dark navy text
-        fontSize: 18,
-        fontFamily: Theme.fonts.outfit.bold,
-    },
-    emptyContainer: {
-        padding: 40,
-        alignItems: 'center',
-    },
-    emptyText: {
-        color: Theme.colors.textSecondary,
-        fontSize: 16,
-    },
-    activeIconButton: {
-        backgroundColor: 'rgba(26, 115, 232, 0.1)',
-    },
-    designContainer: {
-        backgroundColor: '#000', // Ensure dark background for designs
-        justifyContent: 'center',
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: Theme.colors.primary,
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        padding: 20,
-        maxHeight: '60%',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-    },
-    modalSubtitle: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        marginBottom: 20,
-    },
-    themeList: {
-        marginBottom: 20,
-    },
-    themeOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 10,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        marginBottom: 10,
-    },
-    themeOptionActive: {
-        borderColor: Theme.colors.accent,
-        backgroundColor: 'rgba(26, 115, 232, 0.05)',
-    },
-    themePreviewPlaceholder: {
-        width: 60,
-        height: 60,
-        backgroundColor: Theme.colors.secondary,
-        borderRadius: 6,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-        overflow: 'hidden',
-    },
-    themePreviewImage: {
-        width: '100%',
-        height: '100%',
-    },
-    themePlaceholderText: {
-        fontSize: 10,
-        color: Theme.colors.textSecondary,
-        fontFamily: Theme.fonts.outfit.bold,
-    },
-    themeOptionName: {
-        fontSize: 16,
-        color: Theme.colors.textPrimary,
-        fontFamily: Theme.fonts.outfit.medium,
-    },
-    noThemesText: {
-        textAlign: 'center',
-        color: Theme.colors.textSecondary,
-        marginTop: 20,
-    },
-    // Edit Modal Styles
-    editModalContainer: {
-        flex: 1,
-        backgroundColor: Theme.colors.secondary,
-    },
-    editModalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 20,
-        backgroundColor: Theme.colors.primary,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-    },
-    editModalTitle: {
-        fontSize: 18,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-    },
-    editModalContent: {
-        flex: 1,
-        padding: 20,
-    },
-    editSection: {
-        marginBottom: 25,
-    },
-    editSectionTitle: {
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.accent,
-        marginBottom: 15,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    logoGrid: {
-        flexDirection: 'row',
-        gap: 15,
-    },
-    logoPicker: {
-        flex: 1,
-        aspectRatio: 1,
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderStyle: 'dashed',
-        overflow: 'hidden',
-    },
-    logoPlaceholder: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-    },
-    logoPickerText: {
-        fontSize: 12,
-        color: Theme.colors.textSecondary,
-        fontFamily: Theme.fonts.outfit.medium,
-    },
-    logoPreview: {
-        width: '100%',
-        height: '100%',
-        resizeMode: 'contain',
-    },
-    inputGroup: {
-        marginBottom: 15,
-    },
-    inputLabel: {
-        fontSize: 14,
-        color: Theme.colors.textSecondary,
-        marginBottom: 8,
-        fontFamily: Theme.fonts.outfit.medium,
-    },
-    textInput: {
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 10,
-        padding: 12,
-        color: Theme.colors.textPrimary,
-        fontSize: 15,
-        fontFamily: Theme.fonts.outfit.regular,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    inputWithIcon: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        paddingHorizontal: 12,
-    },
-    inputIcon: {
-        marginRight: 10,
-    },
-    textInputWithIcon: {
-        flex: 1,
-        paddingVertical: 12,
-        color: Theme.colors.textPrimary,
-        fontSize: 15,
-        fontFamily: Theme.fonts.outfit.regular,
-    },
-    doneButton: {
-        padding: 4,
-    },
-    themeSelectorButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
-        padding: 15,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    themeInfo: {
-        flex: 1,
-        marginLeft: 15,
-    },
-    selectedThemeName: {
-        fontSize: 15,
-        fontFamily: Theme.fonts.outfit.semibold,
-        color: Theme.colors.textPrimary,
-    },
-    changeThemeText: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        marginTop: 2,
-    },
-    // New Design System Styles
-    mainContainer: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    newHeader: {
-        paddingHorizontal: 20,
-        paddingTop: Platform.OS === 'ios' ? 10 : 20,
-        paddingBottom: 20,
         borderBottomWidth: 1,
         borderBottomColor: '#f1f5f9',
     },
-    headerTop: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
     backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#f8fafc',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    headerTextContainer: {
-        flex: 1,
-        marginLeft: 15,
+        padding: 4,
     },
     headerTitle: {
         fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
         color: '#0f172a',
     },
-    headerSubtitle: {
-        fontSize: 12,
-        color: '#64748b',
-        fontFamily: Theme.fonts.outfit.regular,
-        marginTop: 2,
-    },
-    settingsBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#f8fafc',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    content: {
-        flex: 1,
-    },
-    sectionContainer: {
-        padding: 20,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: '#0f172a',
-    },
-    tabSwitcher: {
-        flexDirection: 'row', 
-        backgroundColor: '#f1f5f9',
-        borderRadius: 10,
+    infoButton: {
         padding: 4,
     },
-    tabItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 7,
-        gap: 6,
+    segmentedControlContainer: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
     },
-    activeTabItem: {
+    segmentedControl: {
+        flexDirection: 'row',
+        backgroundColor: '#f1f5f9',
+        borderRadius: 25,
+        padding: 4,
+    },
+    segmentBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 21,
+    },
+    segmentBtnActive: {
         backgroundColor: '#fff',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 4,
         elevation: 2,
     },
-    tabItemText: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.medium,
-        color: '#64748b',
+    segmentText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: '#94a3b8',
     },
-    activeTabItemText: {
+    segmentTextActive: {
         color: Theme.colors.accent,
     },
-    designGrid: {
+    tabsContainer: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        marginHorizontal: -8,
+        paddingHorizontal: 20,
+        marginTop: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    tabBtn: {
+        paddingVertical: 12,
+        marginRight: 24,
+        position: 'relative',
+    },
+    tabBtnActive: {
+    },
+    tabBtnText: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#94a3b8',
+    },
+    tabBtnTextActive: {
+        color: '#0f172a',
+    },
+    tabIndicator: {
+        position: 'absolute',
+        bottom: -1,
+        left: 0,
+        right: 0,
+        height: 2,
+        backgroundColor: Theme.colors.accent,
+    },
+    flatListContent: {
+        padding: 12,
     },
     gridItemWrapper: {
-        width: '50%',
+        flex: 1,
         padding: 8,
     },
     newDesignCard: {
         backgroundColor: '#fff',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
+        borderRadius: 16,
         overflow: 'hidden',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
     },
     selectedDesignCard: {
-        borderColor: Theme.colors.accent,
-        borderWidth: 2,
     },
     designImageWrapper: {
+        width: '100%',
         aspectRatio: 1,
+        borderRadius: 16,
         backgroundColor: '#f8fafc',
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
     },
     designImage: {
         width: '100%',
         height: '100%',
     },
-    designPlaceholder: {
-        flex: 1,
-        alignItems: 'center', 
+    activeDesignCheck: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: Theme.colors.accent,
+        alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
     },
     designCardFooter: {
-        padding: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#fff',
+        paddingTop: 10,
+        paddingHorizontal: 4,
     },
     designCardName: {
-        fontSize: 13,
-        fontFamily: Theme.fonts.outfit.semibold,
-        color: '#334155',
-        flex: 1,
-    },
-    selectedCheck: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: Theme.colors.accent,
-        alignItems: 'center', 
-        justifyContent: 'center',
-    },
-    emptyDesigns: {
-        alignItems: 'center',
-        justifyContent: 'center', 
-        paddingVertical: 60,
-        gap: 15,
-    },
-    emptyDesignsText: {
         fontSize: 14,
-        color: '#94a3b8',
-        fontFamily: Theme.fonts.outfit.medium, 
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#0f172a',
+        marginBottom: 2,
     },
-    bottomBar: {
-        padding: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#f1f5f9',
-        backgroundColor: '#fff',
-    },
-    selectedDesignInfo: {
-        marginBottom: 15,
-    },
-    selectedDesignLabel: {
-        fontSize: 13,
+    designCardStatus: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.medium,
         color: '#64748b',
-        fontFamily: Theme.fonts.outfit.regular,
     },
-    selectedDesignValue: {
-        fontFamily: Theme.fonts.outfit.bold, 
+    activeStatusText: {
         color: Theme.colors.accent,
     },
-    bottomButtons: {
-        flexDirection: 'row',
+    footer: {
+        padding: 20,
         gap: 12,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
     },
-    cancelBtn: {
-        flex: 1,
-        height: 50,
-        borderRadius: 12,
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: '#f8fafc',
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    cancelBtnText: {
-        fontSize: 15, 
-        fontFamily: Theme.fonts.outfit.bold,
-        color: '#64748b',
-    },
-    renderBtn: {
-        flex: 2,
-        height: 50,
-        borderRadius: 12,
+    renderBtnNew: {
         backgroundColor: Theme.colors.accent,
-        flexDirection: 'row',
+        height: 52,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
     },
-    renderBtnText: {
-        fontSize: 15,
-        fontFamily: Theme.fonts.outfit.bold,
+    renderBtnTextNew: {
         color: '#fff',
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
     },
-    disabledBtn: {
-        opacity: 0.6,
+    cancelBtnNew: {
+        backgroundColor: '#f1f5f9',
+        height: 52,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cancelBtnTextNew: {
+        color: '#0f172a',
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
     },
     personalEmptyContainer: {
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 40,
-        paddingHorizontal: 20,
-        backgroundColor: '#f8fafc',
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        borderStyle: 'dashed',
+        paddingVertical: 60,
     },
     personalEmptyIconWrapper: {
         width: 64,
@@ -1456,17 +820,17 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
         color: '#1e293b',
-        marginBottom: 8,
     },
     personalEmptySub: {
         fontSize: 14,
         fontFamily: Theme.fonts.outfit.regular,
         color: '#64748b',
         textAlign: 'center',
+        marginTop: 8,
         lineHeight: 20,
-        marginBottom: 24,
     },
     goDesignBtn: {
+        marginTop: 20,
         backgroundColor: Theme.colors.accent,
         flexDirection: 'row',
         alignItems: 'center',
@@ -1480,42 +844,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: Theme.fonts.outfit.bold,
     },
-    resultContent: {
-        flex: 1,
-        backgroundColor: '#F8F9FA',
-    },
-    fullResultImage: {
-        flex: 1,
-        width: '100%',
-    },
-    resultActions: {
-        position: 'absolute',
-        bottom: 40,
-        left: 20,
-        right: 20,
-        flexDirection: 'row',
-        justifyContent: 'center',
-    },
-    shareFab: {
-        flexDirection: 'row',
+    emptyDesigns: {
         alignItems: 'center',
-        backgroundColor: Theme.colors.accent,
-        paddingHorizontal: 25,
-        paddingVertical: 15,
-        borderRadius: 30,
-        gap: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
+        paddingVertical: 60,
     },
-    shareFabText: {
-        color: '#fff',
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.bold,
+    emptyDesignsText: {
+        marginTop: 12,
+        color: '#94a3b8',
+        fontFamily: Theme.fonts.outfit.medium,
     },
-    // Bottom Sheet Styles
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     sheetOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1525,82 +867,160 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     sheetContent: {
-        backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        paddingBottom: Platform.OS === 'ios' ? 40 : 25,
-        maxHeight: SCREEN_HEIGHT * 0.85,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
+        paddingBottom: 40,
+        maxHeight: '90%',
     },
     sheetHeader: {
         alignItems: 'center',
         paddingVertical: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        position: 'relative',
     },
     sheetHandle: {
         width: 40,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: '#E0E0E0',
-        marginBottom: 10,
+        height: 4,
+        backgroundColor: '#e2e8f0',
+        borderRadius: 2,
+        marginBottom: 15,
     },
     sheetTitle: {
         fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
-        color: '#1A1A1A',
+        color: '#0f172a',
     },
     sheetCloseBtn: {
         position: 'absolute',
-        right: 20,
-        top: 20,
-        padding: 5,
-    },
-    sheetScroll: {
-        padding: 20,
+        right: 0,
+        top: 25,
     },
     resultPreviewContainer: {
         width: '100%',
-        aspectRatio: 0.75,
-        backgroundColor: '#F8F9FA',
-        borderRadius: 20,
+        aspectRatio: 0.7,
+        borderRadius: 16,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: '#EEEEEE',
-        marginBottom: 25,
+        backgroundColor: '#f8fafc',
+        marginBottom: 20,
     },
     resultPreviewImage: {
         width: '100%',
         height: '100%',
     },
     sheetActionRow: {
-        flexDirection: 'row',
-        gap: 15,
+        gap: 12,
     },
     sheetActionBtn: {
-        flex: 1,
-        flexDirection: 'row',
+        height: 52,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 16,
-        borderRadius: 15,
-        gap: 10,
+        flexDirection: 'row',
+        gap: 8,
     },
     downloadActionBtn: {
         backgroundColor: Theme.colors.accent,
-        borderWidth: 0,
     },
     downloadActionText: {
-        color: '#FFFFFF',
-        fontSize: 15,
+        color: '#fff',
+        fontSize: 16,
         fontFamily: Theme.fonts.outfit.bold,
     },
-    shareActionBtn: {
-        backgroundColor: '#1A73E8',
+    editModalContainer: {
+        flex: 1,
+        backgroundColor: '#fff',
     },
-    shareActionText: {
-        color: '#FFFFFF',
-        fontSize: 15,
+    editModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    editModalTitle: {
+        fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
+        color: '#0f172a',
+    },
+    editSection: {
+        padding: 20,
+    },
+    editSectionTitle: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+        letterSpacing: 1,
+        marginBottom: 15,
+    },
+    logoGrid: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    logoPicker: {
+        flex: 1,
+        aspectRatio: 1,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    logoPreview: {
+        width: '100%',
+        height: '100%',
+    },
+    logoPlaceholder: {
+        alignItems: 'center',
+        gap: 4,
+    },
+    logoPickerText: {
+        fontSize: 12,
+        color: '#94a3b8',
+        fontFamily: Theme.fonts.outfit.medium,
+    },
+    inputGroup: {
+        marginBottom: 20,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#64748b',
+        marginBottom: 8,
+    },
+    textInput: {
+        height: 48,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        paddingHorizontal: 15,
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#0f172a',
+    },
+    inputWithIcon: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 48,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        paddingHorizontal: 12,
+    },
+    inputIcon: {
+        marginRight: 10,
+    },
+    textInputWithIcon: {
+        flex: 1,
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#0f172a',
+    },
+    disabledBtn: {
+        opacity: 0.6,
     },
 });
 

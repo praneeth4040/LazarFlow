@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
@@ -49,76 +50,78 @@ const ResetPasswordScreen = ({ navigation }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : null}
-            style={styles.container}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                style={{ backgroundColor: Theme.colors.secondary }}
-                keyboardShouldPersistTaps="handled"
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : null}
+                style={{ flex: 1 }}
             >
-                <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/logo.png')}
-                        style={styles.logo}
-                        resizeMode="contain"
-                    />
-                    <Text style={styles.title}>New Password</Text>
-                    <Text style={styles.subtitle}>Set a secure password for your account</Text>
-                </View>
-
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>New Password</Text>
-                        <View style={styles.inputWrapper}>
-                            <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="••••••••"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                            />
-                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                {showPassword ? <EyeOff size={20} color={Theme.colors.textSecondary} /> : <Eye size={20} color={Theme.colors.textSecondary} />}
-                            </TouchableOpacity>
-                        </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    style={{ backgroundColor: Theme.colors.secondary }}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.header}>
+                        <Image
+                            source={require('../../assets/logo.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.title}>New Password</Text>
+                        <Text style={styles.subtitle}>Set a secure password for your account</Text>
                     </View>
 
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Confirm Password</Text>
-                        <View style={styles.inputWrapper}>
-                            <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="••••••••"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                secureTextEntry={!showPassword}
-                            />
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>New Password</Text>
+                            <View style={styles.inputWrapper}>
+                                <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="••••••••"
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <EyeOff size={20} color={Theme.colors.textSecondary} /> : <Eye size={20} color={Theme.colors.textSecondary} />}
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
 
-                    <TouchableOpacity
-                        style={[styles.button, (loading || password === '' || confirmPassword === '') && styles.buttonDisabled]}
-                        onPress={handleUpdatePassword}
-                        disabled={loading || password === '' || confirmPassword === ''}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Text style={styles.buttonText}>Update Password</Text>
-                                <ArrowRight size={20} color="#fff" />
-                            </>
-                        )}
-                    </TouchableOpacity>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Confirm Password</Text>
+                            <View style={styles.inputWrapper}>
+                                <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="••••••••"
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                    value={confirmPassword}
+                                    onChangeText={setConfirmPassword}
+                                    secureTextEntry={!showPassword}
+                                />
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.button, (loading || password === '' || confirmPassword === '') && styles.buttonDisabled]}
+                            onPress={handleUpdatePassword}
+                            disabled={loading || password === '' || confirmPassword === ''}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.buttonText}>Update Password</Text>
+                                    <ArrowRight size={20} color="#fff" />
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { authService } from '../lib/authService';
 import { Theme } from '../styles/theme';
@@ -35,100 +36,102 @@ const LoginScreen = ({ navigation }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : null}
-            style={styles.container}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                style={{ backgroundColor: Theme.colors.secondary }}
-                keyboardShouldPersistTaps="handled"
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : null}
+                style={{ flex: 1 }}
             >
-                <View style={styles.header}>
-                    <Text style={styles.topBadge}>LOGIN</Text>
-                    <Image
-                        source={require('../../assets/logo.png')}
-                        style={styles.logo}
-                        resizeMode="contain"
-                    />
-                    <Text style={styles.title}>Welcome Back</Text>
-                    <Text style={styles.subtitle}>Sign in to continue to LazarFlow</Text>
-                </View>
-
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email Address</Text>
-                        <View style={styles.inputWrapper}>
-                            <Mail size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="your@email.com"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
-                        </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    style={{ backgroundColor: Theme.colors.secondary }}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.header}>
+                        <Text style={styles.topBadge}>LOGIN</Text>
+                        <Image
+                            source={require('../../assets/logo.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.title}>Welcome Back</Text>
+                        <Text style={styles.subtitle}>Sign in to continue to LazarFlow</Text>
                     </View>
 
-                    <View style={styles.inputContainer}>
-                        <View style={styles.labelRow}>
-                            <Text style={styles.label}>Password</Text>
-                            <TouchableOpacity
-                                style={styles.forgotPassword}
-                                onPress={() => navigation.navigate('ForgotPassword')}
-                            >
-                                <Text style={styles.forgotPasswordText}>Forgot?</Text>
-                            </TouchableOpacity>
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Email Address</Text>
+                            <View style={styles.inputWrapper}>
+                                <Mail size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="your@email.com"
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                />
+                            </View>
                         </View>
-                        <View style={styles.inputWrapper}>
-                            <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="••••••••"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry={!showPassword}
-                            />
-                            <TouchableOpacity
-                                onPress={() => setShowPassword(!showPassword)}
-                                style={styles.eyeIcon}
-                            >
-                                {showPassword ? (
-                                    <EyeOff size={20} color={Theme.colors.textSecondary} />
-                                ) : (
-                                    <Eye size={20} color={Theme.colors.textSecondary} />
-                                )}
-                            </TouchableOpacity>
+
+                        <View style={styles.inputContainer}>
+                            <View style={styles.labelRow}>
+                                <Text style={styles.label}>Password</Text>
+                                <TouchableOpacity
+                                    style={styles.forgotPassword}
+                                    onPress={() => navigation.navigate('ForgotPassword')}
+                                >
+                                    <Text style={styles.forgotPasswordText}>Forgot?</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.inputWrapper}>
+                                <Lock size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="••••••••"
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setShowPassword(!showPassword)}
+                                    style={styles.eyeIcon}
+                                >
+                                    {showPassword ? (
+                                        <EyeOff size={20} color={Theme.colors.textSecondary} />
+                                    ) : (
+                                        <Eye size={20} color={Theme.colors.textSecondary} />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
 
-                    <TouchableOpacity
-                        style={[styles.button, (loading || email === '' || password === '') && styles.buttonDisabled]}
-                        onPress={handleLogin}
-                        disabled={loading || email === '' || password === ''}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Text style={styles.buttonText}>Login</Text>
-                                <ArrowRight size={20} color="#fff" />
-                            </>
-                        )}
-                    </TouchableOpacity>
-
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>Don't have an account?</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                            <Text style={styles.footerLink}>Sign up</Text>
+                        <TouchableOpacity
+                            style={[styles.button, (loading || email === '' || password === '') && styles.buttonDisabled]}
+                            onPress={handleLogin}
+                            disabled={loading || email === '' || password === ''}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.buttonText}>Login</Text>
+                                    <ArrowRight size={20} color="#fff" />
+                                </>
+                            )}
                         </TouchableOpacity>
+
+                        <View style={styles.footer}>
+                            <Text style={styles.footerText}>Don't have an account?</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                                <Text style={styles.footerLink}>Sign up</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 

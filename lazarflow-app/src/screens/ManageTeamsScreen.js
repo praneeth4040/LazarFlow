@@ -320,8 +320,7 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.secondary,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        backgroundColor: Theme.colors.primary,
     },
     header: {
         flexDirection: 'row',
@@ -383,6 +382,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
+        backgroundColor: Theme.colors.secondary,
     },
     inputContainer: {
         flexDirection: 'row',

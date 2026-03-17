@@ -11,6 +11,7 @@ import { UserContext } from '../context/UserContext';
 import { useSubscription } from '../hooks/useSubscription';
 import { useFocusEffect } from '@react-navigation/native';
 import { getUserThemes, getCommunityDesigns, getDesignImageSource, updateUserProfile, getLobbies, deleteLobby, createTheme, uploadTheme, uploadLogo, updateLobby, endLobby, getLobbyTeams } from '../lib/dataService';
+import { formatAlphanumericDate } from '../lib/dateUtils';
 import SubscriptionPlansScreen from './SubscriptionPlansScreen';
 import { CustomAlert as Alert } from '../lib/AlertService';
 
@@ -452,7 +453,7 @@ const DashboardScreen = ({ navigation, route }) => {
         let title = 'Home';
         if (activeTab === 'home') {
             return (
-                <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
+                <View style={styles.header}>
                     <View style={styles.headerLeft}>
                         <Image 
                             source={require('../../assets/logo.png')} 
@@ -475,7 +476,7 @@ const DashboardScreen = ({ navigation, route }) => {
         
         if (activeTab === 'lobbies') {
             return (
-                <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
+                <View style={styles.header}>
                     <TouchableOpacity onPress={() => setActiveTab('home')} style={styles.headerLeft}>
                         <ArrowLeft size={24} color={Theme.colors.textPrimary} />
                         <Text style={styles.headerTitle}>All Lobbies</Text>
@@ -490,7 +491,7 @@ const DashboardScreen = ({ navigation, route }) => {
         if (activeTab === 'profile') title = 'Account Settings';
 
         return (
-            <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
+            <View style={styles.header}>
                 <Text style={styles.headerTitle}>{title}</Text>
                 <View style={styles.headerRight} />
             </View>
@@ -574,7 +575,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                 </View>
                                 <View style={{ alignItems: 'flex-end' }}>
                                     <Text style={styles.statLabel}>UPDATED</Text>
-                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? new Date(lobby.updated_at || lobby.created_at).toLocaleDateString() : '—'}</Text>
+                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? formatAlphanumericDate(lobby.updated_at || lobby.created_at) : '—'}</Text>
                                 </View>
                             </View>
 
@@ -678,7 +679,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                 </View>
                                 <View style={{ alignItems: 'flex-end' }}>
                                     <Text style={styles.statLabel}>UPDATED</Text>
-                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? new Date(lobby.updated_at || lobby.created_at).toLocaleDateString() : '—'}</Text>
+                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? formatAlphanumericDate(lobby.updated_at || lobby.created_at) : '—'}</Text>
                                 </View>
                             </View>
 
@@ -912,7 +913,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                 </View>
                                 <View style={{ alignItems: 'flex-end' }}>
                                     <Text style={styles.statLabel}>UPDATED</Text>
-                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? new Date(lobby.updated_at || lobby.created_at).toLocaleDateString() : '—'}</Text>
+                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? formatAlphanumericDate(lobby.updated_at || lobby.created_at) : '—'}</Text>
                                 </View>
                             </View>
 
@@ -963,11 +964,7 @@ const DashboardScreen = ({ navigation, route }) => {
 
     const formatDate = (dateString) => {
         if (!dateString) return "—";
-        return new Date(dateString).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-        });
+        return formatAlphanumericDate(dateString);
     };
 
     const getTierDisplayName = (tierName) => {
@@ -1514,7 +1511,7 @@ const DashboardScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.secondary,
+        backgroundColor: Theme.colors.primary,
     },
     header: {
         flexDirection: 'row',
@@ -1614,6 +1611,7 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         padding: 16,
+        backgroundColor: Theme.colors.secondary,
     },
     loadingContainer: {
         flex: 1,

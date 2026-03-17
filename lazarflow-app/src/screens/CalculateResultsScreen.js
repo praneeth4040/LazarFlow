@@ -1,15 +1,110 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Platform, StatusBar, Modal } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Platform, StatusBar, Modal, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Target, Sparkles, Camera, X, Upload, Save, Search, Trash2, ArrowLeft, ChevronRight, Plus, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
-import { getLobby, getLobbyTeams, updateTeam, batchUpdateTeams, batchUpdateTeamMembers } from '../lib/dataService';
+import { Sparkles, Camera, X, Upload, Search, ArrowLeft, Plus, Check, ChevronDown, ChevronUp, Info, Target, Save } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { getLobby, getLobbyTeams, batchUpdateTeams, batchUpdateTeamMembers } from '../lib/dataService';
 import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { extractResultsFromScreenshot, processLobbyScreenshots } from '../lib/aiResultExtraction';
-import { fuzzyMatch, fuzzyMatchName } from '../lib/aiUtils';
+import { fuzzyMatchName } from '../lib/aiUtils';
 import { useSubscription } from '../hooks/useSubscription';
 import { CustomAlert as Alert } from '../lib/AlertService';
 
+
+const ProcessingOverlay = ({ visible }) => {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const rotateAnim = useRef(new Animated.Value(0)).current;
+    const innerRotateAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (visible) {
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 400,
+                    useNativeDriver: true,
+                }),
+                Animated.loop(
+                    Animated.timing(rotateAnim, {
+                        toValue: 1,
+                        duration: 3000,
+                        easing: Easing.linear,
+                        useNativeDriver: true,
+                    })
+                ),
+                Animated.loop(
+                    Animated.timing(innerRotateAnim, {
+                        toValue: 1,
+                        duration: 2000,
+                        easing: Easing.out(Easing.quad),
+                        useNativeDriver: true,
+                    })
+                )
+            ]).start();
+        } else {
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [visible]);
+
+    if (!visible) return null;
+
+    const rotation = rotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0deg', '360deg']
+    });
+
+    const innerRotation = innerRotateAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['360deg', '0deg']
+    });
+
+    return (
+        <Modal transparent visible={visible} animationType="none">
+            <View style={styles.overlayContainer}>
+                <Animated.View style={[styles.overlayBackdrop, { opacity: fadeAnim }]} />
+                <Animated.View style={[styles.overlayContentNew, { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+                    <View style={styles.loaderHeader}>
+                        <X size={20} color="#cbd5e1" style={{ opacity: 0 }} />
+                        <Text style={styles.loaderBrand}>LexiView AI</Text>
+                        <X size={20} color="#cbd5e1" />
+                    </View>
+
+                    <View style={styles.aiAnimationContainer}>
+                        {/* Outer Ring */}
+                        <Animated.View style={[styles.outerRing, { transform: [{ rotate: rotation }] }]}>
+                            <View style={styles.ringDot} />
+                        </Animated.View>
+                        
+                        {/* Middle Ring */}
+                        <Animated.View style={[styles.middleRing, { transform: [{ rotate: innerRotation }] }]} />
+                        
+                        {/* Inner Blue Circle */}
+                        <View style={styles.innerCircleBlue}>
+                            <Sparkles size={32} color="#fff" />
+                        </View>
+                    </View>
+
+                    <Text style={styles.aiAtWorkTitle}>AI at work...</Text>
+                    <Text style={styles.aiAtWorkSubtitle}>
+                        Processing your request and analyzing data. This typically takes less than a minute.
+                    </Text>
+
+                    <View style={styles.didYouKnowBox}>
+                        <Text style={styles.didYouKnowLabel}>DID YOU KNOW?</Text>
+                        <Text style={styles.didYouKnowText}>
+                            "LazarFlow automatically syncs your tournament results to the cloud, so you can access them from any device at any time."
+                        </Text>
+                    </View>
+                </Animated.View>
+            </View>
+        </Modal>
+    );
+};
 
 const CalculateResultsScreen = ({ route, navigation }) => {
     const { canUseAI, tier } = useSubscription();
@@ -18,8 +113,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     const [teams, setTeams] = useState([]);
     const [results, setResults] = useState([]);
     const [teamSearch, setTeamSearch] = useState('');
-    const [filteredTeams, setFilteredTeams] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [extracting, setExtracting] = useState(false);
     const [aiResults, setAiResults] = useState([]);
@@ -57,7 +150,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             }
 
             if (updates.length > 0) {
-                // Use the dedicated batch endpoint for updating members
                 await batchUpdateTeamMembers(lobby.id, updates);
                 
                 Alert.alert('Success', 'Team members updated successfully!');
@@ -71,13 +163,11 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             setSubmitting(false);
         }
     };
-    
+
     // AI Workflow Steps
-    const [aiStep, setAiStep] = useState(1);
     const [lobbyImages, setLobbyImages] = useState([]);
+    const [resultImages, setResultImages] = useState([]);
     const [processingLobby, setProcessingLobby] = useState(false);
-    const [lobbyStepExpanded, setLobbyStepExpanded] = useState(true);
-    const [resultsStepExpanded, setResultsStepExpanded] = useState(false);
     const [processedSlots, setProcessedSlots] = useState([]); // [{ slot: 1, players: [], mappedTeamId: null }]
     const [showSlotMapping, setShowSlotMapping] = useState(false);
 
@@ -88,7 +178,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     }, [lobby?.id]);
 
     const fetchLobbyData = async () => {
-        setLoading(true);
         try {
             const tData = await getLobby(lobby?.id);
             setLobby(tData);
@@ -97,8 +186,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             setTeams(data || []);
         } catch (err) {
             Alert.alert('Error', 'Failed to fetch teams');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -126,9 +213,14 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             }))
         };
 
+        // Keep the dropdown open by default for the new result
+        setExpandedResults(prev => ({
+            ...prev,
+            [team.id]: true
+        }));
+
         setResults([...results, newResult]);
         setTeamSearch('');
-        setFilteredTeams([]);
     };
 
     const handleUpdateResult = (index, field, value) => {
@@ -151,11 +243,11 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         const member = updatedResults[resultIndex].members[memberIndex];
         member.kills = parseInt(kills) || 0;
 
-        // Auto-update team kills
+        // Auto-update team total kills based on individual player kills
         const totalMemberKills = updatedResults[resultIndex].members.reduce((sum, m) => sum + (m.kills || 0), 0);
         updatedResults[resultIndex].kills = totalMemberKills;
 
-        // Re-calculate points
+        // Re-calculate points for the team
         updatedResults[resultIndex].kill_points = totalMemberKills * (lobby.kill_points || 0);
         updatedResults[resultIndex].total_points = (updatedResults[resultIndex].placement_points || 0) + (updatedResults[resultIndex].kill_points || 0);
 
@@ -187,12 +279,40 @@ const CalculateResultsScreen = ({ route, navigation }) => {
         });
 
         if (!result.canceled) {
-            setLobbyImages([...lobbyImages, ...result.assets]);
+            setLobbyImages(prev => [...prev, ...result.assets]);
         }
     };
 
     const handleRemoveLobbyImage = (index) => {
-        setLobbyImages(lobbyImages.filter((_, i) => i !== index));
+        setLobbyImages(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handlePickResultImages = async () => {
+        if (!canUseAI && tier === 'free') {
+            Alert.alert(
+                'AI Limit Reached',
+                'You have reached your free AI extraction limit for this month. Upgrade to continue using AI features!',
+                [
+                    { text: 'Later', style: 'cancel' },
+                    { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') }
+                ]
+            );
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: true,
+            quality: 0.8,
+        });
+
+        if (!result.canceled) {
+            setResultImages(prev => [...prev, ...result.assets]);
+        }
+    };
+
+    const handleRemoveResultImage = (index) => {
+        setResultImages(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleProcessLobby = async () => {
@@ -233,9 +353,6 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
                 setProcessedSlots(formattedSlots);
                 setShowSlotMapping(true);
-                setAiStep(2); // Still advance step but we'll show slot mapping
-                setLobbyStepExpanded(false);
-                setResultsStepExpanded(true);
 
                 Alert.alert('Lobby Processed', displayMessage);
             } else {
@@ -345,11 +462,15 @@ const CalculateResultsScreen = ({ route, navigation }) => {
     };
 
     const handleApplyMapping = () => {
+        const newExpandedState = { ...expandedResults };
         const newResults = aiResults.map(res => {
             const teamId = mappings[res.rank];
             const team = teams.find(t => t.id === teamId);
 
             if (!team) return null;
+
+            // Set this team to be expanded by default
+            newExpandedState[team.id] = true;
 
             const pos = parseInt(res.rank);
             const pointsEntry = lobby.points_system.find(p => p.placement === pos);
@@ -374,6 +495,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             };
         }).filter(r => r !== null);
 
+        setExpandedResults(newExpandedState);
         setResults([...newResults, ...results.filter(r => !newResults.some(nr => nr.team_id === r.team_id))]);
         setShowMapping(false);
         setMode('manual');
@@ -433,32 +555,30 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={Theme.colors.textPrimary} />
                 </TouchableOpacity>
-                <View style={styles.headerInfo}>
-                    <Text style={styles.headerTitle}>Calculate Results</Text>
-                    <View style={styles.headerSubtitleRow}>
-                        <Text style={styles.headerSubtitle} numberOfLines={1}>{lobby?.name}</Text>
-                        <View style={styles.lobbyIdBadge}>
-                            <Text style={styles.lobbyIdText}>{lobby?.id?.slice(0, 8)}</Text>
-                        </View>
-                    </View>
+                <Text style={styles.headerTitle}>LexiView AI</Text>
+                <TouchableOpacity style={styles.infoButton}>
+                    <Info size={24} color={Theme.colors.textPrimary} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.toggleContainer}>
+                <View style={styles.toggleBackground}>
+                    <TouchableOpacity 
+                        style={[styles.toggleBtn, mode === 'manual' && styles.toggleBtnActive]} 
+                        onPress={() => setMode('manual')}
+                    >
+                        <Text style={[styles.toggleText, mode === 'manual' && styles.toggleTextActive]}>Manual</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.toggleBtn, mode === 'ai' && styles.toggleBtnActive]} 
+                        onPress={() => setMode('ai')}
+                    >
+                        <Text style={[styles.toggleText, mode === 'ai' && styles.toggleTextActive]}>LexiView AI</Text>
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting || results.length === 0}>
-                    {submitting ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={[styles.submitBtnText, results.length === 0 && { opacity: 0.5 }]}>Submit</Text>}
-                </TouchableOpacity>
             </View>
 
-            <View style={styles.modeTabs}>
-                <TouchableOpacity style={[styles.modeTab, mode === 'manual' && styles.modeTabActive]} onPress={() => setMode('manual')}>
-                    <Target size={18} color={mode === 'manual' ? Theme.colors.accent : Theme.colors.textSecondary} />
-                    <Text style={[styles.modeTabText, mode === 'manual' && styles.modeTabTextActive]}>Manual</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.modeTab, mode === 'ai' && styles.modeTabActive]} onPress={() => setMode('ai')}>
-                    <Sparkles size={18} color={mode === 'ai' ? Theme.colors.accent : Theme.colors.textSecondary} />
-                    <Text style={[styles.modeTabText, mode === 'ai' && styles.modeTabTextActive]}>LexiView AI</Text>
-                </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={[styles.content, styles.contentContainer]} showsVerticalScrollIndicator={false}>
                 {mode === 'manual' ? (
                     <View style={styles.searchSection}>
                         <View style={styles.searchInputContainer}>
@@ -482,292 +602,327 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                             </View>
                         )}
                     </View>
-                ) : (
-                    <View style={styles.aiUploadSection}>
-                        {extracting ? (
-                            <View style={styles.extractingLoader}>
-                                <ActivityIndicator size="large" color={Theme.colors.accent} />
-                                <Text style={styles.extractingText}>AI is analyzing screenshots...</Text>
-                            </View>
-                        ) : showSlotMapping ? (
-                            <View style={styles.mappingSection}>
-                                <View style={styles.mappingHeader}>
-                                    <Text style={styles.mappingTitle}>Lobby Slot Mapping</Text>
-                                    <Text style={styles.mappingSubtitle}>Map extracted slots to registered teams</Text>
+                ) : showSlotMapping ? (
+                    <View style={styles.mappingSection}>
+                        <View style={styles.mappingHeader}>
+                            <Text style={styles.mappingTitle}>Lobby Slot Mapping</Text>
+                            <Text style={styles.mappingSubtitle}>Map extracted slots to registered teams</Text>
+                        </View>
+
+                        {processedSlots.map((item, index) => (
+                            <View key={index} style={styles.slotCard}>
+                                <View style={styles.slotHeader}>
+                                    <Text style={styles.slotLabel}>SLOT {item.slot}</Text>
                                 </View>
-
-                                {processedSlots.map((item, index) => (
-                                    <View key={index} style={styles.slotCard}>
-                                        <View style={styles.slotHeader}>
-                                            <Text style={styles.slotLabel}>SLOT {item.slot}</Text>
-                                        </View>
-                                        
-                                        <View style={styles.slotBody}>
-                                            <Text style={styles.slotFieldLabel}>TEAM:</Text>
-                                            <TouchableOpacity 
-                                                style={styles.slotPicker}
-                                                onPress={() => {
-                                                    setSelectedSlotIndex(index);
-                                                    setMappingModalVisible(true);
-                                                }}
-                                            >
-                                                <Text style={[
-                                                    styles.slotPickerText,
-                                                    !item.mappedTeamId && { color: Theme.colors.textSecondary }
-                                                ]}>
-                                                    {teams.find(t => t.id === item.mappedTeamId)?.team_name || 'Select Team'}
-                                                </Text>
-                                                <ChevronDown size={18} color={Theme.colors.textSecondary} />
-                                            </TouchableOpacity>
-
-                                            <Text style={styles.slotFieldLabel}>PLAYERS:</Text>
-                                            <View style={styles.slotPlayerList}>
-                                                {item.players && item.players.length > 0 ? (
-                                                    item.players.map((p, pIdx) => (
-                                                        <View key={pIdx} style={styles.playerBadge}>
-                                                            <Text style={styles.playerBadgeText}>{p}</Text>
-                                                        </View>
-                                                    ))
-                                                ) : (
-                                                    <Text style={styles.noPlayersText}>No players identified</Text>
-                                                )}
-                                            </View>
-                                        </View>
-                                    </View>
-                                ))}
-
-                                <TouchableOpacity 
-                                    style={[styles.applyBtn, submitting && styles.disabledBtn]} 
-                                    onPress={handleSaveSlotMappings}
-                                    disabled={submitting}
-                                >
-                                    {submitting ? (
-                                        <ActivityIndicator size="small" color="#fff" />
-                                    ) : (
-                                        <>
-                                            <Save size={20} color="#fff" />
-                                            <Text style={styles.applyBtnText}>Save Mappings</Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowSlotMapping(false)}>
-                                    <Text style={styles.cancelBtnText}>Go Back</Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : showMapping ? (
-                            <View style={styles.mappingSection}>
-                                <View style={styles.mappingHeader}>
-                                    <Text style={styles.mappingTitle}>Verify AI Extraction</Text>
-                                    <Text style={styles.mappingSubtitle}>Map extracted teams to your registered teams</Text>
-                                </View>
-                                {aiResults.map((res, index) => {
-                                    // Calculate points for display
-                                    const placementPoints = lobby.points_system?.find(p => p.placement === parseInt(res.rank))?.points || 0;
-                                    const killPoints = (res.kills || 0) * (lobby.kill_points || 0);
-                                    const totalPoints = placementPoints + killPoints;
-
-                                    return (
-                                        <View key={index} style={styles.resultCard}>
-                                            <View style={styles.rankHeader}>
-                                                <Text style={styles.rankPrefix}>#</Text>
-                                                <Text style={styles.rankTitle}>{res.rank}</Text>
-                                            </View>
-
-                                            <View style={styles.teamSelectorBox}>
-                                                <TouchableOpacity 
-                                                    style={styles.teamNameContainer}
-                                                    onPress={() => {
-                                                        setSelectedAiTeam(res);
-                                                        setMappingModalVisible(true);
-                                                    }}
-                                                >
-                                                    <Text style={[
-                                                        styles.teamNameText,
-                                                        !mappings[res.rank] && { color: Theme.colors.textSecondary }
-                                                    ]} numberOfLines={1}>
-                                                        {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team...'}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity 
-                                                    style={styles.dropdownToggle}
-                                                    onPress={() => toggleResultExpansion(res.rank)}
-                                                >
-                                                    {expandedResults[res.rank] ? (
-                                                        <ChevronUp size={20} color={Theme.colors.textPrimary} />
-                                                    ) : (
-                                                        <ChevronDown size={20} color={Theme.colors.textPrimary} />
-                                                    )}
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            {expandedResults[res.rank] && (
-                                                <View style={styles.expandedMembersContainer}>
-                                                    {res.players && res.players.length > 0 ? (
-                                                        <View style={styles.membersList}>
-                                                            {res.players.map((player, pIdx) => (
-                                                                <View key={pIdx} style={styles.memberRow}>
-                                                                    <View style={styles.memberNameBox}>
-                                                                        <Text style={styles.memberNameText} numberOfLines={1}>{player.name}</Text>
-                                                                    </View>
-                                                                    <View style={styles.memberScoreBox}>
-                                                                        <Text style={styles.memberScoreText}>{player.kills}</Text>
-                                                                    </View>
-                                                                </View>
-                                                            ))}
-                                                        </View>
-                                                    ) : (
-                                                        <View style={styles.noMembersBox}>
-                                                            <Text style={styles.noMembersText}>No players identified</Text>
-                                                        </View>
-                                                    )}
-                                                </View>
-                                            )}
-
-                                            <View style={styles.killsInputContainer}>
-                                                <Text style={styles.killsLabel}>Total Extracted Kills</Text>
-                                                <View style={styles.killsInputBox}>
-                                                    <Text style={styles.killsInput}>{res.kills || 0}</Text>
-                                                </View>
-                                            </View>
-
-                                            <View style={styles.statsFooter}>
-                                                <View style={styles.statBox}>
-                                                    <Text style={styles.statLabel}>POSITION{'\n'}POINTS</Text>
-                                                    <Text style={styles.statValue}>{placementPoints}</Text>
-                                                </View>
-                                                <View style={styles.statBox}>
-                                                    <Text style={styles.statLabel}>KILL{'\n'}POINTS</Text>
-                                                    <Text style={styles.statValue}>{killPoints}</Text>
-                                                </View>
-                                                <View style={[styles.statBox, styles.totalStatBox]}>
-                                                    <Text style={[styles.statLabel, styles.totalStatLabel]}>TOTAL{'\n'}POINTS</Text>
-                                                    <Text style={[styles.statValue, styles.totalStatValue]}>{totalPoints}</Text>
-                                                </View>
-                                            </View>
-                                        </View>
-                                    );
-                                })}
-
-                                <TouchableOpacity style={styles.applyBtn} onPress={handleApplyMapping}>
-                                    <Check size={20} color="#fff" />
-                                    <Text style={styles.applyBtnText}>Apply Results</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowMapping(false)}>
-                                    <Text style={styles.cancelBtnText}>Cancel</Text>
-                                </TouchableOpacity>
-                            </View>
-                        ) : (
-                            <View style={styles.workflowContainer}>
-                                <View style={styles.workflowHeader}>
-                                    <Sparkles size={24} color={Theme.colors.accent} />
-                                    <Text style={styles.workflowTitle}>LexiView AI Workflow</Text>
-                                </View>
-
-                                {/* Step 1: Process Lobby */}
-                                <View style={[styles.stepCard, lobbyStepExpanded && styles.activeStepCard]}>
+                                
+                                <View style={styles.slotBody}>
+                                    <Text style={styles.slotFieldLabel}>TEAM:</Text>
                                     <TouchableOpacity 
-                                        style={styles.stepHeader}
-                                        onPress={() => setLobbyStepExpanded(!lobbyStepExpanded)}
+                                        style={styles.slotPicker}
+                                        onPress={() => {
+                                            setSelectedSlotIndex(index);
+                                            setMappingModalVisible(true);
+                                        }}
                                     >
-                                        <View style={styles.stepHeaderLeft}>
-                                            <View style={[styles.stepBadge, styles.activeStepBadge]}>
-                                                <Text style={styles.stepBadgeText}>1</Text>
-                                            </View>
-                                            <View>
-                                                <Text style={styles.stepTitle}>Process Lobby</Text>
-                                                <Text style={styles.stepDescription}>Extract teams & members from lobby</Text>
-                                            </View>
-                                        </View>
-                                        <View style={styles.stepHeaderRight}>
-                                            {(processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0)) && (
-                                                <Check size={16} color="#10b981" />
-                                            )}
-                                            {lobbyStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
-                                        </View>
+                                        <Text style={[
+                                            styles.slotPickerText,
+                                            !item.mappedTeamId && { color: Theme.colors.textSecondary }
+                                        ]}>
+                                            {teams.find(t => t.id === item.mappedTeamId)?.team_name || 'Select Team'}
+                                        </Text>
+                                        <ChevronDown size={18} color={Theme.colors.textSecondary} />
                                     </TouchableOpacity>
 
-                                    {lobbyStepExpanded && (
-                                        <View style={styles.stepContent}>
-                                            <View style={styles.imageGrid}>
+                                    <Text style={styles.slotFieldLabel}>PLAYERS:</Text>
+                                    <View style={styles.slotPlayerList}>
+                                        {item.players && item.players.length > 0 ? (
+                                            item.players.map((p, pIdx) => (
+                                                <View key={pIdx} style={styles.playerBadge}>
+                                                    <Text style={styles.playerBadgeText}>{p}</Text>
+                                                </View>
+                                            ))
+                                        ) : (
+                                            <Text style={styles.noPlayersText}>No players identified</Text>
+                                        )}
+                                    </View>
+                                </View>
+                            </View>
+                        ))}
+
+                        <TouchableOpacity 
+                            style={[styles.applyBtn, submitting && styles.disabledBtn]} 
+                            onPress={handleSaveSlotMappings}
+                            disabled={submitting}
+                        >
+                            {submitting ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <>
+                                    <Save size={20} color="#fff" />
+                                    <Text style={styles.applyBtnText}>Save Mappings</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowSlotMapping(false)}>
+                            <Text style={styles.cancelBtnText}>Go Back</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : showMapping ? (
+                    <View style={styles.mappingSection}>
+                        <View style={styles.mappingHeader}>
+                            <Text style={styles.mappingTitle}>Verify AI Extraction</Text>
+                            <Text style={styles.mappingSubtitle}>Map extracted teams to your registered teams</Text>
+                        </View>
+                        {aiResults.map((res, index) => {
+                            // Calculate points for display
+                            const placementPoints = lobby.points_system?.find(p => p.placement === parseInt(res.rank))?.points || 0;
+                            const killPoints = (res.kills || 0) * (lobby.kill_points || 0);
+                            const totalPoints = placementPoints + killPoints;
+
+                            return (
+                                <View key={index} style={styles.resultCard}>
+                                    <View style={styles.rankHeader}>
+                                        <Text style={styles.rankPrefix}>#</Text>
+                                        <Text style={styles.rankInput}>{res.rank}</Text>
+                                    </View>
+
+                                    <TouchableOpacity 
+                                        style={styles.teamSelectorBox}
+                                        onPress={() => {
+                                            setSelectedAiTeam(res);
+                                            setMappingModalVisible(true);
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.teamNameText,
+                                            !mappings[res.rank] && { color: Theme.colors.textSecondary }
+                                        ]} numberOfLines={1}>
+                                            {teams.find(t => t.id === mappings[res.rank])?.team_name || 'Select Team...'}
+                                        </Text>
+                                        <ChevronDown size={20} color={Theme.colors.textPrimary} />
+                                    </TouchableOpacity>
+
+                                    <View style={styles.killsInputContainer}>
+                                        <Text style={styles.killsLabel}>Total Extracted Kills</Text>
+                                        <View style={styles.killsInputBox}>
+                                            <Text style={styles.killsInput}>{res.kills || 0}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.statsFooter}>
+                                        <View style={styles.statBox}>
+                                            <Text style={styles.statLabel}>POSITION{'\n'}POINTS</Text>
+                                            <Text style={styles.statValue}>{placementPoints}</Text>
+                                        </View>
+                                        <View style={styles.statBox}>
+                                            <Text style={styles.statLabel}>KILL{'\n'}POINTS</Text>
+                                            <Text style={styles.statValue}>{killPoints}</Text>
+                                        </View>
+                                        <View style={[styles.statBox, styles.totalStatBox]}>
+                                            <Text style={[styles.statLabel, styles.totalStatLabel]}>TOTAL{'\n'}POINTS</Text>
+                                            <Text style={[styles.statValue, styles.totalStatValue]}>{totalPoints}</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            );
+                        })}
+
+                        <TouchableOpacity style={styles.applyBtn} onPress={handleApplyMapping}>
+                            <Check size={20} color="#fff" />
+                            <Text style={styles.applyBtnText}>Apply Results</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowMapping(false)}>
+                            <Text style={styles.cancelBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View style={styles.aiWorkflowContainer}>
+                        {/* Process Lobby - Step 1 */}
+                        <View style={styles.workflowSection}>
+                            <View style={styles.sectionHeaderRow}>
+                                <Text style={styles.workflowSectionTitle}>Process Lobby</Text>
+                                {teams.some(t => t.members && t.members.length > 0) ? (
+                                    <View style={styles.completedBadgeNew}>
+                                        <Text style={styles.completedBadgeTextNew}>COMPLETED</Text>
+                                    </View>
+                                ) : (
+                                    <View style={styles.stepBadgeNew}>
+                                        <Text style={styles.stepBadgeTextNew}>STEP 1</Text>
+                                    </View>
+                                )}
+                            </View>
+                            
+                            <View style={styles.workflowCard}>
+                                <Text style={styles.workflowInstruction}>
+                                    Upload a lobby screenshot to automatically detect teams and players.
+                                </Text>
+                                
+                                {teams.some(t => t.members && t.members.length > 0) ? (
+                                    <View style={styles.uploadBoxProcessed}>
+                                        <View style={styles.successIconCircle}>
+                                            <Check size={32} color="#10b981" />
+                                        </View>
+                                        <Text style={styles.processedText}>Lobby Screenshot Processed</Text>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity 
+                                        style={styles.uploadBox} 
+                                        onPress={handlePickLobbyImages}
+                                    >
+                                        {lobbyImages.length > 0 ? (
+                                            <View style={styles.uploadedImagesGrid}>
                                                 {lobbyImages.map((img, idx) => (
-                                                    <View key={idx} style={styles.imagePreviewContainer}>
-                                                        <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+                                                    <View key={idx} style={styles.miniPreviewContainer}>
+                                                        <Image source={{ uri: img.uri }} style={styles.miniImage} />
                                                         <TouchableOpacity 
-                                                            style={styles.removeImageBtn}
+                                                            style={styles.removeMiniImageBtn}
                                                             onPress={() => handleRemoveLobbyImage(idx)}
                                                         >
                                                             <X size={12} color="#fff" />
                                                         </TouchableOpacity>
                                                     </View>
                                                 ))}
-                                                <TouchableOpacity style={styles.addImageBtn} onPress={handlePickLobbyImages}>
-                                                    <Camera size={24} color={Theme.colors.textSecondary} />
-                                                    <Text style={styles.addImageText}>Add Lobby Screenshot</Text>
+                                                <TouchableOpacity 
+                                                    style={styles.addMoreMiniBtn}
+                                                    onPress={handlePickLobbyImages}
+                                                >
+                                                    <Plus size={20} color={Theme.colors.accent} />
                                                 </TouchableOpacity>
                                             </View>
-                                            
-                                            <TouchableOpacity 
-                                                style={[styles.processBtn, (lobbyImages.length === 0 || (processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0))) && styles.disabledBtn]}
-                                                onPress={handleProcessLobby}
-                                                disabled={processingLobby || lobbyImages.length === 0 || (processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0))}
-                                            >
-                                                {processingLobby ? (
-                                                    <ActivityIndicator size="small" color="#fff" />
-                                                ) : (processedSlots.length > 0 || teams.some(t => t.members && t.members.length > 0)) ? (
-                                                    <>
-                                                        <Check size={18} color="#fff" style={{ marginRight: 8 }} />
-                                                        <Text style={styles.processBtnText}>Lobby Already Processed</Text>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Upload size={18} color="#fff" style={{ marginRight: 8 }} />
-                                                        <Text style={styles.processBtnText}>Process Lobby</Text>
-                                                    </>
-                                                )}
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-                                </View>
-
-                                {/* Step 2: Extract Results */}
-                                <View style={[styles.stepCard, resultsStepExpanded && styles.activeStepCard]}>
-                                    <TouchableOpacity 
-                                        style={styles.stepHeader}
-                                        onPress={() => setResultsStepExpanded(!resultsStepExpanded)}
-                                    >
-                                        <View style={styles.stepHeaderLeft}>
-                                            <View style={[styles.stepBadge, styles.activeStepBadge]}>
-                                                <Text style={styles.stepBadgeText}>2</Text>
-                                            </View>
-                                            <View>
-                                                <Text style={styles.stepTitle}>Extract Results</Text>
-                                                <Text style={styles.stepDescription}>Calculate points from result screens</Text>
-                                            </View>
-                                        </View>
-                                        {resultsStepExpanded ? <ChevronUp size={20} color={Theme.colors.textSecondary} /> : <ChevronDown size={20} color={Theme.colors.textSecondary} />}
+                                        ) : (
+                                            <>
+                                                <View style={styles.uploadIconCircle}>
+                                                    <Camera size={32} color={Theme.colors.accent} />
+                                                </View>
+                                                <Text style={styles.uploadBoxText}>Add Lobby Screenshot</Text>
+                                            </>
+                                        )}
                                     </TouchableOpacity>
+                                )}
 
-                                    {resultsStepExpanded && (
-                                        <View style={styles.stepContent}>
-                                            <TouchableOpacity style={styles.uploadMainBtn} onPress={handlePickImage}>
-                                                <Upload size={32} color={Theme.colors.accent} />
-                                                <Text style={styles.uploadMainTitle}>Upload Result Screenshots</Text>
-                                                <Text style={styles.uploadMainSubtitle}>Select multiple images for all ranks</Text>
-                                            </TouchableOpacity>
-                                            
-                                            <View style={styles.aiInstructions}>
-                                                <Text style={styles.instructionTitle}>Tips for better results:</Text>
-                                                <Text style={styles.instructionText}>• Ensure screenshots are clear and readable</Text>
-                                                <Text style={styles.instructionText}>• Include all ranks (1 to bottom)</Text>
-                                                <Text style={styles.instructionText}>• Avoid overlapping text or UI elements</Text>
-                                            </View>
-                                        </View>
-                                    )}
+                                {teams.some(t => t.members && t.members.length > 0) ? (
+                                    <View style={styles.completedActionBtn}>
+                                        <Check size={20} color="#cbd5e1" style={{ marginRight: 8 }} />
+                                        <Text style={styles.completedActionBtnText}>Completed</Text>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity 
+                                        style={[styles.primaryActionBtn, (lobbyImages.length === 0 || processingLobby) && styles.disabledBtn]}
+                                        onPress={handleProcessLobby}
+                                        disabled={processingLobby || lobbyImages.length === 0}
+                                    >
+                                        {processingLobby ? (
+                                            <ActivityIndicator color="#fff" />
+                                        ) : (
+                                            <Text style={styles.primaryActionBtnText}>Process Lobby</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+
+                        {/* Extract Results - Step 2 */}
+                        <View style={styles.workflowSection}>
+                            <View style={styles.sectionHeaderRow}>
+                                <View style={styles.titleWithIcon}>
+                                    <Text style={styles.workflowSectionTitle}>Extract Results</Text>
+                                    <Info size={16} color={Theme.colors.textSecondary} style={{ marginLeft: 6 }} />
+                                </View>
+                                <View style={styles.stepBadgeNew}>
+                                    <Text style={styles.stepBadgeTextNew}>STEP 2 / MANUAL</Text>
                                 </View>
                             </View>
-                        )}
+
+                            <View style={styles.workflowCard}>
+                                <Text style={styles.workflowInstruction}>
+                                    Upload match result screens. <Text style={{ color: Theme.colors.accent, fontWeight: 'bold' }}>Standalone extraction</Text> is supported.
+                                </Text>
+
+                                <TouchableOpacity 
+                                    style={styles.uploadBox} 
+                                    onPress={handlePickResultImages}
+                                >
+                                    {resultImages.length > 0 ? (
+                                        <View style={styles.uploadedImagesGrid}>
+                                            {resultImages.map((img, idx) => (
+                                                <View key={idx} style={styles.miniPreviewContainer}>
+                                                    <Image source={{ uri: img.uri }} style={styles.miniImage} />
+                                                    <TouchableOpacity 
+                                                        style={styles.removeMiniImageBtn}
+                                                        onPress={() => handleRemoveResultImage(idx)}
+                                                    >
+                                                        <X size={12} color="#fff" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            ))}
+                                            <TouchableOpacity 
+                                                style={styles.addMoreMiniBtn}
+                                                onPress={handlePickResultImages}
+                                            >
+                                                <Plus size={20} color={Theme.colors.accent} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <>
+                                            <View style={styles.uploadIconCircle}>
+                                                <Upload size={32} color={Theme.colors.accent} />
+                                            </View>
+                                            <Text style={styles.uploadBoxText}>Upload Result Screenshots</Text>
+                                            <Text style={styles.uploadBoxSubtext}>Select multiple images for all ranks</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity 
+                                    style={[styles.secondaryActionBtn, (resultImages.length === 0 || extracting) && styles.disabledBtn]}
+                                    onPress={() => handleAIUpload(resultImages)}
+                                    disabled={extracting || resultImages.length === 0}
+                                >
+                                    {extracting ? (
+                                        <ActivityIndicator color={Theme.colors.accent} />
+                                    ) : (
+                                        <Text style={styles.secondaryActionBtnText}>Extract From Screenshots</Text>
+                                    )}
+                                </TouchableOpacity>
+                                
+                                <Text style={styles.independentModeHint}>
+                                    Independent mode: Requires manual team mapping
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Tips Section */}
+                        <View style={styles.tipsContainer}>
+                            <View style={styles.tipsHeaderRow}>
+                                <View style={styles.tipIconBox}>
+                                    <Sparkles size={20} color={Theme.colors.accent} />
+                                </View>
+                                <Text style={styles.tipsTitle}>TIPS FOR BETTER RESULTS</Text>
+                            </View>
+
+                            <View style={styles.tipRow}>
+                                <View style={styles.tipCheck}>
+                                    <Check size={14} color="#fff" />
+                                </View>
+                                <Text style={styles.tipText}>Ensure all screenshots are clear and high resolution</Text>
+                            </View>
+                            
+                            <View style={styles.tipRow}>
+                                <View style={styles.tipCheck}>
+                                    <Check size={14} color="#fff" />
+                                </View>
+                                <Text style={styles.tipText}>Include all ranks by scrolling and taking multiple shots</Text>
+                            </View>
+
+                            <View style={styles.tipRow}>
+                                <View style={styles.tipCheck}>
+                                    <Check size={14} color="#fff" />
+                                </View>
+                                <Text style={styles.tipText}>Avoid overlapping UI elements or text on scores</Text>
+                            </View>
+                        </View>
                     </View>
                 )}
 
@@ -797,9 +952,7 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                 </View>
 
                                 <View style={styles.teamSelectorBox}>
-                                    <View style={styles.teamNameContainer}>
-                                        <Text style={styles.teamNameText} numberOfLines={1}>{item.team_name}</Text>
-                                    </View>
+                                    <Text style={styles.teamNameText} numberOfLines={1}>{item.team_name}</Text>
                                     <TouchableOpacity 
                                         style={styles.dropdownToggle}
                                         onPress={() => toggleResultExpansion(item.team_id)}
@@ -814,20 +967,30 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 
                                 {expandedResults[item.team_id] && (
                                     <View style={styles.expandedMembersContainer}>
+                                        <Text style={styles.membersHeaderLabel}>INDIVIDUAL KILLS</Text>
                                         {item.members && item.members.length > 0 ? (
                                             <View style={styles.membersList}>
                                                 {item.members.map((member, mIdx) => (
-                                                    <View key={mIdx} style={styles.memberRow}>
-                                                        <View style={styles.memberNameBox}>
+                                                    <View key={mIdx} style={styles.memberKillRow}>
+                                                        <View style={styles.memberNameContainer}>
                                                             <Text style={styles.memberNameText} numberOfLines={1}>{member.name}</Text>
                                                         </View>
-                                                        {/* Optional: Read-only display of member kills if you track them elsewhere, otherwise just the name is fine based on "member names should be seen" */}
+                                                        <View style={styles.memberKillInputWrapper}>
+                                                            <TextInput
+                                                                style={styles.memberKillInput}
+                                                                keyboardType="numeric"
+                                                                value={String(member.kills || 0)}
+                                                                onChangeText={(v) => handleUpdateMemberKills(index, mIdx, v)}
+                                                                placeholder="0"
+                                                                placeholderTextColor={Theme.colors.textSecondary}
+                                                            />
+                                                        </View>
                                                     </View>
                                                 ))}
                                             </View>
                                         ) : (
                                             <View style={styles.noMembersBox}>
-                                                <Text style={styles.noMembersText}>No team members</Text>
+                                                <Text style={styles.noMembersText}>No team members found</Text>
                                             </View>
                                         )}
                                     </View>
@@ -863,9 +1026,24 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                 </View>
                             </View>
                         ))}
+
+                        <TouchableOpacity 
+                            style={[styles.submitFinalBtn, submitting && styles.disabledBtn]} 
+                            onPress={handleSubmit}
+                            disabled={submitting || results.length === 0}
+                        >
+                            {submitting ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.submitFinalBtnText}>Submit Results</Text>
+                            )}
+                        </TouchableOpacity>
+                        <View style={{ height: 40 }} />
                     </View>
                 )}
             </ScrollView>
+
+            <ProcessingOverlay visible={processingLobby || extracting} />
 
             <Modal
                 transparent={true}
@@ -927,11 +1105,11 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                                         onPress={() => {
                                             if (selectedSlotIndex !== null) {
                                                 handleUpdateSlotMapping(selectedSlotIndex, team.id);
-                                            } else {
-                                                setMappings({
-                                                    ...mappings,
+                                            } else if (selectedAiTeam && selectedAiTeam.rank) {
+                                                setMappings(prev => ({
+                                                    ...prev,
                                                     [selectedAiTeam.rank]: team.id
-                                                });
+                                                }));
                                             }
                                             setMappingModalVisible(false);
                                         }}
@@ -984,486 +1162,603 @@ const CalculateResultsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: Theme.colors.primary,
+    },
+    contentContainer: {
         backgroundColor: Theme.colors.secondary,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
         backgroundColor: Theme.colors.primary,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
     },
-    headerInfo: {
-        flex: 1,
-        marginLeft: 16,
+    backButton: {
+        padding: 4,
+    },
+    infoButton: {
+        padding: 4,
     },
     headerTitle: {
         fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
+        color: '#1a1a1a',
     },
-    headerSubtitle: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        flexShrink: 1,
+    toggleContainer: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        backgroundColor: '#fff',
     },
-    headerSubtitleRow: {
+    toggleBackground: {
         flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
+        backgroundColor: '#f1f5f9',
+        borderRadius: 25,
+        padding: 4,
     },
-    lobbyIdBadge: {
-        backgroundColor: 'rgba(26, 115, 232, 0.08)',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    lobbyIdText: {
-        fontSize: 10,
-        color: Theme.colors.accent,
-        fontFamily: Theme.fonts.monospace,
-    },
-    submitBtn: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-    },
-    submitBtnText: {
-        color: Theme.colors.accent,
-        fontFamily: Theme.fonts.outfit.bold,
-        fontSize: 16,
-    },
-    modeTabs: {
-        flexDirection: 'row',
-        backgroundColor: Theme.colors.primary,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-    },
-    modeTab: {
+    toggleBtn: {
         flex: 1,
-        flexDirection: 'row',
+        paddingVertical: 10,
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        gap: 8,
+        borderRadius: 21,
     },
-    modeTabActive: {
-        borderBottomWidth: 2,
-        borderBottomColor: Theme.colors.accent,
-    },
-    modeTabText: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.semibold,
-        color: Theme.colors.textSecondary,
-    },
-    modeTabTextActive: {
-        color: Theme.colors.accent,
-    },
-    content: {
-        padding: 20,
-    },
-    searchSection: {
-        marginBottom: 20,
-        zIndex: 10,
-    },
-    searchInputContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Theme.colors.primary,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-    },
-    searchIcon: {
-        marginRight: 8,
-    },
-    searchInput: {
-        flex: 1,
-        paddingVertical: 12,
-        color: Theme.colors.textPrimary,
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.regular,
-    },
-    searchResults: {
-        position: 'absolute',
-        top: 50,
-        left: 0,
-        right: 0,
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
+    toggleBtnActive: {
+        backgroundColor: '#fff',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
+        elevation: 2,
+    },
+    toggleText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: '#94a3b8',
+    },
+    toggleTextActive: {
+        color: Theme.colors.accent,
+    },
+    content: {
+        padding: 20,
+        backgroundColor: '#fff',
+    },
+    aiWorkflowContainer: {
+        gap: 24,
+    },
+    workflowSection: {
+        gap: 12,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    workflowSectionTitle: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1a1a1a',
+    },
+    titleWithIcon: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    stepBadgeNew: {
+        backgroundColor: '#eff6ff',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    stepBadgeTextNew: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+    },
+    completedBadgeNew: {
+        backgroundColor: '#ecfdf5',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    completedBadgeTextNew: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#10b981',
+    },
+    workflowCard: {
+        backgroundColor: '#fff',
+        borderRadius: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
         elevation: 3,
-        zIndex: 100,
+    },
+    workflowInstruction: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#64748b',
+        lineHeight: 20,
+        marginBottom: 20,
+    },
+    uploadBox: {
+        width: '100%',
+        height: 180,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderStyle: 'dashed',
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    uploadBoxProcessed: {
+        width: '100%',
+        height: 180,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#10b981',
+        borderStyle: 'dashed',
+        backgroundColor: '#f0fdf4',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    successIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#d1fae5',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    processedText: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: '#059669',
+    },
+    uploadIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#eff6ff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 12,
+    },
+    uploadBoxText: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: '#1a1a1a',
+    },
+    uploadBoxSubtext: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#94a3b8',
+        marginTop: 4,
+    },
+    primaryActionBtn: {
+        backgroundColor: Theme.colors.accent,
+        height: 52,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: Theme.colors.accent,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    primaryActionBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    completedActionBtn: {
+        backgroundColor: '#f8fafc',
+        height: 52,
+        borderRadius: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    completedActionBtnText: {
+        color: '#cbd5e1',
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    secondaryActionBtn: {
+        backgroundColor: '#fff',
+        height: 52,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: Theme.colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryActionBtnText: {
+        color: Theme.colors.accent,
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    independentModeHint: {
+        fontSize: 11,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#94a3b8',
+        textAlign: 'center',
+        marginTop: 12,
+        fontStyle: 'italic',
+    },
+    tipsContainer: {
+        backgroundColor: '#eff6ff',
+        borderRadius: 24,
+        padding: 24,
+        marginTop: 10,
+    },
+    tipsHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    tipIconBox: {
+        marginRight: 12,
+    },
+    tipsTitle: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+        letterSpacing: 0.5,
+    },
+    tipRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        marginBottom: 16,
+    },
+    tipCheck: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        backgroundColor: Theme.colors.accent,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+        marginTop: 2,
+    },
+    tipText: {
+        flex: 1,
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#475569',
+        lineHeight: 20,
+    },
+    miniPreviewContainer: {
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        overflow: 'hidden',
+    },
+    removeMiniImageBtn: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: 8,
+        width: 18,
+        height: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    addMoreMiniBtn: {
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Theme.colors.accent,
+        borderStyle: 'dashed',
+        backgroundColor: '#eff6ff',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    uploadedImagesGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        padding: 10,
+        justifyContent: 'center',
+    },
+    miniImage: {
+        width: '100%',
+        height: '100%',
+    },
+    searchSection: {
+        marginBottom: 20,
+    },
+    searchInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f1f5f9',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        height: 52,
+    },
+    searchIcon: {
+        marginRight: 12,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#1a1a1a',
+    },
+    searchResults: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
     searchItem: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 12,
+        padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
+        borderBottomColor: '#f1f5f9',
     },
     searchItemName: {
         fontSize: 16,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textPrimary,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: '#1a1a1a',
     },
-    aiUploadSection: {
-        marginBottom: 20,
-    },
-    workflowContainer: {
-        gap: 12,
-    },
-    workflowHeader: {
-        flexDirection: 'row',
+    extractingLoader: {
         alignItems: 'center',
-        gap: 10,
-        marginBottom: 12,
-        backgroundColor: 'rgba(26, 115, 232, 0.1)',
-        padding: 12,
-        borderRadius: 8,
+        padding: 40,
     },
-    workflowTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: Theme.colors.accent,
+    extractingText: {
+        marginTop: 16,
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#64748b',
     },
-    stepCard: {
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
+    mappingSection: {
+        gap: 20,
+    },
+    mappingHeader: {
+        marginBottom: 10,
+    },
+    mappingTitle: {
+        fontSize: 20,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1a1a1a',
+    },
+    mappingSubtitle: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#64748b',
+        marginTop: 4,
+    },
+    slotCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: '#f1f5f9',
         overflow: 'hidden',
     },
-    activeStepCard: {
-        borderColor: Theme.colors.accent,
-        borderWidth: 1.5,
+    slotHeader: {
+        padding: 12,
+        backgroundColor: '#f8fafc',
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
     },
-    disabledStepCard: {
-        opacity: 0.6,
+    slotLabel: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#64748b',
+        letterSpacing: 1,
     },
-    stepHeader: {
+    slotBody: {
+        padding: 16,
+    },
+    slotFieldLabel: {
+        fontSize: 11,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#94a3b8',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+    },
+    slotPicker: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 16,
+        height: 48,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        paddingHorizontal: 12,
+        marginBottom: 16,
     },
-    stepHeaderLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+    slotPickerText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#1a1a1a',
     },
-    stepHeaderRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    completedBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#10b981', // Success green
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        gap: 4,
-    },
-    completedBadgeText: {
-        color: '#fff',
-        fontSize: 10,
-        fontWeight: 'bold',
-        fontFamily: Theme.fonts.outfit.bold,
-    },
-    stepBadge: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: Theme.colors.border,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-
-    uploadTitle: {
-        fontSize: 18,
-        fontFamily: Theme.fonts.outfit.bold,
-    },
-    activeStepBadge: {
-        backgroundColor: Theme.colors.accent,
-    },
-    stepBadgeText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    stepTitle: {
-        fontSize: 15,
-        fontWeight: 'bold',
-
-        color: Theme.colors.textPrimary,
-    },
-    stepDescription: {
-        fontSize: 12,
-        color: Theme.colors.textSecondary,
-    },
-    stepContent: {
-        padding: 16,
-        paddingTop: 0,
-        borderTopWidth: 1,
-        borderTopColor: Theme.colors.border,
-        marginTop: 0,
-        paddingBottom: 20,
-    },
-    imageGrid: {
+    slotPlayerList: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
-        marginVertical: 12,
+        gap: 6,
     },
-    imagePreviewContainer: {
-        width: 80,
-        height: 80,
+    playerBadge: {
+        backgroundColor: '#f1f5f9',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
         borderRadius: 8,
-        overflow: 'hidden',
-        position: 'relative',
     },
-    imagePreview: {
-        width: '100%',
-        height: '100%',
+    playerBadgeText: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#475569',
     },
-    removeImageBtn: {
-        position: 'absolute',
-        top: 4,
-        right: 4,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        borderRadius: 10,
-        padding: 4,
-    },
-    addImageBtn: {
-        width: 80,
-        height: 80,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderStyle: 'dashed',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 4,
-    },
-    addImageText: {
-        fontSize: 10,
-        color: Theme.colors.textSecondary,
-        textAlign: 'center',
-        marginTop: 4,
-    },
-    processBtn: {
-        backgroundColor: Theme.colors.accent,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 8,
-        marginTop: 8,
-    },
-    disabledBtn: {
-        backgroundColor: Theme.colors.border,
-    },
-    processBtnText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: 14,
-
+    noPlayersText: {
+        fontSize: 12,
         fontFamily: Theme.fonts.outfit.regular,
-
-    },
-    uploadMainBtn: {
-        backgroundColor: 'rgba(26, 115, 232, 0.05)',
-        borderWidth: 1,
-        borderColor: Theme.colors.accent,
-        borderStyle: 'dashed',
-        borderRadius: 12,
-        padding: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginVertical: 12,
-    },
-    uploadMainTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: Theme.colors.textPrimary,
-        marginTop: 8,
-    },
-    uploadMainSubtitle: {
-        fontSize: 12,
-        color: Theme.colors.textSecondary,
-        marginTop: 4,
-    },
-    aiInstructions: {
-        backgroundColor: Theme.colors.secondary,
-        padding: 12,
-        borderRadius: 8,
-        marginTop: 8,
-    },
-    instructionTitle: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: Theme.colors.textPrimary,
-        marginBottom: 4,
-    },
-    instructionText: {
-        fontSize: 12,
-
-        color: Theme.colors.textSecondary,
-        marginBottom: 2,
+        color: '#94a3b8',
+        fontStyle: 'italic',
     },
     applyBtn: {
         backgroundColor: Theme.colors.accent,
+        height: 52,
+        borderRadius: 14,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: 8,
-        marginTop: 16,
-        gap: 8,
+        gap: 10,
     },
     applyBtnText: {
         color: '#fff',
-        fontWeight: 'bold',
         fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
     },
     cancelBtn: {
         alignItems: 'center',
         paddingVertical: 12,
-        marginTop: 8,
     },
     cancelBtnText: {
-        color: Theme.colors.textSecondary,
         fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: '#64748b',
     },
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        marginBottom: 12,
-    },
-    resultsList: {
-        gap: 12,
+        color: '#1a1a1a',
+        marginTop: 20,
+        marginBottom: 16,
     },
     resultCard: {
         backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 16,
+        borderRadius: 20,
+        padding: 20,
         marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.05,
         shadowRadius: 8,
-        elevation: 4,
+        elevation: 2,
     },
     rankHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 16,
-        position: 'relative',
     },
     rankPrefix: {
         fontSize: 24,
         fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
-        marginRight: 2,
     },
     rankInput: {
         fontSize: 24,
         fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.accent,
-        minWidth: 30,
-        textAlign: 'center',
-    },
-    rankTitle: {
-        fontSize: 24,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.accent,
+        minWidth: 40,
         textAlign: 'center',
     },
     removeBtn: {
         position: 'absolute',
         right: 0,
-        top: 4,
-        padding: 4,
     },
     teamSelectorBox: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+        height: 56,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderRadius: 8,
+        borderColor: '#e2e8f0',
         paddingHorizontal: 16,
-        paddingVertical: 14,
         marginBottom: 16,
-        backgroundColor: '#fff',
-    },
-    teamNameContainer: {
-        flex: 1,
-    },
-    dropdownToggle: {
-        padding: 4,
-        marginLeft: 8,
     },
     teamNameText: {
         fontSize: 16,
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        flex: 1,
-        marginRight: 8,
+        color: '#1a1a1a',
     },
-    extractingLoader: {
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
-        padding: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 16,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
+    dropdownToggle: {
+        padding: 8,
     },
-    extractingText: {
-        color: Theme.colors.textPrimary,
-        fontFamily: Theme.fonts.outfit.semibold,
+    killsInputContainer: {
+        marginBottom: 16,
     },
-    mappingSection: {
-        backgroundColor: '#fff',
-        borderRadius: 16,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    mappingHeader: {
-        marginBottom: 24,
-    },
-    mappingTitle: {
-        fontSize: 20,
+    killsLabel: {
+        fontSize: 11,
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        marginBottom: 4,
+        color: '#94a3b8',
+        marginBottom: 8,
+        textTransform: 'uppercase',
     },
-    mappingSubtitle: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
+    killsInputBox: {
+        height: 48,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        backgroundColor: '#f8fafc',
+        justifyContent: 'center',
+    },
+    killsInput: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+        textAlign: 'center',
+    },
+    statsFooter: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    statBox: {
+        flex: 1,
+        height: 70,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        padding: 10,
+        justifyContent: 'space-between',
+    },
+    statLabel: {
+        fontSize: 9,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#94a3b8',
+    },
+    statValue: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1a1a1a',
+    },
+    totalStatBox: {
+        backgroundColor: Theme.colors.accent,
+        borderColor: Theme.colors.accent,
+    },
+    totalStatLabel: {
+        color: 'rgba(255,255,255,0.7)',
+    },
+    totalStatValue: {
+        color: '#fff',
     },
     modalOverlay: {
         flex: 1,
@@ -1471,128 +1766,52 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: Theme.colors.primary,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
         padding: 24,
         maxHeight: '80%',
     },
     modalHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 20,
-    },
-    // Slot Card Styles
-    slotCard: {
-        backgroundColor: Theme.colors.primary,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        marginBottom: 16,
-        overflow: 'hidden',
-    },
-    slotHeader: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: Theme.colors.border,
-        backgroundColor: 'rgba(0,0,0,0.02)',
-    },
-    slotLabel: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        letterSpacing: 1,
-    },
-    slotBody: {
-        padding: 16,
-    },
-    slotFieldLabel: {
-        fontSize: 12,
-        fontFamily: Theme.fonts.outfit.semibold,
-        color: Theme.colors.textSecondary,
-        marginBottom: 8,
-        letterSpacing: 0.5,
-    },
-    slotPicker: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#f8fafc',
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginBottom: 16,
-    },
-    slotPickerText: {
-        fontSize: 15,
-        fontFamily: Theme.fonts.outfit.medium,
-        color: Theme.colors.textPrimary,
-    },
-    slotPlayerList: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    playerBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f1f5f9',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    playerBadgeText: {
-        fontSize: 13,
-        fontFamily: Theme.fonts.outfit.medium,
-        color: Theme.colors.textPrimary,
-    },
-    noPlayersText: {
-        fontSize: 13,
-        fontStyle: 'italic',
-        color: Theme.colors.textSecondary,
     },
     modalTitle: {
         fontSize: 20,
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
+        color: '#1a1a1a',
     },
     aiSummary: {
-        backgroundColor: Theme.colors.secondary,
+        backgroundColor: '#f8fafc',
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 16,
         marginBottom: 20,
     },
     aiSummaryLabel: {
         fontSize: 12,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        marginBottom: 4,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#64748b',
     },
     aiSummaryName: {
         fontSize: 18,
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
+        color: '#1a1a1a',
+        marginTop: 4,
     },
     aiSummaryDetail: {
         fontSize: 14,
-        color: Theme.colors.accent,
         fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.accent,
+        marginTop: 2,
     },
     sectionLabel: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.semibold,
-        color: Theme.colors.textSecondary,
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#94a3b8',
         marginBottom: 12,
         textTransform: 'uppercase',
-    },
-    teamOptionsList: {
-        marginBottom: 20,
     },
     teamOption: {
         flexDirection: 'row',
@@ -1601,214 +1820,259 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
+        borderColor: '#f1f5f9',
         marginBottom: 8,
     },
     teamOptionSelected: {
         borderColor: Theme.colors.accent,
-        backgroundColor: 'rgba(26, 115, 232, 0.05)',
+        backgroundColor: '#eff6ff',
     },
-    teamOptionText: {
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textPrimary,
-    },
-    teamOptionTextSelected: {
-        color: Theme.colors.accent,
-        fontWeight: 'bold',
-    },
-    teamOptionDisabled: {
-        backgroundColor: Theme.colors.secondary,
-        borderColor: Theme.colors.border,
-        opacity: 0.6,
-    },
-    teamOptionTextDisabled: {
-        color: Theme.colors.textSecondary,
-    },
-    alreadyMappedText: {
-        fontSize: 10,
-        fontFamily: Theme.fonts.outfit.regular,
-        color: Theme.colors.textSecondary,
-        fontStyle: 'italic',
+    teamOptionsList: {
+        marginBottom: 20,
     },
     teamOptionLeft: {
         flex: 1,
     },
+    teamOptionText: {
+         fontSize: 16,
+         fontFamily: Theme.fonts.outfit.medium,
+         color: '#1a1a1a',
+     },
+     teamOptionTextSelected: {
+        color: Theme.colors.accent,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    teamOptionDisabled: {
+        backgroundColor: '#f8fafc',
+        borderColor: '#f1f5f9',
+        opacity: 0.5,
+    },
+    teamOptionTextDisabled: {
+        color: '#94a3b8',
+    },
+    alreadyMappedText: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#94a3b8',
+        fontStyle: 'italic',
+        marginTop: 2,
+    },
     clearMappingBtn: {
+        padding: 16,
         alignItems: 'center',
-        padding: 12,
     },
     clearMappingText: {
-        color: Theme.colors.danger,
-        fontFamily: Theme.fonts.outfit.semibold,
-    },
-    mappingActions: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 20,
-    },
-    cancelMappingBtn: {
-        flex: 1,
-        padding: 14,
-        alignItems: 'center',
-        borderRadius: 8,
-        backgroundColor: Theme.colors.secondary,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    cancelMappingText: {
-        color: Theme.colors.textPrimary,
-        fontWeight: 'bold',
-    },
-    applyMappingBtn: {
-        flex: 2,
-        padding: 14,
-        alignItems: 'center',
-        borderRadius: 8,
-        backgroundColor: Theme.colors.accent,
-    },
-    applyMappingText: {
-        color: '#fff',
-        fontWeight: 'bold',
-    },
-    membersList: {
-        gap: 12,
-        marginBottom: 20,
-    },
-    expandedMembersContainer: {
-        backgroundColor: '#f1f5f9',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-    },
-    killsInputContainer: {
-        marginBottom: 20,
-    },
-    killsLabel: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.semibold,
-        color: Theme.colors.textSecondary,
-        marginBottom: 8,
-        textTransform: 'uppercase',
-    },
-    killsInputBox: {
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderRadius: 8,
-        backgroundColor: '#f8fafc',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-    },
-    killsInput: {
-        fontSize: 18,
+        color: '#ef4444',
         fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.accent,
-        textAlign: 'center',
-    },
-    memberRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    memberNameBox: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderRadius: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#fff',
-    },
-    memberNameText: {
-        fontSize: 14,
-        fontFamily: Theme.fonts.outfit.medium,
-        color: Theme.colors.textPrimary,
-        textTransform: 'uppercase',
-    },
-    memberScoreBox: {
-        width: 60,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderRadius: 8,
-        overflow: 'hidden',
-        backgroundColor: '#f8fafc',
-    },
-    memberScoreInput: {
-        textAlign: 'center',
-        paddingVertical: 12,
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.accent,
-    },
-    memberScoreText: {
-        textAlign: 'center',
-        paddingVertical: 12,
-        fontSize: 16,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.accent,
-    },
-    noMembersBox: {
-        padding: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderStyle: 'dashed',
-        borderRadius: 8,
-        marginBottom: 20,
-    },
-    noMembersText: {
-        color: Theme.colors.textSecondary,
-        fontStyle: 'italic',
-    },
-    statsFooter: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 8,
-    },
-    statBox: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderRadius: 12,
-        padding: 12,
-        alignItems: 'flex-start',
-        justifyContent: 'space-between',
-        height: 80,
-    },
-    statLabel: {
-        fontSize: 10,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textSecondary,
-        textTransform: 'uppercase',
-        lineHeight: 14,
-    },
-    statValue: {
-        fontSize: 20,
-        fontFamily: Theme.fonts.outfit.bold,
-        color: Theme.colors.textPrimary,
-        alignSelf: 'flex-start',
-    },
-    totalStatBox: {
-        backgroundColor: Theme.colors.accent,
-        borderColor: Theme.colors.accent,
-    },
-    totalStatLabel: {
-        color: 'rgba(255,255,255,0.8)',
-    },
-    totalStatValue: {
-        color: '#fff',
-        fontSize: 24,
     },
     emptyState: {
         alignItems: 'center',
-        paddingVertical: 40,
-        gap: 10,
+        paddingVertical: 60,
     },
     emptyText: {
-        color: Theme.colors.textSecondary,
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#94a3b8',
+        marginTop: 12,
+    },
+    disabledBtn: {
+        opacity: 0.6,
+    },
+    expandedMembersContainer: {
+        backgroundColor: '#f8fafc',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+    },
+    membersHeaderLabel: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#94a3b8',
+        marginBottom: 12,
+        letterSpacing: 0.5,
+    },
+    membersList: {
+        gap: 8,
+    },
+    memberKillRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    memberNameContainer: {
+        flex: 1,
+        height: 44,
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        paddingHorizontal: 12,
+        justifyContent: 'center',
+    },
+    memberNameText: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#475569',
+        textTransform: 'uppercase',
+    },
+    memberKillInputWrapper: {
+        width: 60,
+        height: 44,
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: Theme.colors.accent,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    memberKillInput: {
+        width: '100%',
+        height: '100%',
+        textAlign: 'center',
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+    },
+    submitFinalBtn: {
+        backgroundColor: Theme.colors.accent,
+        height: 56,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 10,
+        shadowColor: Theme.colors.accent,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    submitFinalBtnText: {
+        color: '#fff',
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    overlayContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+    },
+    overlayBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    },
+    overlayContentNew: {
+        width: '90%',
+        backgroundColor: '#fff',
+        borderRadius: 32,
+        padding: 24,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    loaderHeader: {
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 40,
+    },
+    loaderBrand: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1e293b',
+    },
+    aiAnimationContainer: {
+        width: 200,
+        height: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 40,
+    },
+    outerRing: {
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        position: 'absolute',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    ringDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: Theme.colors.accent,
+        position: 'absolute',
+        top: -3,
+    },
+    middleRing: {
+        width: 160,
+        height: 160,
+        borderRadius: 80,
+        borderWidth: 2,
+        borderColor: Theme.colors.accent,
+        borderLeftColor: 'transparent',
+        borderBottomColor: 'transparent',
+        position: 'absolute',
+    },
+    innerCircleBlue: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: Theme.colors.accent,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: Theme.colors.accent,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    aiAtWorkTitle: {
+        fontSize: 24,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1e293b',
+        marginBottom: 12,
+    },
+    aiAtWorkSubtitle: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: '#64748b',
+        textAlign: 'center',
+        paddingHorizontal: 20,
+        lineHeight: 22,
+        marginBottom: 40,
+    },
+    didYouKnowBox: {
+        width: '100%',
+        backgroundColor: '#f8fafc',
+        borderRadius: 24,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+    },
+    didYouKnowLabel: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+        textAlign: 'center',
+        marginBottom: 12,
+        letterSpacing: 1,
+    },
+    didYouKnowText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#475569',
+        textAlign: 'center',
+        lineHeight: 20,
+        fontStyle: 'italic',
     },
 });
 
