@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl, StatusBar, Platform, Image, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap, LogOut } from 'lucide-react-native';
+import { Play, Trophy, Home, History, User, Plus, Radio, Calculator, Flag, Settings, Edit, Trash2, ArrowRight, ArrowLeft, Sparkles, BarChart2, Award, Palette, Upload, Eye, Heart, MoreHorizontal, Phone, Check, X, Save, ChevronDown, ChevronUp, Crown, ShieldCheck, Zap, LogOut, Swords, Target, Gamepad2, Flame } from 'lucide-react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -451,24 +451,74 @@ const DashboardScreen = ({ navigation, route }) => {
     const renderHeader = () => {
         let title = 'Home';
         if (activeTab === 'home') {
-            const username = user?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'User';
-            title = `Welcome ${username}`;
+            return (
+                <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
+                    <View style={styles.headerLeft}>
+                        <Image 
+                            source={require('../../assets/logo.png')} 
+                            style={styles.headerLogo} 
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.headerTitle}>LazarFlow</Text>
+                    </View>
+                    <View style={styles.headerRight}>
+                        <View style={[styles.headerTierBadge, { backgroundColor: getTierColors(tier).bg, borderColor: getTierColors(tier).border }]}>
+                            <Crown size={12} color={getTierColors(tier).color} style={{ marginRight: 4 }} />
+                            <Text style={[styles.headerTierText, { color: getTierColors(tier).color }]}>
+                                {tier.toUpperCase()}
+                            </Text>
+                        </View>
+                    </View>
+                </View>
+            );
         }
+        
+        if (activeTab === 'lobbies') {
+            return (
+                <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
+                    <TouchableOpacity onPress={() => setActiveTab('home')} style={styles.headerLeft}>
+                        <ArrowLeft size={24} color={Theme.colors.textPrimary} />
+                        <Text style={styles.headerTitle}>All Lobbies</Text>
+                    </TouchableOpacity>
+                    <View style={styles.headerRight} />
+                </View>
+            );
+        }
+        
         if (activeTab === 'design') title = 'Design Studio';
         if (activeTab === 'plans') title = 'Subscription Plans';
         if (activeTab === 'profile') title = 'Account Settings';
 
         return (
             <View style={[styles.header, { paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight + 6 }]}>
-                {activeTab === 'home' ? (
-                    <Text style={styles.headerTitle}>
-                        Welcome <Text style={{ color: Theme.colors.accent }}>{user?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || 'User'}</Text>
-                    </Text>
-                ) : (
-                    <Text style={styles.headerTitle}>{title}</Text>
-                )}
+                <Text style={styles.headerTitle}>{title}</Text>
+                <View style={styles.headerRight} />
             </View>
         );
+    };
+
+    const getLobbyIconConfig = (game, index = 0) => {
+        const gameName = String(game || '').toLowerCase();
+        
+        if (gameName.includes('free fire')) {
+            return { Icon: Flame, color: '#ef4444', bg: '#fee2e2' };
+        }
+        if (gameName.includes('bgmi') || gameName.includes('pubg')) {
+            return { Icon: Swords, color: '#f59e0b', bg: '#fef3c7' };
+        }
+        if (gameName.includes('valorant') || gameName.includes('cs') || gameName.includes('cod')) {
+            return { Icon: Gamepad2, color: '#6366f1', bg: '#e0e7ff' };
+        }
+        
+        // Dynamic fallback: Rotate through professional icons if the game isn't recognized
+        const fallbacks = [
+            { Icon: Trophy, color: Theme.colors.accent, bg: Theme.colors.accent + '15' },
+            { Icon: Swords, color: '#f59e0b', bg: '#fef3c7' },
+            { Icon: Gamepad2, color: '#6366f1', bg: '#e0e7ff' },
+            { Icon: Flame, color: '#ef4444', bg: '#fee2e2' }
+        ];
+        
+        return fallbacks[index % fallbacks.length];
     };
 
     const renderHome = () => (
@@ -478,85 +528,224 @@ const DashboardScreen = ({ navigation, route }) => {
             onScroll={() => setActiveSettingsId(null)} // Close settings on scroll
             scrollEventThrottle={16}
         >
-            {/* Premium Access Banner */}
-            {tier === 'free' && (
-                <View style={styles.banner}>
-                    <View style={styles.bannerBadge}>
-                        <Sparkles size={12} color="#fff" />
-                        <Text style={styles.bannerBadgeText}>PREMIUM</Text>
-                    </View>
-                    <Text style={styles.bannerTitle}>Unlock Premium Access</Text>
-                    <Text style={styles.bannerDesc}>Get unlimited lobbies, custom layouts, LexiView AI & more!</Text>
-                    <TouchableOpacity style={styles.bannerCta} onPress={() => setActiveTab('plans')}>
-                        <Text style={styles.bannerCtaText}>Upgrade Now</Text>
-                        <ArrowRight size={16} color="#1E3A8A" />
-                    </TouchableOpacity>
-                </View>
-            )}
+            {/* Greeting Section */}
+            <View style={styles.greetingSection}>
+                <Text style={styles.welcomeTitle}>Welcome back,</Text>
+                <Text style={styles.welcomeSubtitle}>
+                    {tier === 'developer' || maxAILobbies === Infinity 
+                        ? `${lobbiesCreated} lobbies created` 
+                        : `${lobbiesCreated} / ${maxAILobbies} lobbies used in your ${tier.charAt(0).toUpperCase() + tier.slice(1)} plan`}
+                </Text>
+            </View>
 
-            <Text style={styles.sectionTitle}>Active Lobbies</Text>
+            <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Recent Lobbies</Text>
+                  <TouchableOpacity onPress={() => setActiveTab('lobbies')}>
+                      <Text style={styles.viewAllText}>View All</Text>
+                  </TouchableOpacity>
+              </View>
+
             {lobbies.length > 0 ? (
-                lobbies.map(lobby => (
-                    <View key={lobby.id} style={[styles.card, { zIndex: activeSettingsId === lobby.id ? 10 : 1 }]}>
-                        <TouchableOpacity
-                            style={styles.cardMainClickArea}
-                            onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
-                            activeOpacity={0.7}
-                        >
-                            <View style={styles.cardInfo}>
-                                <Text style={styles.cardTitle}>{lobby.name}</Text>
-                                <Text style={styles.cardMeta}>
-                                    {lobby.game} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
-                                </Text>
+                lobbies.slice(0, 5).map((lobby, index) => {
+                    const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
+                    return (
+                        <View key={lobby.id} style={[styles.lobbyCard, { zIndex: activeSettingsId === lobby.id ? 10 : 1 }]}>
+                            {/* Card Header */}
+                            <View style={styles.lobbyCardHeader}>
+                                <View style={[styles.lobbyIconContainer, { backgroundColor: bg }]}>
+                                    <Icon size={20} color={color} />
+                                </View>
+                                <View style={styles.lobbyTitleGroup}>
+                                    <Text style={styles.lobbyName} numberOfLines={1}>{lobby.name}</Text>
+                                    <Text style={styles.lobbyGame}>{lobby.game}</Text>
+                                </View>
+                                <View style={[styles.lobbyStatusBadge, { backgroundColor: (lobby.status === 'completed' || lobby.status === 'ended') ? '#64748b15' : lobby.status === 'setup' ? '#3b82f615' : '#10b98115' }]}>
+                                    <Text style={[styles.statusText, { color: (lobby.status === 'completed' || lobby.status === 'ended') ? '#64748b' : lobby.status === 'setup' ? '#3b82f6' : '#10b981' }]}>
+                                        {(lobby.status || 'ACTIVE').toUpperCase()}
+                                    </Text>
+                                </View>
                             </View>
-                        </TouchableOpacity>
 
-                        <View style={styles.cardActions}>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Go Live">
-                                <Play size={18} color={Theme.colors.accent} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('CalculateResults', { lobby: lobby })} title="Calculate">
-                                <Calculator size={18} color="#94a3b8" />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmEndLobby(lobby)} title="End Lobby">
-                                <Flag size={18} color="#ef4444" />
-                            </TouchableOpacity>
+                            {/* Card Stats */}
+                            <View style={styles.lobbyCardStats}>
+                                <View>
+                                    <Text style={styles.statLabel}>TEAMS</Text>
+                                    <Text style={styles.statValueText}>{lobby.teams_count || 0} Teams</Text>
+                                </View>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                    <Text style={styles.statLabel}>UPDATED</Text>
+                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? new Date(lobby.updated_at || lobby.created_at).toLocaleDateString() : '—'}</Text>
+                                </View>
+                            </View>
 
-                            {/* Settings Button & Dropdown */}
-                            <View>
-                                <TouchableOpacity
-                                    style={[styles.iconBtn, activeSettingsId === lobby.id && styles.iconBtnActive]}
-                                    onPress={() => toggleSettings(lobby.id)}
+                            {/* Card Footer Actions */}
+                            <View style={styles.lobbyCardFooter}>
+                                <TouchableOpacity 
+                                    style={styles.calculateBtn} 
+                                    onPress={() => navigation.navigate('CalculateResults', { lobby: lobby })}
                                 >
-                                    <Settings size={18} color="#94a3b8" />
+                                    <Text style={styles.calculateBtnText}>Calculate</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={styles.renderBtn} 
+                                    onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
+                                >
+                                    <Text style={styles.renderBtnText}>Render</Text>
                                 </TouchableOpacity>
 
-                                {activeSettingsId === lobby.id && (
-                                    <View style={styles.dropdownMenu}>
-                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => handleEditLobby(lobby)}>
-                                            <Edit size={16} color={Theme.colors.textPrimary} />
-                                            <Text style={styles.dropdownText}>Edit</Text>
-                                        </TouchableOpacity>
-                                        <View style={styles.dropdownDivider} />
-                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => {
-                                            setActiveSettingsId(null);
-                                            confirmDeleteLobby(lobby);
-                                        }}>
-                                            <Trash2 size={16} color={Theme.colors.danger} />
-                                            <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                )}
+                                <View style={styles.settingsBtnWrapper}>
+                                    <TouchableOpacity
+                                        style={[styles.settingsIconBtn, activeSettingsId === lobby.id && styles.settingsIconBtnActive]}
+                                        onPress={() => toggleSettings(lobby.id)}
+                                    >
+                                        <Settings size={18} color={Theme.colors.textSecondary} />
+                                    </TouchableOpacity>
+
+                                    {activeSettingsId === lobby.id && (
+                                        <View style={[styles.dropdownMenu, { top: '100%', right: 0 }]}>
+                                            <TouchableOpacity style={styles.dropdownItem} onPress={() => handleEditLobby(lobby)}>
+                                                <Edit size={16} color={Theme.colors.textPrimary} />
+                                                <Text style={styles.dropdownText}>Edit</Text>
+                                            </TouchableOpacity>
+                                            <View style={styles.dropdownDivider} />
+                                            <TouchableOpacity style={styles.dropdownItem} onPress={() => {
+                                                setActiveSettingsId(null);
+                                                confirmDeleteLobby(lobby);
+                                            }}>
+                                                <Trash2 size={16} color={Theme.colors.danger} />
+                                                <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>
+                                            </TouchableOpacity>
+                                            <View style={styles.dropdownDivider} />
+                                            <TouchableOpacity style={styles.dropdownItem} onPress={() => {
+                                                setActiveSettingsId(null);
+                                                confirmEndLobby(lobby);
+                                            }}>
+                                                <Flag size={16} color={Theme.colors.warning} />
+                                                <Text style={[styles.dropdownText, { color: Theme.colors.warning }]}>End</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
                         </View>
-                    </View>
-                ))
+                    );
+                })
             ) : (
                 <View style={styles.emptyState}>
                     <Trophy size={48} color="#334155" />
                     <Text style={styles.emptyText}>No active lobbies</Text>
                 </View>
             )}
+
+             <View style={{ height: 80 }} />
+        </ScrollView>
+    );
+
+    const renderLobbies = () => (
+        <ScrollView
+            style={styles.content}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.accent} />}
+        >
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>All Active Lobbies</Text>
+            </View>
+            
+            {lobbies.length > 0 ? (
+                lobbies.map((lobby, index) => {
+                    const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
+                    return (
+                        <View key={lobby.id} style={[styles.lobbyCard, { zIndex: activeSettingsId === lobby.id ? 10 : 1 }]}>
+                            <View style={styles.lobbyCardHeader}>
+                                <View style={[styles.lobbyIconContainer, { backgroundColor: bg }]}>
+                                    <Icon size={20} color={color} />
+                                </View>
+                                <View style={styles.lobbyTitleGroup}>
+                                    <Text style={styles.lobbyName} numberOfLines={1}>{lobby.name}</Text>
+                                    <Text style={styles.lobbyGame}>{lobby.game}</Text>
+                                </View>
+                                <View style={[styles.lobbyStatusBadge, { backgroundColor: (lobby.status === 'completed' || lobby.status === 'ended') ? '#64748b15' : lobby.status === 'setup' ? '#3b82f615' : '#10b98115' }]}>
+                                    <Text style={[styles.statusText, { color: (lobby.status === 'completed' || lobby.status === 'ended') ? '#64748b' : lobby.status === 'setup' ? '#3b82f6' : '#10b981' }]}>
+                                        {(lobby.status || 'ACTIVE').toUpperCase()}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.lobbyCardStats}>
+                                <View>
+                                    <Text style={styles.statLabel}>TEAMS</Text>
+                                    <Text style={styles.statValueText}>{lobby.teams_count || 0} Teams</Text>
+                                </View>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                    <Text style={styles.statLabel}>UPDATED</Text>
+                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? new Date(lobby.updated_at || lobby.created_at).toLocaleDateString() : '—'}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.lobbyCardFooter}>
+                                <TouchableOpacity 
+                                    style={styles.calculateBtn} 
+                                    onPress={() => navigation.navigate('CalculateResults', { lobby: lobby })}
+                                >
+                                    <Text style={styles.calculateBtnText}>Calculate</Text>
+                                </TouchableOpacity>
+                                
+                                <TouchableOpacity 
+                                    style={styles.renderBtn} 
+                                    onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
+                                >
+                                    <Text style={styles.renderBtnText}>Render</Text>
+                                </TouchableOpacity>
+
+                                <View style={styles.settingsBtnWrapper}>
+                                    <TouchableOpacity
+                                        style={[styles.settingsIconBtn, activeSettingsId === lobby.id && styles.settingsIconBtnActive]}
+                                        onPress={() => toggleSettings(lobby.id)}
+                                    >
+                                        <Settings size={18} color={Theme.colors.textSecondary} />
+                                    </TouchableOpacity>
+
+                                    {activeSettingsId === lobby.id && (
+                                        <View style={[styles.dropdownMenu, { top: '100%', right: 0 }]}>
+                                            <TouchableOpacity style={styles.dropdownItem} onPress={() => handleEditLobby(lobby)}>
+                                                <Edit size={16} color={Theme.colors.textPrimary} />
+                                                <Text style={styles.dropdownText}>Edit</Text>
+                                            </TouchableOpacity>
+                                            <View style={styles.dropdownDivider} />
+                                            <TouchableOpacity style={styles.dropdownItem} onPress={() => {
+                                                setActiveSettingsId(null);
+                                                confirmDeleteLobby(lobby);
+                                            }}>
+                                                <Trash2 size={16} color={Theme.colors.danger} />
+                                                <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>
+                                            </TouchableOpacity>
+                                            <View style={styles.dropdownDivider} />
+                                            <TouchableOpacity style={styles.dropdownItem} onPress={() => {
+                                                setActiveSettingsId(null);
+                                                confirmEndLobby(lobby);
+                                            }}>
+                                                <Flag size={16} color={Theme.colors.warning} />
+                                                <Text style={[styles.dropdownText, { color: Theme.colors.warning }]}>End</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                        </View>
+                    );
+                })
+            ) : (
+                <View style={styles.emptyState}>
+                    <Trophy size={48} color="#334155" />
+                    <Text style={styles.emptyText}>No active lobbies</Text>
+                </View>
+            )}
+
+            <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+                <Text style={styles.sectionTitle}>Lobby History</Text>
+            </View>
+            {renderHistoryContent()}
+            
             <View style={{ height: 80 }} />
         </ScrollView>
     );
@@ -697,28 +886,53 @@ const DashboardScreen = ({ navigation, route }) => {
 
         return (
             <>
-                {paginatedLobbies.map(lobby => (
-                    <TouchableOpacity
-                        key={lobby.id}
-                        style={[styles.card, { marginHorizontal: 0 }]}
-                        onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
-                    >
-                        <View style={styles.cardInfo}>
-                            <Text style={styles.cardTitle}>{lobby.name}</Text>
-                            <Text style={styles.cardMeta}>
-                                {lobby.game || 'Game'} • {lobby.teams_count || 0} Teams • {new Date(lobby.created_at).toLocaleDateString()}
-                            </Text>
+                {paginatedLobbies.map((lobby, index) => {
+                    const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
+                    return (
+                        <View key={lobby.id} style={[styles.lobbyCard, { marginHorizontal: 0 }]}>
+                            <View style={styles.lobbyCardHeader}>
+                                <View style={[styles.lobbyIconContainer, { backgroundColor: bg }]}>
+                                    <Icon size={20} color={color} />
+                                </View>
+                                <View style={styles.lobbyTitleGroup}>
+                                    <Text style={styles.lobbyName} numberOfLines={1}>{lobby.name}</Text>
+                                    <Text style={styles.lobbyGame}>{lobby.game}</Text>
+                                </View>
+                                <View style={[styles.lobbyStatusBadge, { backgroundColor: (lobby.status === 'completed' || lobby.status === 'ended') ? '#64748b15' : lobby.status === 'setup' ? '#3b82f615' : '#10b98115' }]}>
+                                    <Text style={[styles.statusText, { color: (lobby.status === 'completed' || lobby.status === 'ended') ? '#64748b' : lobby.status === 'setup' ? '#3b82f6' : '#10b981' }]}>
+                                        {(lobby.status || 'ENDED').toUpperCase()}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.lobbyCardStats}>
+                                <View>
+                                    <Text style={styles.statLabel}>TEAMS</Text>
+                                    <Text style={styles.statValueText}>{lobby.teams_count || 0} Teams</Text>
+                                </View>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                    <Text style={styles.statLabel}>UPDATED</Text>
+                                    <Text style={styles.statValueText}>{lobby.updated_at || lobby.created_at ? new Date(lobby.updated_at || lobby.created_at).toLocaleDateString() : '—'}</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.lobbyCardFooter}>
+                                <TouchableOpacity 
+                                    style={[styles.renderBtn, { flex: 1 }]} 
+                                    onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })}
+                                >
+                                    <Text style={styles.renderBtnText}>View Results</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={[styles.settingsIconBtn, { borderColor: '#fee2e2' }]} 
+                                    onPress={() => confirmDeleteLobby(lobby)}
+                                >
+                                    <Trash2 size={18} color="#ef4444" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                        <View style={styles.cardActions}>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('LiveLobby', { id: lobby.id })} title="Leaderboard">
-                                <BarChart2 size={16} color={Theme.colors.textSecondary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => confirmDeleteLobby(lobby)} title="Delete">
-                                <Trash2 size={16} color="#ef4444" />
-                            </TouchableOpacity>
-                        </View>
-                    </TouchableOpacity>
-                ))}
+                    );
+                })}
 
                 {totalPages > 1 && (
                     <View style={styles.paginationControls}>
@@ -912,7 +1126,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                 <View style={styles.statContainer}>
                                     <View style={styles.statHeader}>
                                         <View>
-                                            <Text style={styles.statLabel}>Lobbies Created</Text>
+                                            <Text style={styles.profileStatLabel}>Lobbies Created</Text>
                                             <Text style={styles.statSubLabel}>
                                                 {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxAILobbies || 0) - lobbiesCreated)} remaining`}
                                             </Text>
@@ -935,7 +1149,7 @@ const DashboardScreen = ({ navigation, route }) => {
                                 <View style={styles.statContainer}>
                                     <View style={styles.statHeader}>
                                         <View>
-                                            <Text style={styles.statLabel}>Active Layouts</Text>
+                                            <Text style={styles.profileStatLabel}>Active Layouts</Text>
                                             <Text style={styles.statSubLabel}>
                                                 {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxLayouts || 0) - activeLayoutsCount)} slots remaining`}
                                             </Text>
@@ -1062,6 +1276,7 @@ const DashboardScreen = ({ navigation, route }) => {
         return (
             <View style={{ flex: 1 }}>
                 {activeTab === 'home' && renderHome()}
+                {activeTab === 'lobbies' && renderLobbies()}
                 {activeTab === 'design' && renderDesign()}
                 {activeTab === 'plans' && <SubscriptionPlansScreen navigation={navigation} isTab={true} />}
                 {activeTab === 'profile' && renderProfile()}
@@ -1311,12 +1526,63 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: Theme.colors.border,
     },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    headerLogo: {
+        width: 32,
+        height: 32,
+    },
+    headerRight: {
+        flex: 1,
+        alignItems: 'flex-end',
+    },
+    headerTierBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    headerTierText: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        letterSpacing: 0.5,
+    },
     headerTitle: {
         fontSize: 20,
         fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
     },
-    headerUpgradeBtn: {
+    greetingSection: {
+        marginBottom: 24,
+    },
+    welcomeTitle: {
+        fontSize: 24,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+        marginBottom: 4,
+    },
+    welcomeSubtitle: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    viewAllText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.accent,
+    },
+     headerUpgradeBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#f59e0b', // Amber/Gold color for upgrade
@@ -1329,6 +1595,12 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 4,
         elevation: 3,
+    },
+    historySection: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: Theme.colors.border,
     },
     headerUpgradeText: {
         color: '#fff',
@@ -1351,9 +1623,43 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontFamily: Theme.fonts.outfit.bold,
         color: Theme.colors.textPrimary,
-        marginBottom: 15,
+    },
+    paginationBtnText: {
+        color: Theme.colors.accent,
+        fontFamily: Theme.fonts.outfit.semibold,
+    },
+    paginationText: {
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+    },
+    promoTitle: {
+        fontSize: 24,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#fff',
+        textAlign: 'center',
+    },
+    promoSubtitle: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: 'rgba(255,255,255,0.8)',
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    promoFeatureText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: Theme.colors.textPrimary,
+    },
+    promoMainBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    promoSecondaryBtnText: {
+        color: Theme.colors.textSecondary,
+        fontFamily: Theme.fonts.outfit.medium,
     },
     banner: {
         backgroundColor: '#1E3A8A',
@@ -1462,6 +1768,129 @@ const styles = StyleSheet.create({
         color: '#1E3A8A',
         fontFamily: Theme.fonts.outfit.semibold,
         fontSize: 14,
+    },
+    lobbyCard: {
+        backgroundColor: Theme.colors.card,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        shadowColor: Theme.colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    lobbyCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    lobbyIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+    lobbyTitleGroup: {
+        flex: 1,
+    },
+    lobbyName: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.textPrimary,
+    },
+    lobbyGame: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+    },
+    lobbyStatusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 10,
+    },
+    statusActive: {
+        backgroundColor: '#10b98115',
+    },
+    statusEnded: {
+        backgroundColor: '#64748b15',
+    },
+    lobbyCardStats: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: Theme.colors.border + '30',
+        marginBottom: 14,
+    },
+    statLabel: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: '#94a3b8',
+        letterSpacing: 0.6,
+        marginBottom: 2,
+    },
+    statValueText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textPrimary,
+    },
+    lobbyCardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    calculateBtn: {
+        flex: 1,
+        backgroundColor: '#3b82f6',
+        paddingVertical: 10,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    calculateBtnText: {
+        color: '#fff',
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    renderBtn: {
+        flex: 1,
+        backgroundColor: '#f1f5f9',
+        paddingVertical: 10,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    renderBtnText: {
+        color: '#475569',
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    settingsBtnWrapper: {
+        position: 'relative',
+    },
+    settingsIconBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        backgroundColor: '#f8fafc',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    settingsIconBtnActive: {
+        backgroundColor: Theme.colors.border,
     },
     card: {
         backgroundColor: Theme.colors.card,
@@ -1715,9 +2144,9 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 8,
     },
-    statLabel: {
+    profileStatLabel: {
         fontSize: 15,
-        fontWeight: '600',
+        fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
     },
     statSubLabel: {
