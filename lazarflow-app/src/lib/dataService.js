@@ -1,6 +1,5 @@
 import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authService } from './authService';
 
 const CACHE_KEYS = {
     COMMUNITY_DESIGNS: 'cache_community_designs',
@@ -287,9 +286,27 @@ export const renderResults = async (lobbyId, themeId, renderType = 'standings') 
 
 // --- New Services for Lobbies and Teams ---
 
-export const getLobbies = async () => {
-    const { data } = await apiClient.get('/api/lobbies');
-    return data;
+/**
+ * Fetch all lobbies for the current user
+ */
+export const getLobbies = async (limit = null, includeTeams = false) => {
+    try {
+        let url = `/api/lobbies/`;
+        const params = [];
+        if (limit) params.push(`limit=${limit}`);
+        if (includeTeams) params.push(`include_teams=true`);
+        
+        if (params.length > 0) {
+            url += `?${params.join('&')}`;
+        }
+        
+        console.log(`🔍 Fetching Lobbies: ${url}`);
+        const response = await apiClient.get(url);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Error in getLobbies:', error);
+        throw error;
+    }
 };
 
 export const getLobby = async (id) => {
@@ -328,6 +345,15 @@ export const getLobbyTeams = async (lobbyId) => {
 
 export const addLobbyTeams = async (lobbyId, teams) => {
     const { data } = await apiClient.post(`/api/lobbies/${lobbyId}/teams`, teams);
+    return data;
+};
+
+/**
+ * Bulk Sync Teams for a Lobby (Add, Update, Delete in one call)
+ * Endpoint: POST /api/lobbies/{lobbyId}/teams/sync
+ */
+export const syncLobbyTeams = async (lobbyId, teams) => {
+    const { data } = await apiClient.post(`/api/lobbies/${lobbyId}/teams/sync`, teams);
     return data;
 };
 

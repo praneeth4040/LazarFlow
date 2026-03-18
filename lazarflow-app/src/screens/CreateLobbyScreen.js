@@ -93,7 +93,8 @@ const CreateLobbyScreen = ({ navigation }) => {
                 name: name.trim(),
                 game: game,
                 points_system: pointsSystem,
-                kill_points: killPoints
+                kill_points: killPoints,
+                status: 'setup' // Initial status
             });
 
             // Update user stats

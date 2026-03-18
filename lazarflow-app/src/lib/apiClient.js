@@ -3,7 +3,11 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 
-const BASE_URL = 'https://www.api.lazarflow.app';
+// Use 10.0.2.2 for Android Emulator, localhost for iOS Simulator
+const BASE_URL ='https://d4e6-49-204-99-215.ngrok-free.app'; 
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
@@ -132,6 +136,24 @@ apiClient.interceptors.response.use(
         if (error.response) {
             console.error(`❌ [${error.response.status}] ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url}`);
             console.error(`   Response Error:`, error.response.data);
+        }
+
+        // 3. Automatic Retry for Transient Failures (GET requests only)
+        const isNetworkError = !error.response && error.code !== 'ECONNABORTED';
+        const isRetryableStatus = error.response?.status >= 500;
+        const isGetRequest = originalRequest?.method?.toLowerCase() === 'get';
+
+        if ((isNetworkError || isRetryableStatus) && isGetRequest) {
+            originalRequest._retryCount = originalRequest._retryCount || 0;
+
+            if (originalRequest._retryCount < MAX_RETRIES) {
+                originalRequest._retryCount += 1;
+                console.log(`🔄 Retrying request (${originalRequest._retryCount}/${MAX_RETRIES}): ${originalRequest.url}`);
+                
+                // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * originalRequest._retryCount));
+                return apiClient(originalRequest);
+            }
         }
 
         return Promise.reject(error);

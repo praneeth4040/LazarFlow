@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Activi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Sparkles, Camera, X, Upload, Search, ArrowLeft, Plus, Check, ChevronDown, ChevronUp, Info, Target, Save } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getLobby, getLobbyTeams, batchUpdateTeams, batchUpdateTeamMembers } from '../lib/dataService';
+import { getLobby, getLobbyTeams, batchUpdateTeams, batchUpdateTeamMembers, updateLobby } from '../lib/dataService';
 import { Theme } from '../styles/theme';
 import * as ImagePicker from 'expo-image-picker';
 import { extractResultsFromScreenshot, processLobbyScreenshots } from '../lib/aiResultExtraction';
@@ -142,9 +142,17 @@ const CalculateResultsScreen = ({ route, navigation }) => {
             const updates = [];
             for (const slot of processedSlots) {
                 if (slot.mappedTeamId) {
+                    // Convert simple player names to structured objects
+                    const structuredMembers = (slot.players || []).map(p => ({
+                        name: typeof p === 'object' ? p.name : String(p),
+                        kills: 0,
+                        wwcd: 0,
+                        matches_played: 0
+                    }));
+
                     updates.push({
                         id: slot.mappedTeamId,
-                        members: slot.players
+                        members: structuredMembers
                     });
                 }
             }
@@ -515,23 +523,64 @@ const CalculateResultsScreen = ({ route, navigation }) => {
                 const team = teams.find(t => t.id === result.team_id);
                 if (!team) continue;
 
+                // 1. Calculate Team Stats
                 const currentStats = team.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 };
+                const isWinner = parseInt(result.position) === 1;
+                
                 const newStats = {
                     matches_played: (currentStats.matches_played || 0) + 1,
-                    wins: (currentStats.wins || 0) + (parseInt(result.position) === 1 ? 1 : 0),
+                    wins: (currentStats.wins || 0) + (isWinner ? 1 : 0),
                     kill_points: (currentStats.kill_points || 0) + (result.kill_points || 0),
                     placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
                 };
 
+                // 2. Calculate Individual Player Stats
+                // Update the cumulative stats for each member in the team's permanent list
+                const updatedMembers = (team.members || []).map(m => {
+                    const memberName = typeof m === 'object' ? m.name : m;
+                    
+                    // Find this player's performance in the current match result
+                    const matchPerformance = result.members?.find(rm => rm.name === memberName);
+                    const matchKills = matchPerformance ? parseInt(matchPerformance.kills || 0) : 0;
+
+                    // If it's currently a string, convert to object
+                    const currentMemberStats = typeof m === 'object' ? m : { 
+                        name: memberName, 
+                        kills: 0, 
+                        wwcd: 0, 
+                        matches_played: 0 
+                    };
+
+                    return {
+                        ...currentMemberStats,
+                        kills: (currentMemberStats.kills || 0) + matchKills,
+                        wwcd: (currentMemberStats.wwcd || 0) + (isWinner ? 1 : 0),
+                        matches_played: (currentMemberStats.matches_played || 0) + 1
+                    };
+                });
+
                 // Add to batch updates
                 updates.push({
                     id: team.id,
-                    total_points: newStats
+                    total_points: newStats,
+                    members: updatedMembers
                 });
             }
 
             if (updates.length > 0) {
                 await batchUpdateTeams(lobby.id, updates);
+            }
+
+            // AUTO-TRANSITION STATUS: Setup -> Active
+            const currentStatus = (lobby.status || '').toLowerCase();
+            if (currentStatus === 'setup' || !currentStatus) {
+                try {
+                    console.log('🔄 Attempting to update lobby status to active...');
+                    await updateLobby(lobby.id, { status: 'active' });
+                    console.log('✅ Lobby status auto-transitioned to active');
+                } catch (statusErr) {
+                    console.warn('⚠️ Failed to auto-transition lobby status:', statusErr?.response?.data || statusErr.message);
+                }
             }
 
             Alert.alert('Success', 'Results submitted successfully!', [

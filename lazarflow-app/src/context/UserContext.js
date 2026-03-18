@@ -26,7 +26,8 @@ export const UserProvider = ({ children }) => {
                     phone: userData.phone,
                     created_at: userData.created_at,
                     last_sign_in_at: userData.last_sign_in_at,
-                    lobbies_created_count: userData.lobbies_created_count
+                    lobbies_created_count: userData.lobbies_created_count,
+                    themes_count: userData.themes_count || userData.themes?.length || 0
                 };
                 console.log('✅ UserContext: User loaded:', safeUser.id);
                 setUser(safeUser);

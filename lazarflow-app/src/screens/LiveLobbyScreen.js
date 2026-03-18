@@ -267,15 +267,27 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     const fetchLobbyData = async () => {
         try {
             setLoading(true);
-            const [lobbyData, teamsData] = await Promise.all([
+            const [lobbyResult, teamsResult] = await Promise.allSettled([
                 getLobby(id),
                 getLobbyTeams(id)
             ]);
 
+            if (lobbyResult.status === 'rejected') {
+                console.error("❌ Lobby Details Fetch Failed:", lobbyResult.reason?.response?.status, lobbyResult.reason?.message);
+                throw new Error('Tournament not found or unauthorized');
+            }
+
+            if (teamsResult.status === 'rejected') {
+                console.error("⚠️ Teams Fetch Failed:", teamsResult.reason?.response?.status, teamsResult.reason?.message);
+                // We can still load the lobby UI even if teams fail
+            }
+
+            const lobbyData = lobbyResult.value;
             setLobby(lobbyData);
 
+            const teamsData = teamsResult.status === 'fulfilled' ? teamsResult.value : [];
             const sortedTeams = (teamsData || []).map(team => {
-                const points = typeof team.total_points === 'object' ? team.total_points : { kill_points: 0, placement_points: 0 };
+                const points = (team.total_points && typeof team.total_points === 'object') ? team.total_points : { kill_points: 0, placement_points: 0 };
                 return {
                     ...team,
                     total: (points.kill_points || 0) + (points.placement_points || 0),
@@ -288,8 +300,9 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             setTeams(sortedTeams);
             return sortedTeams;
         } catch (error) {
+            console.error('Fetch Error:', error);
             setError(error.message || 'Failed to load lobby data');
-            Alert.alert('Error', 'Failed to load lobby data');
+            Alert.alert('Error', error.message || 'Failed to load lobby data');
         } finally {
             setLoading(false);
         }
