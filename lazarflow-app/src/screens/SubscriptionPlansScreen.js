@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Sparkles, ArrowLeft, Award, Crown, Zap, ShieldCheck, Star } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
@@ -172,6 +172,11 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     const handleClaim = async (plan) => {
         // Store plan ID for potential callbacks
         selectedPlanRef.current = plan.id;
+
+        if (plan.id === 'masters') {
+            Linking.openURL('https://wa.me/+919121314837');
+            return;
+        }
 
         if (plan.isCurrent) {
             Alert.alert('Current Plan', `You are already subscribed to the ${plan.name} plan.`);
@@ -409,7 +414,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
                                     styles.claimBtnText,
                                     { color: plan.isCurrent ? plan.color : '#fff' }
                                 ]}>
-                                    {plan.isCurrent ? 'Current Plan' : 'Get Started'}
+                                    {plan.isCurrent ? 'Current Plan' : (plan.id === 'masters' ? 'Contact Us' : 'Get Started')}
                                 </Text>
                             </View>
                         </LinearGradient>

@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 
 // Use 10.0.2.2 for Android Emulator, localhost for iOS Simulator
-const BASE_URL ='https://f90d-49-204-99-215.ngrok-free.app'; 
+const BASE_URL ='https://www.api.lazarflow.app'; 
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
