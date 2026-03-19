@@ -324,6 +324,14 @@ export const createLobby = async (lobbyData) => {
     return data;
 };
 
+export const promoteLobby = async (lobbyId, formData = {}) => {
+    const { data } = await apiClient.post(`/api/lobbies/promote`, {
+        lobby_id: lobbyId,
+        form_data: formData
+    });
+    return data;
+};
+
 export const updateLobby = async (id, updates) => {
     const { data } = await apiClient.put(`/api/lobbies/${id}`, updates);
     return data;
@@ -340,6 +348,11 @@ export const deleteLobby = async (id) => {
 
 export const getLobbyTeams = async (lobbyId) => {
     const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/teams`);
+    return data;
+};
+
+export const getLobbyPlayerStats = async (lobbyId) => {
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/player-stats`);
     return data;
 };
 

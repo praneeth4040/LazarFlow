@@ -19,7 +19,9 @@ const LobbiesTab = ({
     onDelete = () => {},
     onEnd = () => {},
     onDeleteHistory = () => {},
-    onManageTeams = () => {}
+    onManageTeams = () => {},
+    selectedLobbies = [],
+    toggleLobbySelection = () => {}
 }) => {
     const renderHistoryContent = () => {
         if (!pastLobbies || pastLobbies.length === 0) {
@@ -52,6 +54,13 @@ const LobbiesTab = ({
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
+                            isSelected={selectedLobbies.includes(lobby.id)}
+                            onLongPress={() => toggleLobbySelection(lobby.id)}
+                            onPress={() => {
+                                if (selectedLobbies.length > 0) {
+                                    toggleLobbySelection(lobby.id);
+                                }
+                            }}
                         />
                     </View>
                 ))}
@@ -108,6 +117,13 @@ const LobbiesTab = ({
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
+                            isSelected={selectedLobbies.includes(lobby.id)}
+                            onLongPress={() => toggleLobbySelection(lobby.id)}
+                            onPress={() => {
+                                if (selectedLobbies.length > 0) {
+                                    toggleLobbySelection(lobby.id);
+                                }
+                            }}
                         />
                     ))}
                 </>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, HandMetalIcon } from 'lucide-react-native';
+import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, HandMetalIcon, Check, Star } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../../styles/theme';
 import { formatAlphanumericDate } from '../../../lib/dateUtils';
 
@@ -37,19 +38,50 @@ const LobbyCard = ({
     onEdit, 
     onDelete, 
     onEnd,
-    onManageTeams
+    onManageTeams,
+    isSelected,
+    onLongPress,
+    onPress
 }) => {
     const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
     const isSettingsActive = activeSettingsId === lobby.id;
 
+    const isPromoted = lobby.is_promoted;
+
     return (
-        <View style={[styles.lobbyCard, { zIndex: isSettingsActive ? 10 : 1 }]}>
+        <TouchableOpacity 
+            style={[
+                styles.lobbyCard, 
+                { zIndex: isSettingsActive ? 10 : 1 },
+                isSelected && styles.lobbyCardSelected,
+                isPromoted && styles.lobbyCardPromoted // Added a base style for promoted cards if needed
+            ]}
+            onLongPress={onLongPress}
+            onPress={onPress}
+            activeOpacity={onPress || onLongPress ? 0.8 : 1}
+        >
+            {isPromoted && (
+                <LinearGradient
+                    colors={['rgba(251, 191, 36, 0.2)', 'rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                    pointerEvents="none"
+                />
+            )}
+            
             <View style={styles.lobbyCardHeader}>
-                <View style={[styles.lobbyIconContainer, { backgroundColor: bg }]}>
-                    <Icon size={20} color={color} />
+                <View style={[styles.lobbyIconContainer, { backgroundColor: isSelected ? Theme.colors.accent : bg }]}>
+                    {isSelected ? (
+                        <Check size={20} color="#fff" />
+                    ) : (
+                        <Icon size={20} color={color} />
+                    )}
                 </View>
                 <View style={styles.lobbyTitleGroup}>
-                    <Text style={styles.lobbyName} numberOfLines={1}>{lobby.name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.lobbyName} numberOfLines={1}>{lobby.name}</Text>
+                    </View>
                     <Text style={styles.lobbyGame}>{lobby.game}</Text>
                 </View>
                 {(() => {
@@ -139,7 +171,7 @@ const LobbyCard = ({
                     )}
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
@@ -155,7 +187,18 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 8,
-        elevation: 2,
+        elevation: 3,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    lobbyCardSelected: {
+        borderColor: Theme.colors.accent,
+        backgroundColor: '#eff6ff',
+        borderWidth: 2,
+    },
+    lobbyCardPromoted: {
+        borderColor: '#fcd34d',
+        borderWidth: 1,
     },
     lobbyCardHeader: {
         flexDirection: 'row',

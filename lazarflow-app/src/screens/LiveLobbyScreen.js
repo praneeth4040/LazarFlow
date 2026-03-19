@@ -27,7 +27,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Theme } from '../styles/theme';
 import DesignRenderer from '../components/DesignRenderer';
-import { getUserThemes, getCommunityDesigns, renderResults, uploadLogo, getLobby, getLobbyTeams, getDesignImageSource } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, renderResults, uploadLogo, getLobby, getLobbyTeams, getLobbyPlayerStats, getDesignImageSource } from '../lib/dataService';
 import { useSubscription } from '../hooks/useSubscription';
 import { CustomAlert as Alert } from '../lib/AlertService';
 
@@ -140,6 +140,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     const { canCustomSocial, tier } = useSubscription();
     const { id } = route?.params || {};
     const [teams, setTeams] = useState([]);
+    const [playerStats, setPlayerStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lobby, setLobby] = useState(null);
     const [sharing, setSharing] = useState(false);
@@ -150,6 +151,7 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     // Carousel State
     const [activeThemeIndex, setActiveThemeIndex] = useState(0);
     const carouselRef = useRef(null);
+    const mvpCanvasRef = useRef(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedResult, setGeneratedResult] = useState(null);
     const [showResultSheet, setShowResultSheet] = useState(false);
@@ -164,6 +166,26 @@ const LiveLobbyScreen = ({ route, navigation }) => {
         instagram: '',
         youtube: ''
     });
+
+    const handleDownloadMvp = async () => {
+        try {
+            setIsGenerating(true);
+            if (mvpCanvasRef.current) {
+                const uri = await captureRef(mvpCanvasRef, {
+                    format: 'png',
+                    quality: 1,
+                    result: 'tmpfile'
+                });
+                setGeneratedResult(uri);
+                setShowResultSheet(true);
+            }
+        } catch (error) {
+            console.error('Error generating MVP image:', error);
+            Alert.alert('Error', 'Failed to generate MVP image');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     const [error, setError] = useState(null);
     const [designTab, setDesignTab] = useState('community'); // 'community' or 'user'
@@ -267,9 +289,10 @@ const LiveLobbyScreen = ({ route, navigation }) => {
     const fetchLobbyData = async () => {
         try {
             setLoading(true);
-            const [lobbyResult, teamsResult] = await Promise.allSettled([
+            const [lobbyResult, teamsResult, playerStatsResult] = await Promise.allSettled([
                 getLobby(id),
-                getLobbyTeams(id)
+                getLobbyTeams(id),
+                getLobbyPlayerStats(id)
             ]);
 
             if (lobbyResult.status === 'rejected') {
@@ -280,6 +303,12 @@ const LiveLobbyScreen = ({ route, navigation }) => {
             if (teamsResult.status === 'rejected') {
                 console.error("⚠️ Teams Fetch Failed:", teamsResult.reason?.response?.status, teamsResult.reason?.message);
                 // We can still load the lobby UI even if teams fail
+            }
+
+            if (playerStatsResult.status === 'rejected') {
+                console.error("⚠️ Player Stats Fetch Failed:", playerStatsResult.reason?.response?.status, playerStatsResult.reason?.message);
+            } else {
+                setPlayerStats(playerStatsResult.value || []);
             }
 
             const lobbyData = lobbyResult.value;
@@ -427,75 +456,175 @@ const LiveLobbyScreen = ({ route, navigation }) => {
                 </View>
             </View>
 
-            <View style={styles.tabsContainer}>
-                <TouchableOpacity 
-                    style={[styles.tabBtn, designTab === 'community' && styles.tabBtnActive]} 
-                    onPress={() => setDesignTab('community')}
-                >
-                    <Text style={[styles.tabBtnText, designTab === 'community' && styles.tabBtnTextActive]}>Community</Text>
-                    {designTab === 'community' && <View style={styles.tabIndicator} />}
-                </TouchableOpacity>
-                <TouchableOpacity 
-                    style={[styles.tabBtn, designTab === 'user' && styles.tabBtnActive]} 
-                    onPress={() => setDesignTab('user')}
-                >
-                    <Text style={[styles.tabBtnText, designTab === 'user' && styles.tabBtnTextActive]}>Your Themes</Text>
-                    {designTab === 'user' && <View style={styles.tabIndicator} />}
-                </TouchableOpacity>
-            </View>
-
-            <FlatList
-                data={filteredThemes}
-                renderItem={({ item }) => (
-                    <View style={styles.gridItemWrapper}>
-                        {renderThemeItem({ item })}
+            {renderType === 'standings' ? (
+                <>
+                    <View style={styles.tabsContainer}>
+                        <TouchableOpacity 
+                            style={[styles.tabBtn, designTab === 'community' && styles.tabBtnActive]} 
+                            onPress={() => setDesignTab('community')}
+                        >
+                            <Text style={[styles.tabBtnText, designTab === 'community' && styles.tabBtnTextActive]}>Community</Text>
+                            {designTab === 'community' && <View style={styles.tabIndicator} />}
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={[styles.tabBtn, designTab === 'user' && styles.tabBtnActive]} 
+                            onPress={() => setDesignTab('user')}
+                        >
+                            <Text style={[styles.tabBtnText, designTab === 'user' && styles.tabBtnTextActive]}>Your Themes</Text>
+                            {designTab === 'user' && <View style={styles.tabIndicator} />}
+                        </TouchableOpacity>
                     </View>
-                )}
-                keyExtractor={item => item.id}
-                numColumns={2}
-                contentContainerStyle={styles.flatListContent}
-                ListEmptyComponent={
-                    designTab === 'user' ? (
-                        <View style={styles.personalEmptyContainer}>
-                            <View style={styles.personalEmptyIconWrapper}>
-                                <Layout size={32} color={Theme.colors.accent} />
-                            </View>
-                            <Text style={styles.personalEmptyTitle}>No Personal Designs Found</Text>
-                            <Text style={styles.personalEmptySub}>You haven't uploaded any custom designs yet. Create unique themes in the Design section to use them in your tournaments.</Text>
-                            <TouchableOpacity 
-                                style={styles.goDesignBtn} 
-                                onPress={() => navigation.navigate('Dashboard', { tab: 'design' })}
-                            >
-                                <Text style={styles.goDesignBtnText}>Go to Design Section</Text>
-                                <Play size={14} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <View style={styles.emptyDesigns}>
-                            <Palette size={48} color={Theme.colors.border} />
-                            <Text style={styles.emptyDesignsText}>No designs found in this category</Text>
-                        </View>
-                    )
-                }
-                showsVerticalScrollIndicator={false}
-            />
 
-            <View style={styles.footer}>
-                <TouchableOpacity 
-                    style={[styles.renderBtnNew, isGenerating && styles.disabledBtn]} 
-                    onPress={handleGenerateTable}
-                    disabled={isGenerating}
-                >
-                    {isGenerating ? (
-                        <ActivityIndicator color="#fff" />
-                    ) : (
-                        <Text style={styles.renderBtnTextNew}>Render Design</Text>
-                    )}
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cancelBtnNew} onPress={() => navigation.goBack()}>
-                    <Text style={styles.cancelBtnTextNew}>Cancel</Text>
-                </TouchableOpacity>
-            </View>
+                    <FlatList
+                        data={filteredThemes}
+                        renderItem={({ item }) => (
+                            <View style={styles.gridItemWrapper}>
+                                {renderThemeItem({ item })}
+                            </View>
+                        )}
+                        keyExtractor={item => item.id}
+                        numColumns={2}
+                        contentContainerStyle={styles.flatListContent}
+                        ListEmptyComponent={
+                            designTab === 'user' ? (
+                                <View style={styles.personalEmptyContainer}>
+                                    <View style={styles.personalEmptyIconWrapper}>
+                                        <Layout size={32} color={Theme.colors.accent} />
+                                    </View>
+                                    <Text style={styles.personalEmptyTitle}>No Personal Designs Found</Text>
+                                    <Text style={styles.personalEmptySub}>You haven't uploaded any custom designs yet. Create unique themes in the Design section to use them in your tournaments.</Text>
+                                    <TouchableOpacity 
+                                        style={styles.goDesignBtn} 
+                                        onPress={() => navigation.navigate('Dashboard', { tab: 'design' })}
+                                    >
+                                        <Text style={styles.goDesignBtnText}>Go to Design Section</Text>
+                                        <Play size={14} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={styles.emptyDesigns}>
+                                    <Palette size={48} color={Theme.colors.border} />
+                                    <Text style={styles.emptyDesignsText}>No designs found in this category</Text>
+                                </View>
+                            )
+                        }
+                        showsVerticalScrollIndicator={false}
+                    />
+
+                    <View style={styles.footer}>
+                        <TouchableOpacity 
+                            style={[styles.renderBtnNew, isGenerating && styles.disabledBtn]} 
+                            onPress={handleGenerateTable}
+                            disabled={isGenerating}
+                        >
+                            {isGenerating ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <Text style={styles.renderBtnTextNew}>Render Design</Text>
+                            )}
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.cancelBtnNew} onPress={() => navigation.goBack()}>
+                            <Text style={styles.cancelBtnTextNew}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </>
+            ) : (
+                <View style={styles.mvpMainContainer}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.mvpListContent}>
+                        <Text style={styles.mvpListHeaderTitle}>Top Players (MVP)</Text>
+                        
+                        <View style={styles.mvpUnderDevelopmentBox}>
+                            <Info size={16} color={Theme.colors.accent} style={{ marginTop: 2 }} />
+                            <View style={styles.mvpUnderDevelopmentTextWrapper}>
+                                <Text style={styles.mvpUnderDevelopmentTitle}>Custom Designs Coming Soon</Text>
+                                <Text style={styles.mvpUnderDevelopmentText}>The custom design system for MVPs is currently under development. For now, you can download a clean, structured leaderboard.</Text>
+                            </View>
+                        </View>
+
+                        {playerStats.length === 0 ? (
+                            <View style={styles.emptyDesigns}>
+                                <Trophy size={48} color={Theme.colors.border} />
+                                <Text style={styles.emptyDesignsText}>No player stats available yet</Text>
+                            </View>
+                        ) : (
+                            playerStats.map((player, index) => (
+                                <View key={index} style={styles.mvpListItem}>
+                                    <Text style={styles.mvpListRank}>#{index + 1}</Text>
+                                    <View style={styles.mvpListInfo}>
+                                        <Text style={styles.mvpListName}>{player.name}</Text>
+                                        <Text style={styles.mvpListTeam}>{player.team_name}</Text>
+                                    </View>
+                                    <View style={styles.mvpListStatsRow}>
+                                        <View style={styles.mvpMiniStatBox}>
+                                            <Text style={styles.mvpMiniStatVal}>{player.wwcd || 0}</Text>
+                                            <Text style={styles.mvpMiniStatLabel}>WWCD</Text>
+                                        </View>
+                                        <View style={styles.mvpMiniStatBox}>
+                                            <Text style={styles.mvpMiniStatVal}>{player.matches_played || 0}</Text>
+                                            <Text style={styles.mvpMiniStatLabel}>MATCHES</Text>
+                                        </View>
+                                        <View style={styles.mvpListKillsBox}>
+                                            <Text style={styles.mvpListKillsVal}>{player.kills || 0}</Text>
+                                            <Text style={styles.mvpListKillsLabel}>KILLS</Text>
+                                        </View>
+                                    </View>
+                                </View>
+                            ))
+                        )}
+                    </ScrollView>
+                    <View style={styles.footer}>
+                        <TouchableOpacity 
+                            style={[styles.renderBtnNew, isGenerating && styles.disabledBtn]} 
+                            onPress={handleDownloadMvp}
+                            disabled={isGenerating || playerStats.length === 0}
+                        >
+                            {isGenerating ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Download size={20} color="#fff" style={{ position: 'absolute', left: 20 }} />
+                                    <Text style={styles.renderBtnTextNew}>Download MVP Image</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Hidden Canvas for MVP Download */}
+                    <View style={{ position: 'absolute', left: -10000, top: 0 }}>
+                        <ViewShot ref={mvpCanvasRef} options={{ format: 'png', quality: 1 }}>
+                            <View style={{ width: 1080, backgroundColor: '#ffffff', padding: 60, paddingBottom: 80 }}>
+                                <View style={{ alignItems: 'center', marginBottom: 60 }}>
+                                    <Text style={{ fontSize: 60, fontFamily: Theme.fonts.outfit.bold, color: '#0f172a' }}>{lobby?.name || 'Tournament'}</Text>
+                                    <Text style={{ fontSize: 36, fontFamily: Theme.fonts.outfit.semibold, color: Theme.colors.accent, marginTop: 10 }}>TOP PLAYERS (MVP)</Text>
+                                </View>
+                                {playerStats.slice(0, 15).map((player, index) => (
+                                    <View key={index} style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 3, borderColor: '#f1f5f9', paddingVertical: 30 }}>
+                                        <Text style={{ fontSize: 48, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent, width: 140 }}>#{index + 1}</Text>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontSize: 48, fontFamily: Theme.fonts.outfit.bold, color: '#0f172a' }}>{player.name}</Text>
+                                            <Text style={{ fontSize: 28, fontFamily: Theme.fonts.outfit.medium, color: '#64748b', marginTop: 12 }}>{player.team_name}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', gap: 60, alignItems: 'center' }}>
+                                            <View style={{ alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 40, fontFamily: Theme.fonts.outfit.bold, color: '#1e293b' }}>{player.wwcd || 0}</Text>
+                                                <Text style={{ fontSize: 20, fontFamily: Theme.fonts.outfit.bold, color: '#94a3b8', marginTop: 8 }}>WWCD</Text>
+                                            </View>
+                                            <View style={{ alignItems: 'center' }}>
+                                                <Text style={{ fontSize: 40, fontFamily: Theme.fonts.outfit.bold, color: '#1e293b' }}>{player.matches_played || 0}</Text>
+                                                <Text style={{ fontSize: 20, fontFamily: Theme.fonts.outfit.bold, color: '#94a3b8', marginTop: 8 }}>MATCHES</Text>
+                                            </View>
+                                            <View style={{ alignItems: 'center', backgroundColor: '#eff6ff', paddingHorizontal: 40, paddingVertical: 20, borderRadius: 20, width: 220 }}>
+                                                <Text style={{ fontSize: 64, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent }}>{player.kills || 0}</Text>
+                                                <Text style={{ fontSize: 24, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent, marginTop: 4 }}>KILLS</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </ViewShot>
+                    </View>
+                </View>
+            )}
 
             {/* Results Bottom Sheet */}
             <ResultsBottomSheet 
@@ -691,6 +820,117 @@ const styles = StyleSheet.create({
     },
     segmentTextActive: {
         color: Theme.colors.accent,
+    },
+    mvpMainContainer: {
+        flex: 1,
+        backgroundColor: '#f8fafc',
+    },
+    mvpListContent: {
+        padding: 20,
+    },
+    mvpListHeaderTitle: {
+        fontSize: 18,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1e293b',
+        marginBottom: 12,
+    },
+    mvpUnderDevelopmentBox: {
+        flexDirection: 'row',
+        backgroundColor: '#eff6ff',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#bfdbfe',
+    },
+    mvpUnderDevelopmentTextWrapper: {
+        flex: 1,
+        marginLeft: 10,
+    },
+    mvpUnderDevelopmentTitle: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1e3a8a',
+        marginBottom: 4,
+    },
+    mvpUnderDevelopmentText: {
+        fontSize: 12,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#3b82f6',
+        lineHeight: 18,
+    },
+    mvpListItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    mvpListRank: {
+        fontSize: 20,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+        width: 40,
+    },
+    mvpListInfo: {
+        flex: 1,
+        paddingRight: 10,
+    },
+    mvpListName: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1e293b',
+    },
+    mvpListTeam: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#64748b',
+        marginTop: 4,
+    },
+    mvpListStatsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    mvpMiniStatBox: {
+        alignItems: 'center',
+    },
+    mvpMiniStatVal: {
+        fontSize: 16,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#1e293b',
+    },
+    mvpMiniStatLabel: {
+        fontSize: 9,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#94a3b8',
+        marginTop: 2,
+    },
+    mvpListKillsBox: {
+        backgroundColor: '#eff6ff',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    mvpListKillsVal: {
+        fontSize: 22,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: Theme.colors.accent,
+    },
+    mvpListKillsLabel: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#64748b',
+        marginTop: 2,
     },
     tabsContainer: {
         flexDirection: 'row',

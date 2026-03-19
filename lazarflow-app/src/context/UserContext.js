@@ -19,14 +19,19 @@ export const UserProvider = ({ children }) => {
                 // Store only essential data in context
                 const safeUser = {
                     id: userData.id,
-                    email: userData.email || userData.emails,
+                    email: userData.emails || userData.email, // Updated to prioritize emails from new payload
                     username: userData.username,
                     display_name: userData.display_name,
+                    avatar_url: userData.avatar_url, // New
                     subscription_tier: userData.subscription_tier ? String(userData.subscription_tier).trim() : userData.subscription_tier,
+                    subscription_status: userData.subscription_status, // New
+                    subscription_expires_at: userData.subscription_expires_at, // New
+                    is_admin: userData.is_admin || false, // New
+                    feature_flags: userData.feature_flags || {}, // New
                     phone: userData.phone,
                     created_at: userData.created_at,
                     last_sign_in_at: userData.last_sign_in_at,
-                    lobbies_created_count: userData.lobbies_created_count,
+                    lobbies_created_count: userData.lobbies_created_count || 0,
                     themes_count: userData.themes_count || userData.themes?.length || 0
                 };
                 console.log('✅ UserContext: User loaded:', safeUser.id);

@@ -82,7 +82,7 @@ const ProfileTab = ({
                         <View style={styles.statContainer}>
                             <View style={styles.statHeader}>
                                 <View>
-                                    <Text style={styles.profileStatLabel}>Lobbies Created</Text>
+                                    <Text style={styles.profileStatLabel}>Active Tournaments</Text>
                                     <Text style={styles.statSubLabel}>
                                         {tier === 'developer' ? 'Unlimited available' : `${Math.max(0, (maxAILobbies || 0) - lobbiesCreated)} remaining`}
                                     </Text>

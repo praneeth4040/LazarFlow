@@ -5,12 +5,13 @@ import { Home, User, Plus, Palette, Crown, X, Upload, ArrowRight, Zap, ShieldChe
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
 import { UserContext } from '../context/UserContext';
 import { useSubscription } from '../hooks/useSubscription';
 import { useFocusEffect } from '@react-navigation/native';
-import { getUserThemes, getCommunityDesigns, getLobbies, deleteLobby, uploadTheme, endLobby, getLobbyTeams } from '../lib/dataService';
+import { getUserThemes, getCommunityDesigns, getLobbies, deleteLobby, uploadTheme, endLobby, getLobbyTeams, updateLobby, promoteLobby } from '../lib/dataService';
 import SubscriptionPlansScreen from './SubscriptionPlansScreen';
 import { CustomAlert as Alert } from '../lib/AlertService';
 
@@ -42,7 +43,82 @@ const DashboardScreen = ({ navigation, route }) => {
     const [selectedImage, setSelectedImage] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
     const [showPromoModal, setShowPromoModal] = useState(false);
+    const [promoData, setPromoData] = useState({
+        startDate: '',
+        startTime: '',
+        contactDetails: '',
+        additionalDetails: ''
+    });
+    const [selectedLobbies, setSelectedLobbies] = useState([]);
     const [historyPage, setHistoryPage] = useState(1);
+
+    const toggleLobbySelection = (id) => {
+        const lobbyToSelect = lobbies.find(l => l.id === id);
+        
+        if (lobbyToSelect && lobbyToSelect.is_promoted) {
+            Alert.alert('Notice', 'This tournament has already been promoted.');
+            return;
+        }
+
+        setSelectedLobbies(prev => {
+            if (prev.includes(id)) {
+                return []; // Deselect if already selected
+            }
+            return [id]; // Only allow 1 selection at a time
+        });
+    };
+
+    const clearSelection = () => setSelectedLobbies([]);
+
+    const handlePromoteLobbies = async () => {
+        if (selectedLobbies.length === 0) return;
+
+        // Check if any selected lobbies are NOT in 'setup' status
+        const invalidLobbies = lobbies.filter(l => selectedLobbies.includes(l.id) && l.status !== 'setup');
+        if (invalidLobbies.length > 0) {
+            Alert.alert('Invalid Selection', 'Only tournaments in the "SETUP" status can be promoted.');
+            return;
+        }
+        
+        setShowPromoModal(true);
+    };
+
+    const submitPromotion = async () => {
+        if (!promoData.startDate || !promoData.startTime || !promoData.contactDetails) {
+            Alert.alert('Error', 'Please fill in Start Date, Start Time, and Contact Details.');
+            return;
+        }
+
+        if (selectedLobbies.length === 0) return;
+
+        setLoading(true);
+        try {
+            const lobbyId = selectedLobbies[0];
+            const formData = {
+                start_date: promoData.startDate,
+                start_time: promoData.startTime,
+                contact_details: promoData.contactDetails,
+                additional_details: promoData.additionalDetails
+            };
+
+            await promoteLobby(lobbyId, formData);
+            
+            // Optimistically update the UI to show the star without waiting for fetch
+            setLobbies(currentLobbies => 
+                currentLobbies.map(l => l.id === lobbyId ? { ...l, is_promoted: true } : l)
+            );
+            
+            Alert.alert('Success', 'Lobby promotion successful!');
+            setShowPromoModal(false);
+            setSelectedLobbies([]);
+            setPromoData({ startDate: '', startTime: '', contactDetails: '', additionalDetails: '' });
+        } catch (error) {
+            console.error('Error promoting lobby:', error);
+            Alert.alert('Error', 'Failed to promote the tournament.');
+        } finally {
+            setLoading(false);
+        }
+    };
     const [expandedSections, setExpandedSections] = useState({
         account: true,
         stats: false,
@@ -83,16 +159,14 @@ const DashboardScreen = ({ navigation, route }) => {
     useFocusEffect(
         React.useCallback(() => {
             if (user?.id && !userLoading) {
-                // Only fetch if we are on Home or Lobbies tabs
+                // Fetch latest user data (updates lobby counts, themes, etc.)
+                if (refreshUser) refreshUser();
+
+                // Only fetch lobbies if we are on Home or Lobbies tabs
                 if (activeTab === 'home' || activeTab === 'lobbies') {
                     const limit = activeTab === 'home' ? 5 : null;
-                    
-                    // Fetch if we focus on Lobbies or Home tabs to ensure data is fresh
-                    const shouldFetch = true;
-
-                    if (shouldFetch) {
-                        fetchLobbies(lobbies.length === 0, limit);
-                    }                }
+                    fetchLobbies(lobbies.length === 0, limit);
+                }
             }
             return () => {};
         }, [user?.id, userLoading, activeTab])
@@ -235,6 +309,23 @@ const DashboardScreen = ({ navigation, route }) => {
     };
 
     const renderHeader = () => {
+        if (selectedLobbies.length > 0) {
+            return (
+                <View style={[styles.header, styles.selectionHeader]}>
+                    <View style={styles.headerLeft}>
+                        <TouchableOpacity onPress={clearSelection} style={styles.cancelSelectionBtn}>
+                            <X size={24} color="#1e293b" />
+                        </TouchableOpacity>
+                        <Text style={styles.selectionTitle}>{selectedLobbies.length} Selected</Text>
+                    </View>
+                    <TouchableOpacity style={styles.promoteBtn} onPress={handlePromoteLobbies}>
+                        <Zap size={16} color="#fff" style={{ marginRight: 6 }} />
+                        <Text style={styles.promoteBtnText}>Promote</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
         let title = 'Home';
         if (activeTab === 'home') {
             return (
@@ -285,6 +376,7 @@ const DashboardScreen = ({ navigation, route }) => {
                         onRender={(id) => navigation.navigate('LiveLobby', { id })} onEdit={(l) => navigation.navigate('EditLobby', { lobbyId: l.id })}
                         onDelete={confirmDeleteLobby} onEnd={confirmEndLobby}
                         onManageTeams={(l) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}
+                        selectedLobbies={selectedLobbies} toggleLobbySelection={toggleLobbySelection}
                     />
                 );
             case 'lobbies':
@@ -297,6 +389,7 @@ const DashboardScreen = ({ navigation, route }) => {
                         onRender={(id) => navigation.navigate('LiveLobby', { id })} onEdit={(l) => navigation.navigate('EditLobby', { lobbyId: l.id })}
                         onDelete={confirmDeleteLobby} onEnd={confirmEndLobby}
                         onManageTeams={(l) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}
+                        selectedLobbies={selectedLobbies} toggleLobbySelection={toggleLobbySelection}
                     />
                 );
             case 'design':
@@ -349,6 +442,14 @@ const DashboardScreen = ({ navigation, route }) => {
             {/* Modals from original DashboardScreen */}
             <UploadModal visible={uploadModalVisible} onClose={() => setUploadModalVisible(false)} selectedImage={selectedImage} designDetails={designDetails} setDesignDetails={setDesignDetails} uploading={uploading} onSubmit={submitDesignUpload} />
             <ImagePreviewModal visible={!!previewImage} image={previewImage} onClose={() => setPreviewImage(null)} />
+            <PromoModal 
+                visible={showPromoModal} 
+                onClose={() => setShowPromoModal(false)} 
+                promoData={promoData} 
+                setPromoData={setPromoData} 
+                loading={loading} 
+                onSubmit={submitPromotion} 
+            />
         </SafeAreaView>
     );
 };
@@ -361,6 +462,105 @@ const TabItem = ({ icon: Icon, label, active, onPress, isPremium }) => (
         </View>
     </TouchableOpacity>
 );
+
+const PromoModal = ({ visible, onClose, promoData, setPromoData, loading, onSubmit }) => {
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
+    const [date, setDate] = useState(new Date());
+
+    const handleDateChange = (event, selectedDate) => {
+        setShowDatePicker(false);
+        if (selectedDate) {
+            setDate(selectedDate);
+            // Format to YYYY-MM-DD
+            const formattedDate = selectedDate.toISOString().split('T')[0];
+            setPromoData({ ...promoData, startDate: formattedDate });
+        }
+    };
+
+    const handleTimeChange = (event, selectedTime) => {
+        setShowTimePicker(false);
+        if (selectedTime) {
+            setDate(selectedTime);
+            // Format to HH:MM
+            const hours = String(selectedTime.getHours()).padStart(2, '0');
+            const minutes = String(selectedTime.getMinutes()).padStart(2, '0');
+            setPromoData({ ...promoData, startTime: `${hours}:${minutes}` });
+        }
+    };
+
+    return (
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+            <View style={styles.bottomSheetOverlay}>
+                <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={onClose} />
+                <View style={styles.uploadBottomSheet}>
+                    <View style={styles.dragHandle} />
+                    <View style={styles.uploadModalHeader}>
+                        <Text style={styles.uploadModalTitle}>Promote Tournament</Text>
+                        <TouchableOpacity onPress={onClose}><X size={24} color="#64748b" /></TouchableOpacity>
+                    </View>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <View style={{ gap: 16, paddingBottom: 20 }}>
+                            <TouchableOpacity 
+                                style={[styles.styledInput, { justifyContent: 'center' }]} 
+                                onPress={() => setShowDatePicker(true)}
+                            >
+                                <Text style={{ color: promoData.startDate ? Theme.colors.textPrimary : '#94a3b8' }}>
+                                    {promoData.startDate || 'Start Date (e.g. 2024-12-25)'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showDatePicker && (
+                                <DateTimePicker
+                                    value={date}
+                                    mode="date"
+                                    display="default"
+                                    onChange={handleDateChange}
+                                />
+                            )}
+
+                            <TouchableOpacity 
+                                style={[styles.styledInput, { justifyContent: 'center' }]} 
+                                onPress={() => setShowTimePicker(true)}
+                            >
+                                <Text style={{ color: promoData.startTime ? Theme.colors.textPrimary : '#94a3b8' }}>
+                                    {promoData.startTime || 'Start Time (e.g. 18:00)'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showTimePicker && (
+                                <DateTimePicker
+                                    value={date}
+                                    mode="time"
+                                    is24Hour={true}
+                                    display="default"
+                                    onChange={handleTimeChange}
+                                />
+                            )}
+
+                            <TextInput
+                                style={styles.styledInput}
+                                placeholder="Contact Details (Phone / Link)"
+                                placeholderTextColor="#94a3b8"
+                                value={promoData.contactDetails}
+                                onChangeText={(t) => setPromoData({...promoData, contactDetails: t})}
+                            />
+                            <TextInput
+                                style={[styles.styledInput, { height: 100, textAlignVertical: 'top' }]}
+                                placeholder="Additional Details (Optional)"
+                                placeholderTextColor="#94a3b8"
+                                multiline
+                                value={promoData.additionalDetails}
+                                onChangeText={(t) => setPromoData({...promoData, additionalDetails: t})}
+                            />
+                            <TouchableOpacity style={styles.uploadSubmitBtnFull} onPress={onSubmit} disabled={loading}>
+                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.uploadSubmitBtnText}>Promote Lobby</Text>}
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                </View>
+            </View>
+        </Modal>
+    );
+};
 
 const UploadModal = ({ visible, onClose, selectedImage, designDetails, setDesignDetails, uploading, onSubmit }) => (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -404,6 +604,11 @@ const styles = StyleSheet.create({
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     headerLogo: { width: 32, height: 32 },
     headerTitle: { fontSize: 20, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
+    selectionHeader: { backgroundColor: '#eff6ff', borderBottomColor: '#bfdbfe' },
+    selectionTitle: { fontSize: 18, fontFamily: Theme.fonts.outfit.bold, color: '#1e3a8a', marginLeft: 16 },
+    cancelSelectionBtn: { padding: 4 },
+    promoteBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
+    promoteBtnText: { color: '#fff', fontSize: 14, fontFamily: Theme.fonts.outfit.bold },
     headerRight: { flex: 1, alignItems: 'flex-end' },
     headerTierBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
     headerTierText: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold },

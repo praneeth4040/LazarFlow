@@ -31,7 +31,9 @@ const HomeTab = ({
     onEdit,
     onDelete,
     onEnd,
-    onManageTeams
+    onManageTeams,
+    selectedLobbies = [],
+    toggleLobbySelection
 }) => {
     return (
         <ScrollView
@@ -45,8 +47,8 @@ const HomeTab = ({
                 <Text style={styles.welcomeTitle}>Welcome back,</Text>
                 <Text style={styles.welcomeSubtitle}>
                     {tier === 'developer' || maxAILobbies === Infinity 
-                        ? `${lobbiesCreated} lobbies created` 
-                        : `${lobbiesCreated} / ${maxAILobbies} lobbies used in your ${tier.charAt(0).toUpperCase() + tier.slice(1)} plan`}
+                        ? `${lobbiesCreated} Active Tournaments` 
+                        : `${lobbiesCreated} / ${maxAILobbies} Active Tournaments in your ${tier.charAt(0).toUpperCase() + tier.slice(1)} plan`}
                 </Text>
             </View>
 
@@ -71,6 +73,13 @@ const HomeTab = ({
                         onDelete={onDelete}
                         onEnd={onEnd}
                         onManageTeams={onManageTeams}
+                        isSelected={selectedLobbies.includes(lobby.id)}
+                        onLongPress={() => toggleLobbySelection(lobby.id)}
+                        onPress={() => {
+                            if (selectedLobbies.length > 0) {
+                                toggleLobbySelection(lobby.id);
+                            }
+                        }}
                     />
                 ))
             ) : (
