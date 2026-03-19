@@ -93,7 +93,8 @@ const CreateLobbyScreen = ({ navigation }) => {
                 name: name.trim(),
                 game: game,
                 points_system: pointsSystem,
-                kill_points: killPoints
+                kill_points: killPoints,
+                status: 'setup' // Initial status
             });
 
             // Update user stats
@@ -200,8 +201,7 @@ const CreateLobbyScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.secondary,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        backgroundColor: Theme.colors.primary,
     },
     header: {
         flexDirection: 'row',
@@ -232,6 +232,7 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 20,
+        backgroundColor: Theme.colors.secondary,
     },
     section: {
         marginBottom: 24,

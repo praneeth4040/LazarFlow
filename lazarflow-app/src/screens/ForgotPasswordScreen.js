@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { authService } from '../lib/authService';
@@ -34,73 +35,75 @@ const ForgotPasswordScreen = ({ navigation }) => {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : null}
-            style={styles.container}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                style={{ backgroundColor: Theme.colors.secondary }}
-                keyboardShouldPersistTaps="handled"
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : null}
+                style={{ flex: 1 }}
             >
-                <TouchableOpacity
-                    style={styles.backButton}
-                    onPress={() => navigation.goBack()}
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    style={{ backgroundColor: Theme.colors.secondary }}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    <ArrowLeft size={24} color={Theme.colors.textPrimary} />
-                </TouchableOpacity>
-
-                <View style={styles.header}>
-                    <Image
-                        source={require('../../assets/logo.png')}
-                        style={styles.logo}
-                        resizeMode="contain"
-                    />
-                    <Text style={styles.title}>Forgot Password</Text>
-                    <Text style={styles.subtitle}>Enter your email to reset your password</Text>
-                </View>
-
-                <View style={styles.form}>
-                    <View style={styles.inputContainer}>
-                        <Text style={styles.label}>Email Address</Text>
-                        <View style={styles.inputWrapper}>
-                            <Mail size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="your@email.com"
-                                placeholderTextColor={Theme.colors.textSecondary}
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
-                        </View>
-                    </View>
-
                     <TouchableOpacity
-                        style={[styles.button, (loading || email === '') && styles.buttonDisabled]}
-                        onPress={handleResetPassword}
-                        disabled={loading || email === ''}
+                        style={styles.backButton}
+                        onPress={() => navigation.goBack()}
                     >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Text style={styles.buttonText}>Send Reset Link</Text>
-                                <ArrowRight size={20} color="#fff" />
-                            </>
-                        )}
+                        <ArrowLeft size={24} color={Theme.colors.textPrimary} />
                     </TouchableOpacity>
 
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>Remember your password?</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                            <Text style={styles.footerLink}>Sign in</Text>
-                        </TouchableOpacity>
+                    <View style={styles.header}>
+                        <Image
+                            source={require('../../assets/logo.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.title}>Forgot Password</Text>
+                        <Text style={styles.subtitle}>Enter your email to reset your password</Text>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+
+                    <View style={styles.form}>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Email Address</Text>
+                            <View style={styles.inputWrapper}>
+                                <Mail size={20} color={Theme.colors.textSecondary} style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="your@email.com"
+                                    placeholderTextColor={Theme.colors.textSecondary}
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                />
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.button, (loading || email === '') && styles.buttonDisabled]}
+                            onPress={handleResetPassword}
+                            disabled={loading || email === ''}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#fff" />
+                            ) : (
+                                <>
+                                    <Text style={styles.buttonText}>Send Reset Link</Text>
+                                    <ArrowRight size={20} color="#fff" />
+                                </>
+                            )}
+                        </TouchableOpacity>
+
+                        <View style={styles.footer}>
+                            <Text style={styles.footerText}>Remember your password?</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                                <Text style={styles.footerLink}>Sign in</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 };
 
@@ -117,7 +120,7 @@ const styles = StyleSheet.create({
     },
     backButton: {
         position: 'absolute',
-        top: 60,
+        top: 20,
         left: 24,
         zIndex: 10,
         padding: 8,

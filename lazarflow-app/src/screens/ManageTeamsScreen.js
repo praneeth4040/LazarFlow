@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Plus, Bot, User, Trash2, ArrowLeft, Loader2, Sparkles, Send } from 'lucide-react-native';
 import { Theme } from '../styles/theme';
 import { extractTeamsFromText } from '../lib/aiExtraction';
-import { getLobbyTeams, addLobbyTeams, deleteTeam, updateLobby } from '../lib/dataService';
+import { getLobbyTeams, syncLobbyTeams, deleteTeam, updateLobby, getLobby } from '../lib/dataService';
 import { CustomAlert as Alert } from '../lib/AlertService';
 
 
@@ -77,7 +77,19 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
             const extractedTeams = extractedData.map((item, index) => ({
                 team_name: item.name || item.team_name,
-                members: item.members || [],
+                members: (item.members || []).map(m => 
+                    typeof m === 'object' ? {
+                        name: m.name || '',
+                        kills: m.kills || 0,
+                        wwcd: m.wwcd || 0,
+                        matches_played: m.matches_played || 0
+                    } : {
+                        name: String(m),
+                        kills: 0,
+                        wwcd: 0,
+                        matches_played: 0
+                    }
+                ),
                 respective_slotlist_postion: teams.length + index + 1
             }));
 
@@ -132,37 +144,35 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 
         setSubmitting(true);
         try {
-            console.log(`Syncing teams for lobby ${lobbyId}...`);
-            const currentServerTeams = await getLobbyTeams(lobbyId);
-            
-            if (currentServerTeams && Array.isArray(currentServerTeams) && currentServerTeams.length > 0) {
-                console.log(`Cleaning up ${currentServerTeams.length} existing teams...`);
-                const deletePromises = currentServerTeams.map(t => t && t.id ? deleteTeam(t.id) : Promise.resolve());
-                await Promise.all(deletePromises.filter(p => p !== undefined));
-            } else if (currentServerTeams && typeof currentServerTeams === 'object' && currentServerTeams.teams) {
-                // Handle wrapped response if it exists
-                const teamsToDelete = currentServerTeams.teams;
-                if (Array.isArray(teamsToDelete) && teamsToDelete.length > 0) {
-                    console.log(`Cleaning up ${teamsToDelete.length} existing teams (wrapped)...`);
-                    const deletePromises = teamsToDelete.map(t => t && t.id ? deleteTeam(t.id) : Promise.resolve());
-                    await Promise.all(deletePromises.filter(p => p !== undefined));
-                }
-            }
-
-            const teamsToInsert = teams.map((t, index) => ({
+            const teamsToSync = teams.map((t, index) => ({
+                id: t.id, // Ensure the ID is passed to distinguish existing vs new teams
                 team_name: t.team_name,
-                // Map members to simple string array for the backend if they are objects
-                members: (t.members || []).map(m => typeof m === 'object' ? m.name : m),
-                respective_slotlist_postion: t.respective_slotlist_postion || (index + 1),
-                total_points: t.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 }
+                // Sync full member objects (name, kills, wwcd, matches_played) instead of just strings
+                members: (t.members || []).map(m => 
+                    typeof m === 'object' ? {
+                        name: m.name || '',
+                        kills: m.kills || 0,
+                        wwcd: m.wwcd || 0,
+                        matches_played: m.matches_played || 0
+                    } : {
+                        name: String(m),
+                        kills: 0,
+                        wwcd: 0,
+                        matches_played: 0
+                    }
+                ),
+                respective_slotlist_postion: t.respective_slotlist_postion || (index + 1)
             }));
 
-            console.log('Sending teams to backend:', JSON.stringify(teamsToInsert, null, 2));
-            await addLobbyTeams(lobbyId, teamsToInsert);
+            console.log('🔄 Syncing teams with backend via bulk update:', JSON.stringify(teamsToSync, null, 2));
+            await syncLobbyTeams(lobbyId, teamsToSync);
 
             // Update metadata to indicate setup is complete
             try {
-                await updateLobby(lobbyId, { metadata: { setup_completed: true } });
+                await updateLobby(lobbyId, { 
+                    metadata: { setup_completed: true } 
+                });
+                console.log('✅ Lobby metadata updated after team setup');
             } catch (metaError) {
                 console.warn('Failed to update lobby metadata:', metaError);
                 // Non-critical, continue
@@ -189,9 +199,14 @@ const ManageTeamsScreen = ({ route, navigation }) => {
                     <Text style={styles.headerTitle}>Manage Teams</Text>
                     <Text style={styles.headerSubtitle} numberOfLines={1}>{lobbyName}</Text>
                 </View>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={submitting}>
-                    {submitting ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={styles.saveBtnText}>Save</Text>}
-                </TouchableOpacity>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.navigate('Dashboard')}>
+                        <Text style={styles.skipBtnText}>Skip</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={submitting}>
+                        {submitting ? <ActivityIndicator size="small" color={Theme.colors.accent} /> : <Text style={styles.saveBtnText}>Save</Text>}
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={styles.modeTabs}>
@@ -320,8 +335,7 @@ const ManageTeamsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Theme.colors.secondary,
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+        backgroundColor: Theme.colors.primary,
     },
     header: {
         flexDirection: 'row',
@@ -346,8 +360,22 @@ const styles = StyleSheet.create({
         fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
     },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    skipBtn: {
+        paddingHorizontal: 8,
+        paddingVertical: 8,
+    },
+    skipBtnText: {
+        color: Theme.colors.textSecondary,
+        fontFamily: Theme.fonts.outfit.semibold,
+        fontSize: 15,
+    },
     saveBtn: {
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
         paddingVertical: 8,
     },
     saveBtnText: {
@@ -383,6 +411,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
+        backgroundColor: Theme.colors.secondary,
     },
     inputContainer: {
         flexDirection: 'row',
