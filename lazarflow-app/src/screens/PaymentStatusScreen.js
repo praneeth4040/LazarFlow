@@ -1,12 +1,12 @@
 import React, { useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, BackHandler } from 'react-native';
-import { CheckCircle, XCircle, ArrowLeft, Home, RefreshCcw } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar, BackHandler, Linking } from 'react-native';
+import { CheckCircle, XCircle, ArrowLeft, Home, RefreshCcw, MessageSquare } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../styles/theme';
 import { UserContext } from '../context/UserContext';
 
 const PaymentStatusScreen = ({ route, navigation }) => {
-    const { status, orderId, message, planName } = route.params || {};
+    const { status, orderId, message, planName, showWhatsApp } = route.params || {};
     const isSuccess = status === 'success';
     const { refreshUser } = useContext(UserContext);
 
@@ -98,6 +98,15 @@ const PaymentStatusScreen = ({ route, navigation }) => {
                                     <Text style={styles.primaryButtonText}>Try Again</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
+
+                            {showWhatsApp && (
+                                <TouchableOpacity 
+                                    style={[styles.secondaryButton, { borderColor: '#25D366' }]}
+                                    onPress={() => Linking.openURL('https://wa.me/+919121314837')}
+                                >
+                                    <Text style={[styles.secondaryButtonText, { color: '#25D366' }]}>Contact Support (WhatsApp)</Text>
+                                </TouchableOpacity>
+                            )}
 
                             <TouchableOpacity 
                                 style={styles.secondaryButton}

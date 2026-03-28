@@ -204,7 +204,7 @@ const DashboardScreen = ({ navigation, route }) => {
 
     const fetchUserThemes = async () => {
         try {
-            const data = await getUserThemes();
+            const data = await getUserThemes(user?.id);
             setUserThemesList(data || []);
         } catch (error) {
             console.error('Error fetching themes:', error);
@@ -280,7 +280,13 @@ const DashboardScreen = ({ navigation, route }) => {
             setUploadModalVisible(false);
             Alert.alert('Success', 'Design uploaded and pending verification.');
         } catch (error) {
-            Alert.alert('Upload Failed', error.message);
+            const apiDetail = error.response?.data?.detail;
+            const message = typeof apiDetail === 'string'
+                ? apiDetail
+                : Array.isArray(apiDetail)
+                    ? apiDetail.map(e => e.msg || JSON.stringify(e)).join('\n')
+                    : error.message || 'Upload failed. Please try again.';
+            Alert.alert('Upload Failed', message);
         } finally {
             setUploading(false);
         }

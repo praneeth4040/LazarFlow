@@ -41,14 +41,14 @@ export const getDesignImageSource = (theme) => {
     if (cleanPath.startsWith('optimized/')) {
         // Fallback to supabase for old assets if needed, or point to new API
         // For now, assuming new API handles serving or returns full URLs
-        return { uri: `https://www.api.lazarflow.app/storage/themes/${cleanPath}` }; 
+        return { uri: `https://c977-49-204-99-215.ngrok-free.app/storage/themes/${cleanPath}` }; 
     }
 
     if (theme.user_id || theme.is_user_theme) {
-         return { uri: `https://www.api.lazarflow.app/storage/themes/${cleanPath}` };
+         return { uri: `https://c977-49-204-99-215.ngrok-free.app/storage/themes/${cleanPath}` };
     }
     
-    return { uri: `https://www.api.lazarflow.app/storage/${cleanPath}` };
+    return { uri: `https://c977-49-204-99-215.ngrok-free.app/storage/${cleanPath}` };
 };
 
 /**
@@ -403,7 +403,7 @@ export const fetchThemes = async (status = null) => {
 
 /**
  * Upload/Create a new theme
- * Endpoint: POST /api/themes
+ * Endpoint: POST /api/themes/
  * Content-Type: multipart/form-data
  */
 export const uploadTheme = async (name, imageUri) => {
@@ -422,7 +422,7 @@ export const uploadTheme = async (name, imageUri) => {
         type: type,
     });
 
-    const { data } = await apiClient.post('/api/themes', formData, {
+    const { data } = await apiClient.post('/api/themes/', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },

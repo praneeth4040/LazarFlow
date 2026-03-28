@@ -9,81 +9,33 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import RazorpayCheckout from 'react-native-razorpay';
 import apiClient from '../lib/apiClient';
-import {
-    CFPaymentGatewayService,
-} from 'react-native-cashfree-pg-sdk';
 import { CustomAlert as Alert } from '../lib/AlertService';
+import { NativeModules } from 'react-native';
 
 
 const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     const { tier, lobbiesCreated, maxAILobbies, maxLayouts } = useSubscription();
-    const { user } = useContext(UserContext);
+    const { user, refreshUser } = useContext(UserContext);
     const insets = useSafeAreaInsets();
     
-    // Store selected plan for Cashfree callback context
-    const selectedPlanRef = React.useRef(null);
+    const refreshUserRef = React.useRef(refreshUser);
+    refreshUserRef.current = refreshUser;
 
     // Check if Razorpay is linked/available
     const isRazorpayAvailable = React.useMemo(() => {
         try {
-            return !!RazorpayCheckout && typeof RazorpayCheckout.open === 'function';
+            // Check both the JS wrapper and the underlying native module
+            const hasJS = !!RazorpayCheckout && typeof RazorpayCheckout.open === 'function';
+            const hasNative = !!NativeModules.RazorpayCheckout;
+            
+            console.log(`🔍 Razorpay Availability Check: JS=${hasJS}, Native=${hasNative}`);
+            
+            return hasJS && hasNative;
         } catch (e) {
             console.log('Error checking Razorpay availability:', e);
             return false;
         }
-    }, [RazorpayCheckout]);
-
-    // Check if Cashfree is linked/available
-    const isCashfreeAvailable = React.useMemo(() => {
-        try {
-            return !!CFPaymentGatewayService && typeof CFPaymentGatewayService.setCallback === 'function';
-        } catch (e) {
-            console.log('Error checking Cashfree availability:', e);
-            return false;
-        }
-    }, [CFPaymentGatewayService]);
-
-    React.useEffect(() => {
-        if (!isCashfreeAvailable) {
-            console.warn('⚠️ Cashfree SDK not linked or available');
-            return;
-        }
-
-        const onVerify = async (orderID) => {
-            console.log('Order verified:', orderID);
-            navigation.navigate('PaymentStatus', {
-                status: 'success',
-                orderId: orderID,
-                message: 'Payment verified! Your plan has been updated.'
-            });
-        };
-
-        const onError = (error, orderID) => {
-            console.error('Payment failed:', error, orderID);
-            navigation.navigate('PaymentStatus', {
-                status: 'failure',
-                orderId: orderID,
-                message: error.message || 'Something went wrong with the payment.'
-            });
-        };
-
-        try {
-            CFPaymentGatewayService.setCallback({
-                onVerify,
-                onError,
-            });
-        } catch (err) {
-            console.error('Error setting Cashfree callback:', err);
-        }
-
-        return () => {
-            try {
-                CFPaymentGatewayService.removeCallback();
-            } catch (err) {
-                // Ignore cleanup errors
-            }
-        };
-    }, [isCashfreeAvailable]);
+    }, []);
 
     const plans = [
         {
@@ -105,7 +57,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
         {
             id: 'ranked',
             name: 'Ranked',
-            price: '₹150',
+            price: '₹129',
             period: 'Monthly',
             icon: <ShieldCheck size={24} color="#3b82f6" />,
             features: [
@@ -121,7 +73,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
         {
             id: 'competitive',
             name: 'Competitive',
-            price: '₹250',
+            price: '₹229',
             period: 'Monthly',
             icon: <Award size={24} color="#f59e0b" />,
             features: [
@@ -138,7 +90,7 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
         {
             id: 'premier',
             name: 'Premier',
-            price: '₹399',
+            price: '₹329',
             period: 'Monthly',
             icon: <Crown size={24} color="#8b5cf6" />,
             features: [
@@ -170,9 +122,6 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
     ];
 
     const handleClaim = async (plan) => {
-        // Store plan ID for potential callbacks
-        selectedPlanRef.current = plan.id;
-
         if (plan.id === 'masters') {
             Linking.openURL('https://wa.me/+919121314837');
             return;
@@ -195,133 +144,100 @@ const SubscriptionPlansScreen = ({ navigation, isTab = false }) => {
 
             const amount = parseAmount(plan.price);
             if (amount <= 0 && plan.price !== 'Custom') {
-                // Allow 'Custom' or free plans to proceed? 
-                // Assuming this flow is only for paid upgrades
                 throw new Error('Invalid plan amount');
             }
 
-            // --- RAZORPAY FLOW (PRIMARY) ---
-            try {
-                if (!isRazorpayAvailable) {
-                    console.warn('⚠️ Razorpay SDK not linked or available');
-                    throw new Error('Razorpay is not available on this device');
-                }
-
-                console.log('🚀 Initiating Razorpay flow...');
-                // 1. Create Order via Backend
-                // Using new endpoint structure: /api/payments/create-order
-                // Backend requires customer_phone for Razorpay/Cashfree
-                const customerPhone = user?.phone || '9999999999';
-
-                const orderResponse = await apiClient.post('/api/payments/create-order', {
-                    tier: plan.id,
-                    amount: amount,
-                    gateway: 'razorpay',
-                    customer_phone: customerPhone
-                });
-
-                const { id: order_id, amount: amountInPaise, currency, key_id } = orderResponse.data;
-
-                // 2. Open Razorpay SDK
-                const options = {
-                    description: `LazarFlow ${plan.name} Subscription`,
-                    image: 'https://api.lazarflow.app/logo.png',
-                    currency: currency || 'INR',
-                    key: key_id,
-                    amount: amountInPaise,
-                    name: 'LazarFlow',
-                    order_id: order_id,
-                    prefill: {
-                        email: user.email,
-                        contact: '',
-                        name: user.user_metadata?.full_name || ''
-                    },
-                    theme: { color: Theme.colors.accent }
-                };
-
-                if (!RazorpayCheckout || typeof RazorpayCheckout.open !== 'function') {
-                    throw new Error('Razorpay SDK is not initialized correctly');
-                }
-
-                const razorpayData = await RazorpayCheckout.open(options);
-                console.log('✅ Razorpay Success:', razorpayData);
-
-                // 3. Verify Payment via Backend
-                const verifyResponse = await apiClient.post('/api/payments/verify-payment', {
-                    tier: plan.id,
-                    gateway: 'razorpay',
-                    razorpay_order_id: razorpayData.razorpay_order_id,
-                    razorpay_payment_id: razorpayData.razorpay_payment_id,
-                    razorpay_signature: razorpayData.razorpay_signature
-                });
-
-                if (verifyResponse.status === 200) {
-                    navigation.navigate('PaymentStatus', {
-                        status: 'success',
-                        orderId: razorpayData.razorpay_order_id,
-                        planName: plan.name
-                    });
-                    return;
-                }
-            } catch (rpError) {
-                if (rpError.code === 2) { // 2 is usually user cancellation
-                    return;
-                }
-
-                if (!isCashfreeAvailable) {
-                    console.log('⚠️ Razorpay failed and Cashfree is not available:', rpError);
-                    navigation.navigate('PaymentStatus', {
-                        status: 'failure',
-                        message: rpError.message || 'Razorpay payment failed and no fallback available.'
-                    });
-                    return;
-                }
-
-                console.log('⚠️ Razorpay failed, trying Cashfree fallback...', rpError);
+            if (!isRazorpayAvailable) {
+                console.warn('⚠️ Razorpay SDK not linked or available');
+                const hasNative = !!NativeModules.RazorpayCheckout;
+                const hasJS = !!RazorpayCheckout && typeof RazorpayCheckout.open === 'function';
+                throw new Error(`Razorpay is not available on this device (Native: ${hasNative}, JS: ${hasJS})`);
             }
 
-            if (isCashfreeAvailable) {
-                // --- CASHFREE FLOW (FALLBACK) ---
-                console.log('🔄 Initiating Cashfree fallback...');
-                // 1. Create Cashfree Order via Backend
-                // Use the amount parsed earlier
-                const amount = parseAmount(plan.price);
+            console.log('🚀 Initiating Razorpay order creation...');
+            // 1. Create Order via Backend
+            const orderResponse = await apiClient.post('/api/payments/create-order', {
+                tier: plan.id,
+                amount: amount,
+            });
 
-                const cfResponse = await apiClient.post('/api/payments/create-order', {
-                    tier: plan.id,
-                    amount: amount,
-                    gateway: 'cashfree',
-                    customer_phone: user?.phone || '9999999999'
-                });
-
-                const cfData = cfResponse.data;
-                const { payment_session_id, order_id: cf_order_id, cf_order_id: cf_order_id_num } = cfData;
-
-                // 2. Start Cashfree Checkout
-                try {
-                    if (!CFPaymentGatewayService || typeof CFPaymentGatewayService.doPayment !== 'function') {
-                        throw new Error('Cashfree SDK is not initialized correctly');
-                    }
-
-                    CFPaymentGatewayService.doPayment({
-                        environment: 'PRODUCTION',
-                        payment_session_id: payment_session_id,
-                        order_id: cf_order_id || String(cf_order_id_num) || "ORDER_ID_NOT_PROVIDED",
-                    });
-
-                } catch (cfDoError) {
-                    console.error('Cashfree doPayment error:', cfDoError);
-                    throw new Error('Failed to open Cashfree payment gateway');
-                }
+            if (!orderResponse.data || !orderResponse.data.order_id) {
+                console.error('❌ Invalid order response:', orderResponse.data);
+                throw new Error('Failed to create payment order. Please try again.');
             }
 
-        } catch (error) {
-            console.error('Error initiating payment:', error);
+            const { order_id, amount: amountInPaise, currency, key_id } = orderResponse.data;
+            console.log(`📦 Order Created: ${order_id} (Amount: ${amountInPaise})`);
+
+            // 2. Open Razorpay SDK
+            const userEmail = Array.isArray(user.email) ? user.email[0] : user.email;
+            const userName = user.display_name || user.user_metadata?.full_name || '';
+            const userContact = user.phone || '';
+
+            const options = {
+                description: `LazarFlow ${plan.name} Subscription`,
+                image: 'https://lazarflow.app/logo.png',
+                currency: currency || 'INR',
+                key: key_id,
+                amount: amountInPaise,
+                name: 'LazarFlow',
+                order_id: order_id,
+                prefill: {
+                    email: userEmail || '',
+                    contact: userContact,
+                    name: userName
+                },
+                theme: { color: Theme.colors.accent }
+            };
+
+            console.log('💳 Opening Razorpay Checkout widget...');
+            const razorpayData = await RazorpayCheckout.open(options);
+            console.log('✅ Razorpay Payment Success:', razorpayData);
+
+            // 3. Verify Payment via Backend
+            console.log('🔍 Verifying payment with backend...');
+            const verifyResponse = await apiClient.post('/api/payments/verify-payment', {
+                tier: plan.id,
+                razorpay_order_id: razorpayData.razorpay_order_id,
+                razorpay_payment_id: razorpayData.razorpay_payment_id,
+                razorpay_signature: razorpayData.razorpay_signature
+            });
+
+            if (verifyResponse.status === 200) {
+                if (refreshUser) await refreshUser();
+                console.log('🎉 Subscription updated successfully!');
+                navigation.navigate('PaymentStatus', {
+                    status: 'success',
+                    orderId: razorpayData.razorpay_order_id,
+                    planName: plan.name
+                });
+                return;
+            } else {
+                throw new Error('Verification failed on the server.');
+            }
+
+            } catch (error) {
+            // Handle Razorpay specific error codes
+            if (error.code === 2) { 
+                console.log('👤 Payment cancelled by user');
+                return;
+            }
+
+            console.error('❌ Payment Flow Error:', error);
+
+            let displayMessage = error.message || 'Failed to initiate payment. Please try again later.';
+
+            // Provide more actionable message for missing native modules
+            if (displayMessage.includes('Cannot read property \'open\' of null')) {
+                displayMessage = 'Payment module not initialized correctly. Please ensure the app is up to date.';
+            }
+
             navigation.navigate('PaymentStatus', {
                 status: 'failure',
-                message: error.message || 'Failed to initiate payment. Please try again later.'
+                message: displayMessage,
+                showWhatsApp: true // Flag to show WhatsApp button on status screen
             });
-        }
+            }
     };
 
     return (

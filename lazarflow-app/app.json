@@ -82,7 +82,7 @@
           "data": [
             {
               "scheme": "https",
-              "host": "pg-router.dev.razorpay.in"
+              "host": "pg-router.razorpay.in"
             }
           ],
           "category": [
