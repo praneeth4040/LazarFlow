@@ -1,55 +1,47 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useEffect, useReducer } from 'react';
 import { authService } from '../lib/authService';
-
 import { authEvents } from '../lib/authEvents';
+import { userReducer, initialState, USER_ACTIONS } from './userReducer';
 
 export const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [state, dispatch] = useReducer(userReducer, initialState);
 
     const initUser = async () => {
         try {
             console.log('🔐 UserContext: Initializing user from getMe()...');
+            dispatch({ type: USER_ACTIONS.SET_LOADING, payload: true });
             const userData = await authService.getMe();
             
             if (userData) {
                 // Store only essential data in context
                 const safeUser = {
                     id: userData.id,
-                    email: userData.emails || userData.email, // Updated to prioritize emails from new payload
+                    email: userData.emails || userData.email,
                     username: userData.username,
                     display_name: userData.display_name,
-                    avatar_url: userData.avatar_url, // New
+                    avatar_url: userData.avatar_url,
                     subscription_tier: userData.subscription_tier ? String(userData.subscription_tier).trim() : userData.subscription_tier,
-                    subscription_status: userData.subscription_status, // New
-                    subscription_expires_at: userData.subscription_expires_at, // New
-                    is_admin: userData.is_admin || false, // New
-                    feature_flags: userData.feature_flags || {}, // New
+                    subscription_status: userData.subscription_status,
+                    subscription_expires_at: userData.subscription_expires_at,
+                    is_admin: userData.is_admin || false,
+                    feature_flags: userData.feature_flags || {},
                     phone: userData.phone,
                     created_at: userData.created_at,
                     last_sign_in_at: userData.last_sign_in_at,
                     lobbies_created_count: userData.lobbies_created_count || 0,
-                    themes_count: userData.themes_count || userData.themes?.length || 0
+                    themes_count: userData.themes_count || userData.themes?.length || 0,
+                    flux_balance: userData.flux_balance || 0
                 };
                 console.log('✅ UserContext: User loaded:', safeUser.id);
-                setUser(safeUser);
+                dispatch({ type: USER_ACTIONS.SET_USER, payload: safeUser });
             } else {
-                setUser(null);
+                dispatch({ type: USER_ACTIONS.CLEAR_USER });
             }
-            setError(null);
         } catch (err) {
             console.error('❌ UserContext: Failed to initialize user session:', err.message);
-            // We no longer force a logout here. 
-            // If the token is truly expired and refresh fails, the apiClient interceptor 
-            // will automatically emit 'SIGNED_OUT' and handle the logout process.
-            // A 404 here just means the profile isn't found, but the auth session is still valid.
-            setError(err);
-            setUser(null);
-        } finally {
-            setLoading(false);
+            dispatch({ type: USER_ACTIONS.SET_ERROR, payload: err });
         }
     };
 
@@ -65,7 +57,7 @@ export const UserProvider = ({ children }) => {
 
         const unsubscribeSignOut = authEvents.on('SIGNED_OUT', () => {
             console.log('👋 UserContext: SIGNED_OUT event received. Clearing user data.');
-            setUser(null);
+            dispatch({ type: USER_ACTIONS.CLEAR_USER });
         });
 
         return () => {
@@ -80,8 +72,16 @@ export const UserProvider = ({ children }) => {
         await initUser();
     };
 
+    const setUser = (user) => dispatch({ type: USER_ACTIONS.SET_USER, payload: user });
+
     return (
-        <UserContext.Provider value={{ user, setUser, loading, error, refreshUser }}>
+        <UserContext.Provider value={{ 
+            user: state.user, 
+            loading: state.loading, 
+            error: state.error, 
+            setUser, 
+            refreshUser 
+        }}>
             {children}
         </UserContext.Provider>
     );

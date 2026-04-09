@@ -25,56 +25,20 @@ export const useSubscription = () => {
             try {
                 // Use the user data directly from context (already fetched)
                 const currentTier = user?.subscription_tier?.toLowerCase() || 'free';
-                const currentStatus = user?.subscription_status || 'active';
-                const currentExpiresAt = user?.subscription_expires_at;
                 const count = user?.lobbies_created_count || 0;
+                const balance = user?.flux_balance || 0;
 
                 setTier(currentTier);
-                setStatus(currentStatus);
-                setExpiresAt(currentExpiresAt);
                 setLobbiesCreated(count);
 
-                // Define Limits based on Tier
-                let aiLimit = 2; // Default for Free
-                let layoutLimit = 1;
-                let customSocial = false;
-
-                switch (currentTier) {
-                    case 'masters':
-                    case 'developer':
-                        aiLimit = Infinity;
-                        layoutLimit = Infinity;
-                        customSocial = true;
-                        break;
-                    case 'premier':
-                        aiLimit = 150;
-                        layoutLimit = 5;
-                        customSocial = true;
-                        break;
-                    case 'competitive':
-                        aiLimit = 100;
-                        layoutLimit = 5;
-                        customSocial = true;
-                        break;
-                    case 'ranked':
-                        aiLimit = 60;
-                        layoutLimit = 3;
-                        customSocial = true;
-                        break;
-                    case 'free':
-                    default:
-                        aiLimit = 2;
-                        // Always 1 layout for casual/free
-                        layoutLimit = 1;
-                        customSocial = false;
-                        break;
-                }
-
-                setMaxAILobbies(aiLimit);
-                setCanUseAI(count < aiLimit);
-                setIsCasual(currentTier === 'free' && count >= aiLimit);
-                setMaxLayouts(layoutLimit);
-                setCanCustomSocial(customSocial);
+                // With the new Credit System:
+                // 1 Credit = 1 AI Lobby Automation
+                // All other features (Custom Social, Multiple Layouts) are now unlocked for everyone
+                setMaxAILobbies(balance);
+                setCanUseAI(balance > 0);
+                setIsCasual(balance === 0);
+                setMaxLayouts(Infinity);
+                setCanCustomSocial(true);
 
             } catch (err) {
                 console.error('Error fetching subscription:', err);

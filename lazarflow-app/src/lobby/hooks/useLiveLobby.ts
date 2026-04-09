@@ -1,0 +1,193 @@
+import { useState, useCallback, useRef } from 'react';
+import { Buffer } from 'buffer';
+import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from '@react-navigation/native';
+import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
+import { CustomAlert as Alert } from '../../lib/AlertService';
+
+export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
+    const [teams, setTeams] = useState<any[]>([]);
+    const [playerStats, setPlayerStats] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [lobby, setLobby] = useState<any>(null);
+    const [themes, setThemes] = useState<any[]>([]);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [saving, setSaving] = useState(false);
+    
+    const mvpCanvasRef = useRef(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedResult, setGeneratedResult] = useState<string | null>(null);
+    const [showResultSheet, setShowResultSheet] = useState(false);
+
+    const [designTab, setDesignTab] = useState<'community' | 'user'>('community');
+    const [renderType, setRenderType] = useState<'standings' | 'mvps'>('standings');
+    const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
+
+    const [designData, setDesignData] = useState({
+        brandLogo: null,
+        lobbyLogo: null,
+        lobbyName: '',
+        scrimsText: '',
+        organiserName: '',
+        instagram: '',
+        youtube: ''
+    });
+
+    const filteredThemes = themes.filter(theme => {
+        if (designTab === 'user') return !!theme.user_id;
+        return !theme.user_id;
+    });
+
+    const fetchLobbyData = async () => {
+        try {
+            setLoading(true);
+            // Reusing legacy dataService imports for themes/renders if they are not in LobbyRepository
+            const { getLobby, getLobbyTeams, getLobbyPlayerStats } = require('../../lib/dataService');
+            
+            const [lobbyResult, teamsResult, playerStatsResult] = await Promise.allSettled([
+                getLobby(id),
+                getLobbyTeams(id),
+                getLobbyPlayerStats(id)
+            ]);
+
+            if (lobbyResult.status === 'rejected') throw new Error('Tournament not found or unauthorized');
+
+            if (playerStatsResult.status === 'fulfilled') {
+                setPlayerStats(playerStatsResult.value || []);
+            }
+
+            const lobbyData = lobbyResult.value;
+            setLobby(lobbyData);
+            setDesignData(prev => ({ ...prev, lobbyName: lobbyData.name || '' }));
+
+            const teamsData = teamsResult.status === 'fulfilled' ? teamsResult.value : [];
+            const sortedTeams = (teamsData || []).map((team: any) => {
+                const points = (team.total_points && typeof team.total_points === 'object') ? team.total_points : { kill_points: 0, placement_points: 0 };
+                return {
+                    ...team,
+                    total: (points.kill_points || 0) + (points.placement_points || 0),
+                    kill_points: points.kill_points || 0,
+                    placement_points: points.placement_points || 0,
+                    wins: points.wins || 0
+                };
+            }).sort((a: any, b: any) => b.total - a.total);
+
+            setTeams(sortedTeams);
+        } catch (error: any) {
+            console.error('Fetch Error:', error);
+            Alert.alert('Error', error.message || 'Failed to load lobby data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadThemes = async () => {
+        try {
+            const { getUserThemes, getCommunityDesigns } = require('../../lib/dataService');
+            const [userThemes, communityDesigns] = await Promise.all([
+                getUserThemes(),
+                getCommunityDesigns()
+            ]);
+            
+            const allAvailable = [...(userThemes || []), ...(communityDesigns || [])];
+            const filteredThemes = allAvailable.filter(t => t.status === 'verified');
+            const uniqueThemes = filteredThemes.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+            setThemes(uniqueThemes);
+            if (uniqueThemes.length > 0 && !selectedThemeId) {
+                setSelectedThemeId(uniqueThemes[0].id);
+            }
+        } catch (error) {
+            console.error('Error loading themes:', error);
+        }
+    };
+
+    const handleGenerateTable = async () => {
+        if (!selectedThemeId) {
+            Alert.alert('Error', 'Please select a design first');
+            return;
+        }
+
+        try {
+            setIsGenerating(true);
+            const { renderResults } = require('../../lib/dataService');
+            const result = await renderResults(id, selectedThemeId, renderType);
+            
+            if (result) {
+                if (result instanceof ArrayBuffer || (result && result.constructor && result.constructor.name === 'ArrayBuffer')) {
+                    const base64 = Buffer.from(result).toString('base64');
+                    setGeneratedResult(`data:image/png;base64,${base64}`);
+                } else if (typeof result === 'string') {
+                    setGeneratedResult(result);
+                } else if (result.url) {
+                    setGeneratedResult(result.url);
+                }
+                setShowResultSheet(true);
+            }
+        } catch (error) {
+            console.error('Error generating table:', error);
+            Alert.alert('Error', 'Failed to generate results table. Please try again.');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleDownloadMvp = async (captureRefFunc: Function) => {
+        try {
+            setIsGenerating(true);
+            if (mvpCanvasRef.current) {
+                const uri = await captureRefFunc(mvpCanvasRef, {
+                    format: 'png',
+                    quality: 1,
+                    result: 'tmpfile'
+                });
+                setGeneratedResult(uri);
+                setShowResultSheet(true);
+            }
+        } catch (error) {
+            console.error('Error generating MVP image:', error);
+            Alert.alert('Error', 'Failed to generate MVP image');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handlePickLogo = async (type: string, imagePicker: any) => {
+        try {
+            const { status } = await imagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permission Denied', 'Gallery access is required to upload logos');
+                return;
+            }
+
+            const result = await imagePicker.launchImageLibraryAsync({
+                mediaTypes: imagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled) {
+                setSaving(true);
+                const asset = result.assets[0];
+                const { uploadLogo } = require('../../lib/dataService');
+                const uploadedUrl = await uploadLogo(asset.uri);
+                if (uploadedUrl) {
+                    setDesignData(prev => ({ ...prev, [type]: uploadedUrl }));
+                }
+            }
+        } catch (error) {
+            console.error('Logo upload error:', error);
+            Alert.alert('Error', 'Failed to upload logo');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return {
+        teams, playerStats, loading, lobby, themes, showEditModal, setShowEditModal, saving,
+        mvpCanvasRef, isGenerating, generatedResult, showResultSheet, setShowResultSheet,
+        designTab, setDesignTab, renderType, setRenderType, selectedThemeId, setSelectedThemeId,
+        designData, setDesignData, filteredThemes,
+        fetchLobbyData, loadThemes, handleGenerateTable, handleDownloadMvp, handlePickLogo
+    };
+};

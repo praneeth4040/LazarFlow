@@ -11,7 +11,7 @@ const RETRY_DELAY = 1000;
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
-    timeout: 300000,
+    timeout: 300000, // 30 seconds - much more reasonable than 5 minutes
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -19,13 +19,16 @@ const apiClient = axios.create({
     },
 });
 
-// --- Start of Refresh Logic ---
+// Cache tokens in memory to avoid constant AsyncStorage reads
+let cachedToken = null;
+let cachedExpiry = null;
 
+// Variables for managing token refresh queue
 let isRefreshing = false;
 let failedQueue = [];
 
 const processQueue = (error, token = null) => {
-    failedQueue.forEach(prom => {
+    failedQueue.forEach((prom) => {
         if (error) {
             prom.reject(error);
         } else {
@@ -38,22 +41,28 @@ const processQueue = (error, token = null) => {
 apiClient.interceptors.request.use(
     async (config) => {
         try {
-            const token = await AsyncStorage.getItem('access_token');
-            const expiry = await AsyncStorage.getItem('token_expiry');
+            // Only read from storage if memory cache is empty
+            if (!cachedToken) {
+                cachedToken = await AsyncStorage.getItem('access_token');
+                cachedExpiry = await AsyncStorage.getItem('token_expiry');
+            }
             
             // 1. Proactive Refresh Logic
-            // If the token expires in less than 60 seconds, refresh it now
-            if (token && expiry) {
+            if (cachedToken && cachedExpiry) {
                 const now = Date.now();
-                const timeToExpiry = parseInt(expiry) - now;
+                const timeToExpiry = parseInt(cachedExpiry) - now;
                 
+                // If the token expires in less than 60 seconds (or is already expired)
                 if (timeToExpiry < 60000 && !config.url.includes('/api/auth/refresh')) {
-                    console.log('🕒 Token expiring soon. Proactively refreshing...');
+                    console.log(`🕒 Token status: ${timeToExpiry < 0 ? 'Expired' : 'Expiring soon'}. Proactively refreshing...`);
                     try {
                         const { authService } = require('./authService');
+                        // Use the shared refresh queue in refreshToken
                         const result = await authService.refreshToken();
-                        const newToken = result.session?.access_token;
+                        const newToken = result?.session?.access_token || result?.data?.session?.access_token;
                         if (newToken) {
+                            cachedToken = newToken;
+                            cachedExpiry = await AsyncStorage.getItem('token_expiry');
                             config.headers.Authorization = `Bearer ${newToken}`;
                             return config;
                         }
@@ -63,8 +72,8 @@ apiClient.interceptors.request.use(
                 }
             }
 
-            if (token) {
-                let cleanToken = token.trim().replace(/^"|"$/g, '');
+            if (cachedToken) {
+                let cleanToken = cachedToken.trim().replace(/^"|"$/g, '');
                 if (cleanToken.toLowerCase().startsWith('bearer ')) {
                     cleanToken = cleanToken.substring(7).trim();
                 }
@@ -79,6 +88,22 @@ apiClient.interceptors.request.use(
     },
     (error) => Promise.reject(error)
 );
+
+// Clear cache on SIGNED_OUT
+authEvents.on('SIGNED_OUT', () => {
+    cachedToken = null;
+    cachedExpiry = null;
+});
+
+// Update cache on SIGNED_IN
+authEvents.on('SIGNED_IN', (data) => {
+    if (data?.session?.access_token) {
+        cachedToken = data.session.access_token;
+        if (data.session.expires_in) {
+            cachedExpiry = String(Date.now() + (data.session.expires_in * 1000));
+        }
+    }
+});
 
 apiClient.interceptors.response.use(
     (response) => response,
@@ -105,7 +130,7 @@ apiClient.interceptors.response.use(
                 const { authService } = require('./authService');
                 console.log('🔄 Token expired (401). Attempting silent refresh...');
                 const result = await authService.refreshToken();
-                const newToken = result.session?.access_token;
+                const newToken = result?.session?.access_token || result?.data?.session?.access_token;
 
                 if (!newToken) throw new Error('No new token received');
 
