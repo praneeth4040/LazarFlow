@@ -3,8 +3,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 
-// Use 10.0.2.2 for Android Emulator, localhost for iOS Simulator
-const BASE_URL ='https://e733-49-204-99-215.ngrok-free.app'; 
+const BASE_URL = 'https://www.api.lazarflow.app';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -15,7 +14,6 @@ const apiClient = axios.create({
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
     },
 });
 

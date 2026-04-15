@@ -51,8 +51,6 @@ export function useRenderPreview(themeId: string | null) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // ngrok requires this header to skip the browser warning page
-                    'ngrok-skip-browser-warning': 'true',
                 },
                 body: JSON.stringify({ themeId, adjustments: current }),
                 signal: abortController.current.signal,
