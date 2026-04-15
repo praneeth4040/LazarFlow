@@ -1,8 +1,8 @@
-import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView, TextInput, StatusBar } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Trophy, Layout, Palette, Check, X, ImageIcon, Instagram, Youtube, Play, ArrowLeft, Info, Download } from 'lucide-react-native';
+import { Trophy, Layout, Palette, Check, ArrowLeft, Info, Download, Play } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 
@@ -10,6 +10,7 @@ import { Theme } from '../../styles/theme';
 import { useSubscription } from '../../hooks/useSubscription';
 import { DesignThemeCard } from '../../dashboard/components/ThemeCards';
 import { ResultsBottomSheet } from '../components/ResultsBottomSheet';
+import { AdjustmentPreviewSheet } from '../components/AdjustmentPreviewSheet';
 import { useLiveLobby } from '../hooks/useLiveLobby';
 
 export const LiveLobbyPage = ({ route, navigation }: any) => {
@@ -20,8 +21,9 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
         teams, playerStats, loading, lobby, showEditModal, setShowEditModal, saving,
         mvpCanvasRef, isGenerating, generatedResult, showResultSheet, setShowResultSheet,
         designTab, setDesignTab, renderType, setRenderType, selectedThemeId, setSelectedThemeId,
-        designData, setDesignData, filteredThemes,
-        fetchLobbyData, loadThemes, handleGenerateTable, handleDownloadMvp, handlePickLogo
+        filteredThemes, renderStatus,
+        showAdjustmentSheet, setShowAdjustmentSheet,
+        fetchLobbyData, loadThemes, handleGenerateTable, openAdjustmentSheet, handleDownloadMvp,
     } = useLiveLobby(id, canCustomSocial);
 
     useFocusEffect(
@@ -77,15 +79,15 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
             {renderType === 'standings' ? (
                 <>
                     <View style={styles.tabsContainer}>
-                        <TouchableOpacity 
-                            style={[styles.tabBtn, designTab === 'community' && styles.tabBtnActive]} 
+                        <TouchableOpacity
+                            style={[styles.tabBtn, designTab === 'community' && styles.tabBtnActive]}
                             onPress={() => setDesignTab('community')}
                         >
                             <Text style={[styles.tabBtnText, designTab === 'community' && styles.tabBtnTextActive]}>Community</Text>
                             {designTab === 'community' && <View style={styles.tabIndicator} />}
                         </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={[styles.tabBtn, designTab === 'user' && styles.tabBtnActive]} 
+                        <TouchableOpacity
+                            style={[styles.tabBtn, designTab === 'user' && styles.tabBtnActive]}
                             onPress={() => setDesignTab('user')}
                         >
                             <Text style={[styles.tabBtnText, designTab === 'user' && styles.tabBtnTextActive]}>Your Themes</Text>
@@ -117,8 +119,8 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
                                     </View>
                                     <Text style={styles.personalEmptyTitle}>No Personal Designs Found</Text>
                                     <Text style={styles.personalEmptySub}>Create unique themes in the Design section.</Text>
-                                    <TouchableOpacity 
-                                        style={styles.goDesignBtn} 
+                                    <TouchableOpacity
+                                        style={styles.goDesignBtn}
                                         onPress={() => navigation.navigate('Dashboard', { tab: 'design' })}
                                     >
                                         <Text style={styles.goDesignBtnText}>Go to Design Section</Text>
@@ -136,18 +138,25 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
                     />
 
                     <View style={styles.footer}>
-                        <TouchableOpacity 
-                            style={[styles.renderBtnNew, isGenerating && styles.disabledBtn]} 
-                            onPress={handleGenerateTable}
+                        <TouchableOpacity
+                            style={[styles.renderBtnNew, isGenerating && styles.disabledBtn]}
+                            onPress={openAdjustmentSheet}
                             disabled={isGenerating}
                         >
                             {isGenerating ? (
-                                <ActivityIndicator color="#fff" />
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                    <ActivityIndicator color="#fff" />
+                                    <Text style={styles.renderBtnTextNew}>{renderStatus}</Text>
+                                </View>
                             ) : (
                                 <Text style={styles.renderBtnTextNew}>Render Design</Text>
                             )}
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.cancelBtnNew} onPress={() => navigation.goBack()}>
+                        <TouchableOpacity
+                            style={[styles.cancelBtnNew, isGenerating && styles.disabledBtn]}
+                            onPress={() => navigation.goBack()}
+                            disabled={isGenerating}
+                        >
                             <Text style={styles.cancelBtnTextNew}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
@@ -256,6 +265,13 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
                 imageUri={generatedResult}
             />
 
+            <AdjustmentPreviewSheet
+                visible={showAdjustmentSheet}
+                themeId={selectedThemeId}
+                onClose={() => setShowAdjustmentSheet(false)}
+                onConfirm={(adjustments) => handleGenerateTable(adjustments)}
+            />
+
             {/* Design Edit Modal omitted to save tokens temporarily or inline it */}
             <Modal visible={showEditModal} animationType="slide" transparent={false} onRequestClose={() => setShowEditModal(false)}>
                <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -268,7 +284,7 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
     );
 };
 
-// Extracted styles from LiveLobbyScreen.js
+// Styles
 const styles = StyleSheet.create({
     mainContainer: { flex: 1, backgroundColor: Theme.colors.primary },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: Theme.colors.primary, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
@@ -324,3 +340,5 @@ const styles = StyleSheet.create({
     mvpListKillsLabel: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: '#64748b', marginTop: 2 },
     disabledBtn: { opacity: 0.6 }
 });
+
+

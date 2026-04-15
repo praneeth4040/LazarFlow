@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 
 // Use 10.0.2.2 for Android Emulator, localhost for iOS Simulator
-const BASE_URL ='https://www.api.lazarflow.app'; 
+const BASE_URL ='https://e733-49-204-99-215.ngrok-free.app'; 
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -40,6 +40,9 @@ const processQueue = (error, token = null) => {
 
 apiClient.interceptors.request.use(
     async (config) => {
+        // Stamp the start time so response interceptors can log round-trip duration
+        config.metadata = { _requestStart: Date.now() };
+
         try {
             // Only read from storage if memory cache is empty
             if (!cachedToken) {
@@ -121,7 +124,18 @@ supabase.auth.onAuthStateChange((event, session) => {
 });
 
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const ms = response.config?.metadata?._requestStart
+            ? Date.now() - response.config.metadata._requestStart
+            : null;
+        const timing = ms !== null ? ` (${ms}ms)` : '';
+        const method = response.config?.method?.toUpperCase() ?? '?';
+        const url = response.config?.url ?? '';
+        const status = response.status;
+        const icon = status < 300 ? '✅' : '⚠️';
+        console.log(`${icon} [CLIENT] ${method} ${url} → ${status}${timing}`);
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
         const detailRaw = error.response?.data?.detail;
@@ -184,10 +198,20 @@ apiClient.interceptors.response.use(
             return Promise.reject(error);
         }
 
-        // Log other errors
+        // Log other errors with timing
         if (error.response) {
-            console.error(`❌ [${error.response.status}] ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url}`);
+            const ms = originalRequest?.metadata?._requestStart
+                ? Date.now() - originalRequest.metadata._requestStart
+                : null;
+            const timing = ms !== null ? ` (${ms}ms)` : '';
+            console.error(`❌ [CLIENT] ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url} → ${error.response.status}${timing}`);
             console.error(`   Response Error:`, error.response.data);
+        } else if (error.code === 'ECONNABORTED' || !error.response) {
+            const ms = originalRequest?.metadata?._requestStart
+                ? Date.now() - originalRequest.metadata._requestStart
+                : null;
+            const timing = ms !== null ? ` (${ms}ms)` : '';
+            console.error(`❌ [CLIENT] ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url} → NETWORK ERROR${timing}`);
         }
 
         // 3. Automatic Retry for Transient Failures (GET requests only)
@@ -212,4 +236,5 @@ apiClient.interceptors.response.use(
     }
 );
 
+export { BASE_URL };
 export default apiClient;

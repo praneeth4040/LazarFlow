@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
 import { CustomAlert as Alert } from '../../lib/AlertService';
+import { Adjustments } from './useRenderPreview';
 
 export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
     const [teams, setTeams] = useState<any[]>([]);
@@ -18,6 +19,8 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedResult, setGeneratedResult] = useState<string | null>(null);
     const [showResultSheet, setShowResultSheet] = useState(false);
+    const [renderStatus, setRenderStatus] = useState('Processing…');
+    const [showAdjustmentSheet, setShowAdjustmentSheet] = useState(false);
 
     const [designTab, setDesignTab] = useState<'community' | 'user'>('community');
     const [renderType, setRenderType] = useState<'standings' | 'mvps'>('standings');
@@ -101,17 +104,33 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         }
     };
 
-    const handleGenerateTable = async () => {
+    /** Called by AdjustmentPreviewSheet after the user confirms their settings. */
+    const handleGenerateTable = async (adjustments?: Adjustments) => {
         if (!selectedThemeId) {
             Alert.alert('Error', 'Please select a design first');
             return;
         }
 
+        setShowAdjustmentSheet(false);
+
         try {
             setIsGenerating(true);
+            setRenderStatus('Connecting…');
+
+            const statusSteps = [
+                { delay: 2500, message: 'Processing design…' },
+                { delay: 6000, message: 'Building image…' },
+                { delay: 11000, message: 'Almost there…' },
+            ];
+            const timers: ReturnType<typeof setTimeout>[] = statusSteps.map(({ delay, message }) =>
+                setTimeout(() => setRenderStatus(message), delay)
+            );
+
             const { renderResults } = require('../../lib/dataService');
-            const result = await renderResults(id, selectedThemeId, renderType);
-            
+            const result = await renderResults(id, selectedThemeId, 'standings', adjustments);
+
+            timers.forEach(clearTimeout);
+
             if (result) {
                 if (result instanceof ArrayBuffer || (result && result.constructor && result.constructor.name === 'ArrayBuffer')) {
                     const base64 = Buffer.from(result).toString('base64');
@@ -128,7 +147,17 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             Alert.alert('Error', 'Failed to generate results table. Please try again.');
         } finally {
             setIsGenerating(false);
+            setRenderStatus('Processing…');
         }
+    };
+
+    /** Opens the adjustment sheet — entry point when user taps "Render Design" */
+    const openAdjustmentSheet = () => {
+        if (!selectedThemeId) {
+            Alert.alert('Error', 'Please select a design first');
+            return;
+        }
+        setShowAdjustmentSheet(true);
     };
 
     const handleDownloadMvp = async (captureRefFunc: Function) => {
@@ -187,7 +216,8 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         teams, playerStats, loading, lobby, themes, showEditModal, setShowEditModal, saving,
         mvpCanvasRef, isGenerating, generatedResult, showResultSheet, setShowResultSheet,
         designTab, setDesignTab, renderType, setRenderType, selectedThemeId, setSelectedThemeId,
-        designData, setDesignData, filteredThemes,
-        fetchLobbyData, loadThemes, handleGenerateTable, handleDownloadMvp, handlePickLogo
+        designData, setDesignData, filteredThemes, renderStatus,
+        showAdjustmentSheet, setShowAdjustmentSheet,
+        fetchLobbyData, loadThemes, handleGenerateTable, openAdjustmentSheet, handleDownloadMvp, handlePickLogo
     };
 };

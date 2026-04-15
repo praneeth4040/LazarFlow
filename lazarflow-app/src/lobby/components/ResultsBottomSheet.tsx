@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView, Animated } from 'react-native';
 import { X, Download } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
@@ -12,8 +12,33 @@ interface ResultsBottomSheetProps {
     imageUri: string | null;
 }
 
+const ShimmerBox: React.FC<{ style?: object }> = ({ style }) => {
+    const shimmer = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+                Animated.timing(shimmer, { toValue: 0, duration: 900, useNativeDriver: true }),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [shimmer]);
+
+    const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.75] });
+
+    return <Animated.View style={[{ backgroundColor: '#e2e8f0', borderRadius: 12 }, style, { opacity }]} />;
+};
+
 export const ResultsBottomSheet: React.FC<ResultsBottomSheetProps> = ({ visible, onClose, imageUri }) => {
     const [downloading, setDownloading] = useState(false);
+    const [imageLoading, setImageLoading] = useState(true);
+
+    // Reset image loading state whenever a new image arrives
+    useEffect(() => {
+        if (imageUri) setImageLoading(true);
+    }, [imageUri]);
 
     const handleDownload = async () => {
         try {
@@ -76,12 +101,27 @@ export const ResultsBottomSheet: React.FC<ResultsBottomSheetProps> = ({ visible,
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetScroll}>
                         <View style={styles.resultPreviewContainer}>
-                            {imageUri && (
-                                <Image 
-                                    source={{ uri: imageUri }} 
-                                    style={styles.resultPreviewImage} 
-                                    resizeMode="contain" 
-                                />
+                            {imageUri ? (
+                                <>
+                                    {imageLoading && (
+                                        <View style={StyleSheet.absoluteFillObject}>
+                                            <ShimmerBox style={{ flex: 1 }} />
+                                            <View style={styles.shimmerLabel}>
+                                                <ActivityIndicator size="small" color={Theme.colors.accent} />
+                                                <Text style={styles.shimmerText}>Rendering image…</Text>
+                                            </View>
+                                        </View>
+                                    )}
+                                    <Image 
+                                        source={{ uri: imageUri }} 
+                                        style={[styles.resultPreviewImage, imageLoading && { opacity: 0 }]}
+                                        resizeMode="contain"
+                                        onLoadStart={() => setImageLoading(true)}
+                                        onLoadEnd={() => setImageLoading(false)}
+                                    />
+                                </>
+                            ) : (
+                                <ShimmerBox style={{ flex: 1 }} />
                             )}
                         </View>
 
@@ -119,6 +159,8 @@ const styles = StyleSheet.create({
     sheetScroll: {},
     resultPreviewContainer: { width: '100%', aspectRatio: 0.7, borderRadius: 16, overflow: 'hidden', backgroundColor: '#f8fafc', marginBottom: 20 },
     resultPreviewImage: { width: '100%', height: '100%' },
+    shimmerLabel: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8, backgroundColor: 'rgba(255,255,255,0.6)' },
+    shimmerText: { fontSize: 13, fontFamily: Theme.fonts.outfit.medium, color: '#64748b' },
     sheetActionRow: { gap: 12 },
     sheetActionBtn: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
     downloadActionBtn: { backgroundColor: Theme.colors.accent },

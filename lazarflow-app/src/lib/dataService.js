@@ -252,14 +252,16 @@ export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
 /**
  * Render a lobby standings results image using a specific theme
  */
-export const renderResults = async (lobbyId, themeId, renderType = 'standings') => {
+export const renderResults = async (lobbyId, themeId, renderType = 'standings', adjustments = null) => {
     try {
-        console.log('🖼️ Requesting Results Render:', { lobbyId, themeId, renderType });
-        const response = await apiClient.post(`/api/render/render-results`, {
-            lobbyId: lobbyId,
-            themeId: themeId,
-            renderType: renderType
-        }, {
+        console.log('🖼️ Requesting Results Render:', { lobbyId, themeId, renderType, adjustments });
+        const body = {
+            lobbyId,
+            themeId,
+            renderType,
+            ...(adjustments ? { adjustments } : {}),
+        };
+        const response = await apiClient.post(`/api/render/render-results`, body, {
             responseType: 'arraybuffer',
             headers: {
                 'Accept': 'image/png, application/json',
