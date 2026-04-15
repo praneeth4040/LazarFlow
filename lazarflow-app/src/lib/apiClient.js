@@ -95,7 +95,7 @@ authEvents.on('SIGNED_OUT', () => {
     cachedExpiry = null;
 });
 
-// Update cache on SIGNED_IN
+// Update cache on SIGNED_IN (manual login)
 authEvents.on('SIGNED_IN', (data) => {
     if (data?.session?.access_token) {
         cachedToken = data.session.access_token;
@@ -105,15 +105,42 @@ authEvents.on('SIGNED_IN', (data) => {
     }
 });
 
+// Listen for Supabase native auth state changes (covers auto-refresh)
+import { supabase } from './supabaseClient';
+supabase.auth.onAuthStateChange((event, session) => {
+    if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session?.access_token) {
+        cachedToken = session.access_token;
+        cachedExpiry = session.expires_at
+            ? String(session.expires_at * 1000)
+            : cachedExpiry;
+    }
+    if (event === 'SIGNED_OUT') {
+        cachedToken = null;
+        cachedExpiry = null;
+    }
+});
+
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        const detail = error.response?.data?.detail;
+        const detailRaw = error.response?.data?.detail;
+        let detail = detailRaw;
+
+        // Backend sometimes passes stringified dicts: "{'message': 'JWT expired', 'code': 'PGRST303'}"
+        if (typeof detailRaw === 'string' && (detailRaw.includes('JWT expired') || detailRaw.includes('PGRST303'))) {
+            detail = { code: 'PGRST303', message: 'JWT expired' };
+        }
+
         const errorCode = typeof detail === 'object' ? detail?.code : null;
 
+        const isAuthExpired = 
+            (error.response?.status === 401 && errorCode === 'AUTH_TOKEN_EXPIRED') ||
+            (error.response?.status === 500 && errorCode === 'PGRST303') ||
+            (error.response?.status === 401 && detail?.message === 'JWT expired');
+
         // 1. Handle EXPIRED token with Silent Refresh
-        if (error.response?.status === 401 && errorCode === 'AUTH_TOKEN_EXPIRED' && !originalRequest._retry) {
+        if (isAuthExpired && !originalRequest._retry) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
@@ -168,7 +195,7 @@ apiClient.interceptors.response.use(
         const isRetryableStatus = error.response?.status >= 500;
         const isGetRequest = originalRequest?.method?.toLowerCase() === 'get';
 
-        if ((isNetworkError || isRetryableStatus) && isGetRequest) {
+        if ((isNetworkError || isRetryableStatus) && isGetRequest && errorCode !== 'PGRST303') {
             originalRequest._retryCount = originalRequest._retryCount || 0;
 
             if (originalRequest._retryCount < MAX_RETRIES) {

@@ -394,7 +394,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                                 ) : (
                                     <TouchableOpacity 
                                         style={styles.uploadBox} 
-                                        onPress={() => handlePickLobbyImages([])}
+                                        onPress={handlePickLobbyImages}
                                     >
                                         {lobbyImages.length > 0 ? (
                                             <View style={styles.uploadedImagesGrid}>
@@ -411,7 +411,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                                                 ))}
                                                 <TouchableOpacity 
                                                     style={styles.addMoreMiniBtn}
-                                                    onPress={() => handlePickLobbyImages([])}
+                                                    onPress={handlePickLobbyImages}
                                                 >
                                                     <Plus size={20} color={Theme.colors.accent} />
                                                 </TouchableOpacity>
@@ -646,7 +646,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                 )}
             </ScrollView>
 
-            <ProcessingOverlay visible={processingLobby || extracting || submittingMappings} />
+            <ProcessingOverlay visible={processingLobby || extracting} />
 
             <Modal
                 transparent={true}

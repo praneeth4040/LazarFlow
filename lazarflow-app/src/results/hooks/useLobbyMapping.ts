@@ -12,8 +12,16 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
   const [showSlotMapping, setShowSlotMapping] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const handlePickLobbyImages = (assets: ImagePicker.ImagePickerAsset[]) => {
-    setLobbyImages(prev => [...prev, ...assets]);
+  const handlePickLobbyImages = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setLobbyImages(prev => [...prev, ...result.assets]);
+    }
   };
 
   const handleRemoveLobbyImage = (index: number) => {
