@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar, Image, Modal, ScrollView, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar, Image, Modal, ScrollView, TextInput, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Home, User, Plus, Palette, Crown, X, Zap } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -124,6 +124,51 @@ const DashboardPage = ({ navigation, route }: any) => {
             Alert.alert('Upload Failed', message);
         } finally {
             dashboard.setUploading(false);
+        }
+    };
+
+    // ── Theme: delete ────────────────────────────────────────────────────────
+    const handleDeleteTheme = (theme: any) => {
+        Alert.alert(
+            'Delete Design',
+            `Delete "${theme.name || 'this design'}"? This cannot be undone.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete', style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const { deleteTheme } = require('../../lib/dataService');
+                            await deleteTheme(theme.id);
+                            
+                            // Optimistic UI update: Remove instantly for snappy UX
+                            dashboard.setUserThemesList((prev: any) => 
+                                prev.filter((t: any) => t.id !== theme.id)
+                            );
+                            
+                            // Ask dashboard to sync and clear AsyncStorage cache in the background
+                            dashboard.fetchUserThemes(true);
+                        } catch (err: any) {
+                            Alert.alert('Error', err?.response?.data?.detail || 'Failed to delete design.');
+                        }
+                    },
+                },
+            ] as any,
+        );
+    };
+
+    // ── Theme: share (testing mode) ──────────────────────────────────────────
+    const handleShareTheme = async (theme: any) => {
+        const { getThemeShareLink } = require('../../lib/dataService');
+        const url = getThemeShareLink(theme.id);
+        try {
+            await Share.share({
+                title: `Check out this design: ${theme.name || 'LazarFlow Design'}`,
+                message: `Check out this design on LazarFlow:\n${url}`,
+                url,
+            });
+        } catch (err) {
+            console.warn('Share error', err);
         }
     };
 
@@ -317,6 +362,9 @@ const DashboardPage = ({ navigation, route }: any) => {
                         communityThemesList={dashboard.communityThemesList}
                         loadingCommunity={dashboard.loadingCommunity} 
                         setPreviewImage={dashboard.setPreviewImage}
+                        onRefresh={dashboard.onRefresh}
+                        refreshing={dashboard.refreshing}
+                        onNavigateToDesign={(theme) => navigation.navigate('DesignDetails', { theme })}
                     />
                 );
             case 'plans':

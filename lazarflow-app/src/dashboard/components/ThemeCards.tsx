@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { Palette, User, Check, Layout } from 'lucide-react-native';
+import { Palette, User, Check, Layout, Trash2, Share2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../styles/theme';
 import { getDesignImageSource } from '../../lib/dataService';
@@ -19,7 +19,7 @@ interface DesignThemeCardProps {
 export const DesignThemeCard: React.FC<DesignThemeCardProps> = React.memo(({ 
     theme, 
     index, 
-    onPress, 
+    onPress,
     variant = 'standard',
     isSelected = false,
     isRightColumn = false,
@@ -86,7 +86,9 @@ export const DesignThemeCard: React.FC<DesignThemeCardProps> = React.memo(({
                     )}
                 </View>
 
-                {/* Selection Indicator */}
+            </View>
+
+            {/* Selection Indicator */}
                 {isSelected && (
                     <View style={styles.selectionCheck}>
                         <Check size={14} color="#fff" strokeWidth={3 as any} />
@@ -121,7 +123,6 @@ export const DesignThemeCard: React.FC<DesignThemeCardProps> = React.memo(({
                         )}
                     </View>
                 </View>
-            </View>
         </TouchableOpacity>
     );
 });

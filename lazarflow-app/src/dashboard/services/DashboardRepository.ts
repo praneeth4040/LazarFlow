@@ -22,8 +22,8 @@ export class DashboardRepository {
         await endLobby(lobbyId);
     }
 
-    static async fetchUserThemes(userId: string): Promise<Theme[]> {
-        return await getUserThemes(userId);
+    static async fetchUserThemes(userId: string, forceRefresh: boolean = false): Promise<Theme[]> {
+        return await getUserThemes(userId, forceRefresh);
     }
 
     static async fetchCommunityDesigns(): Promise<Theme[]> {

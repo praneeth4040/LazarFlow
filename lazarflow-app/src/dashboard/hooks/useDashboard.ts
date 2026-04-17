@@ -61,10 +61,10 @@ export const useDashboard = (user: User | null, refreshUser?: () => void) => {
         }
     }, [user?.id]);
 
-    const fetchUserThemes = useCallback(async () => {
+    const fetchUserThemes = useCallback(async (forceRefresh: boolean = false) => {
         if (!user?.id) return;
         try {
-            const data = await DashboardRepository.fetchUserThemes(user.id);
+            const data = await DashboardRepository.fetchUserThemes(user.id, forceRefresh);
             setUserThemesList(data || []);
         } catch (error) {
             console.error('Error fetching themes:', error);
@@ -90,7 +90,7 @@ export const useDashboard = (user: User | null, refreshUser?: () => void) => {
             promises.push(fetchLobbies(false, activeTab === 'home' ? 5 : null));
         }
         if (activeTab === 'design') {
-            if (designTab === 'own') promises.push(fetchUserThemes());
+            if (designTab === 'own') promises.push(fetchUserThemes(true));
             else promises.push(fetchCommunityThemes());
         }
         if (refreshUser) promises.push(refreshUser());

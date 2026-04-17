@@ -110,8 +110,14 @@ export const getUserThemes = async (userId, forceRefresh = false) => {
         const { data: themes } = await apiClient.get('/api/themes');
         console.log(`📦 Fetched ${themes?.length || 0} total themes from server`);
         
-        const userThemes = themes ? themes.filter(t => t.user_id === userId) : [];
-        console.log(`👤 Found ${userThemes.length} themes for user ${userId}`);
+        // Show 'pending', 'verified', or themes with NO status (treated as verified by default)
+        const userThemes = themes ? themes.filter(t => {
+            const isOwn = t.user_id === userId;
+            const status = t.status?.toLowerCase();
+            // Show if it's mine and has a valid display status (or no status at all)
+            return isOwn && (!status || status === 'pending' || status === 'verified');
+        }) : [];
+        console.log(`👤 Found ${userThemes.length} displayable themes for user ${userId}`);
 
         if (userThemes.length > 0) {
             try {
@@ -157,9 +163,13 @@ export const getCommunityDesigns = async (forceRefresh = false) => {
         const { data: themes } = await apiClient.get('/api/themes');
         console.log(`📦 Fetched ${themes?.length || 0} total themes for community check`);
         
-        // Filter for system themes (user_id is null)
-        const designs = themes ? themes.filter(t => !t.user_id) : [];
-        console.log(`🌐 Found ${designs.length} system themes`);
+        // Show system themes (user_id is null/undefined) that are verified or have no status
+        const designs = themes ? themes.filter(t => {
+            const isSystem = !t.user_id;
+            const status = t.status?.toLowerCase();
+            return isSystem && (!status || status === 'verified');
+        }) : [];
+        console.log(`🌐 Found ${designs.length} verified system themes`);
         
         if (designs.length > 0) {
             console.log(`✅ Found ${designs.length} system themes`);
@@ -214,6 +224,44 @@ export const uploadLogo = async (uri, fileName) => {
 export const createTheme = async (themeData) => {
     const { data } = await apiClient.post('/api/themes', themeData);
     return data;
+};
+
+/**
+ * Copy/Save a theme to the current user's account
+ * Endpoint: POST /api/themes/copy/<theme_id>
+ */
+export const saveThemeCopy = async (themeId) => {
+    const { data } = await apiClient.post(`/api/themes/copy/${themeId}`);
+    return data;
+};
+
+/**
+ * Delete a user-owned theme by ID.
+ * Performs a soft-delete on the backend (status="deleted").
+ */
+export const deleteTheme = async (themeId) => {
+    const { data } = await apiClient.delete(`/api/themes/${themeId}`);
+    return data;
+};
+
+/**
+ * Fetches a single theme by its ID.
+ * Endpoint: GET /api/themes/<id>
+ */
+export const getTheme = async (themeId) => {
+    const { data } = await apiClient.get(`/api/themes/${themeId}`);
+    return data;
+};
+
+/**
+ * Returns a shareable deep-link URL for a verified theme.
+ * Only verified themes (status === 'verified') should be shared.
+ * @param {string} themeId
+ * @returns {string}  e.g. "https://lazarflow.app/design/abc123"
+ */
+export const getThemeShareLink = (themeId) => {
+    const Linking = require('expo-linking');
+    return Linking.createURL(`design/${themeId}`);
 };
 
 /**
@@ -451,14 +499,5 @@ export const updateThemeConfig = async (id, status, mappingConfig) => {
     if (mappingConfig) body.mapping_config = mappingConfig;
 
     const { data } = await apiClient.put(`/api/themes/${id}/config`, body);
-    return data;
-};
-
-/**
- * Delete Theme
- * Endpoint: DELETE /api/themes/<id>
- */
-export const deleteTheme = async (id) => {
-    const { data } = await apiClient.delete(`/api/themes/${id}`);
     return data;
 };

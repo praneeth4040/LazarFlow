@@ -131,6 +131,7 @@ export default function AppNavigator() {
             screens: {
                 ResetPassword: 'reset-password',
                 Login: 'login',
+                DesignDetails: 'design/:themeId',
             }
         }
     };

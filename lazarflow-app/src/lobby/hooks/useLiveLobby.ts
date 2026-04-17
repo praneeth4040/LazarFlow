@@ -1,12 +1,14 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useContext } from 'react';
 import { Buffer } from 'buffer';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
 import { CustomAlert as Alert } from '../../lib/AlertService';
+import { UserContext } from '../../context/UserContext';
 import { Adjustments } from './useRenderPreview';
 
 export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
+    const { user } = useContext(UserContext);
     const [teams, setTeams] = useState<any[]>([]);
     const [playerStats, setPlayerStats] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -95,7 +97,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         try {
             const { getUserThemes, getCommunityDesigns } = require('../../lib/dataService');
             const [userThemes, communityDesigns] = await Promise.all([
-                getUserThemes(),
+                getUserThemes(user?.id),
                 getCommunityDesigns()
             ]);
             

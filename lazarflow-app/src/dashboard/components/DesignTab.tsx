@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Palette, Upload, Sparkles } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { CommunityDesignCard, UserThemeCard } from './ThemeCards';
@@ -15,6 +15,9 @@ interface DesignTabProps {
     communityThemesList: ThemeType[];
     loadingCommunity: boolean;
     setPreviewImage: (source: any) => void;
+    onRefresh?: () => void;
+    refreshing?: boolean;
+    onNavigateToDesign: (theme: ThemeType) => void;
 }
 
 const DesignTab: React.FC<DesignTabProps> = ({
@@ -25,10 +28,16 @@ const DesignTab: React.FC<DesignTabProps> = ({
     userThemesList,
     communityThemesList,
     loadingCommunity,
-    setPreviewImage
+    setPreviewImage,
+    onRefresh,
+    refreshing = false,
+    onNavigateToDesign,
 }) => {
     return (
-        <ScrollView style={styles.content}>
+        <ScrollView 
+            style={styles.content}
+            refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.accent} /> : undefined}
+        >
             <View style={styles.designTabNav}>
                 <TouchableOpacity
                     style={[styles.designTabBtn, designTab === 'own' && styles.designTabBtnActive]}
@@ -71,7 +80,7 @@ const DesignTab: React.FC<DesignTabProps> = ({
                                         key={theme.id || `own-left-${index}`} 
                                         theme={theme} 
                                         index={index} 
-                                        onPress={() => setPreviewImage(getDesignImageSource(theme))}
+                                        onPress={() => onNavigateToDesign(theme)}
                                     />
                                 ))}
                             </View>
@@ -82,7 +91,7 @@ const DesignTab: React.FC<DesignTabProps> = ({
                                         theme={theme} 
                                         index={index} 
                                         isRightColumn={true}
-                                        onPress={() => setPreviewImage(getDesignImageSource(theme))}
+                                        onPress={() => onNavigateToDesign(theme)}
                                     />
                                 ))}
                             </View>
@@ -109,7 +118,7 @@ const DesignTab: React.FC<DesignTabProps> = ({
                                         key={themes.id || `left-${index}`} 
                                         theme={themes} 
                                         index={index} 
-                                        onPress={() => setPreviewImage(getDesignImageSource(themes))}
+                                        onPress={() => onNavigateToDesign(themes)}
                                     />
                                 ))}
                             </View>
@@ -120,7 +129,7 @@ const DesignTab: React.FC<DesignTabProps> = ({
                                         theme={themes} 
                                         index={index} 
                                         isRightColumn={true}
-                                        onPress={() => setPreviewImage(getDesignImageSource(themes))}
+                                        onPress={() => onNavigateToDesign(themes)}
                                     />
                                 ))}
                             </View>
