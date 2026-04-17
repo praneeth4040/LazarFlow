@@ -21,6 +21,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
     const [showResultSheet, setShowResultSheet] = useState(false);
     const [renderStatus, setRenderStatus] = useState('Processing…');
     const [showAdjustmentSheet, setShowAdjustmentSheet] = useState(false);
+    const [renderedImageUri, setRenderedImageUri]       = useState<string | null>(null);
 
     const [designTab, setDesignTab] = useState<'community' | 'user'>('community');
     const [renderType, setRenderType] = useState<'standings' | 'mvps'>('standings');
@@ -40,6 +41,12 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         if (designTab === 'user') return !!theme.user_id;
         return !theme.user_id;
     });
+
+    // The URL of the currently selected theme thumbnail (for client-side preview)
+    const selectedThemeUrl: string | null =
+        themes.find((t: any) => t.id === selectedThemeId)?.url
+        ?? themes.find((t: any) => t.id === selectedThemeId)?.thumbnail
+        ?? null;
 
     const fetchLobbyData = async () => {
         try {
@@ -151,13 +158,58 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         }
     };
 
-    /** Opens the adjustment sheet — entry point when user taps "Render Design" */
-    const openAdjustmentSheet = () => {
+    /**
+     * Called when user taps "Render Design".
+     * Renders the image on the backend FIRST (no adjustments),
+     * then opens the adjustment sheet with the result.
+     * Color tweaks happen client-side inside the sheet.
+     */
+    const openAdjustmentSheet = async () => {
         if (!selectedThemeId) {
             Alert.alert('Error', 'Please select a design first');
             return;
         }
-        setShowAdjustmentSheet(true);
+
+        try {
+            setIsGenerating(true);
+            setRenderStatus('Rendering design…');
+
+            const statusSteps = [
+                { delay: 2500,  message: 'Processing design…' },
+                { delay: 6000,  message: 'Building image…'    },
+                { delay: 11000, message: 'Almost there…'      },
+            ];
+            const timers = statusSteps.map(({ delay, message }) =>
+                setTimeout(() => setRenderStatus(message), delay)
+            );
+
+            const { renderResults } = require('../../lib/dataService');
+            // Render WITHOUT adjustments — color tuning happens client-side
+            const result = await renderResults(id, selectedThemeId, 'standings');
+
+            timers.forEach(clearTimeout);
+
+            if (result) {
+                let uri: string | null = null;
+                if (result instanceof ArrayBuffer ||
+                    (result?.constructor?.name === 'ArrayBuffer')) {
+                    const base64 = Buffer.from(result).toString('base64');
+                    uri = `data:image/jpeg;base64,${base64}`;
+                } else if (typeof result === 'string') {
+                    uri = result;
+                } else if (result.url) {
+                    uri = result.url;
+                }
+                setRenderedImageUri(uri);
+                setShowAdjustmentSheet(true);
+            }
+        } catch (error) {
+            console.error('Error rendering:', error);
+            Alert.alert('Error', 'Failed to render. Please try again.');
+        } finally {
+            setIsGenerating(false);
+            setRenderStatus('Processing…');
+        }
     };
 
     const handleDownloadMvp = async (captureRefFunc: Function) => {
@@ -216,8 +268,10 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         teams, playerStats, loading, lobby, themes, showEditModal, setShowEditModal, saving,
         mvpCanvasRef, isGenerating, generatedResult, showResultSheet, setShowResultSheet,
         designTab, setDesignTab, renderType, setRenderType, selectedThemeId, setSelectedThemeId,
+        selectedThemeUrl,
         designData, setDesignData, filteredThemes, renderStatus,
         showAdjustmentSheet, setShowAdjustmentSheet,
-        fetchLobbyData, loadThemes, handleGenerateTable, openAdjustmentSheet, handleDownloadMvp, handlePickLogo
+        renderedImageUri,
+        fetchLobbyData, loadThemes, openAdjustmentSheet, handleDownloadMvp, handlePickLogo
     };
 };

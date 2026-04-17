@@ -21,9 +21,11 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
         teams, playerStats, loading, lobby, showEditModal, setShowEditModal, saving,
         mvpCanvasRef, isGenerating, generatedResult, showResultSheet, setShowResultSheet,
         designTab, setDesignTab, renderType, setRenderType, selectedThemeId, setSelectedThemeId,
+        selectedThemeUrl,
         filteredThemes, renderStatus,
         showAdjustmentSheet, setShowAdjustmentSheet,
-        fetchLobbyData, loadThemes, handleGenerateTable, openAdjustmentSheet, handleDownloadMvp,
+        renderedImageUri,
+        fetchLobbyData, loadThemes, openAdjustmentSheet, handleDownloadMvp,
     } = useLiveLobby(id, canCustomSocial);
 
     useFocusEffect(
@@ -267,9 +269,8 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
 
             <AdjustmentPreviewSheet
                 visible={showAdjustmentSheet}
-                themeId={selectedThemeId}
+                renderedImageUri={renderedImageUri}
                 onClose={() => setShowAdjustmentSheet(false)}
-                onConfirm={(adjustments) => handleGenerateTable(adjustments)}
             />
 
             {/* Design Edit Modal omitted to save tokens temporarily or inline it */}
