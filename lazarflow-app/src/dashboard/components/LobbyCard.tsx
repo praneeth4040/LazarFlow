@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions } from 'react-native';
 import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, HandMetalIcon, Check, Star } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../styles/theme';
@@ -61,7 +61,35 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
     onPress
 }) => {
     const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
-    const isSettingsActive = activeSettingsId === lobby.id;
+
+    // Local toggle state — instant, no prop round-trip delay
+    const [isOpen, setIsOpen] = useState(false);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
+    const menuBtnRef = React.useRef<React.ElementRef<typeof TouchableOpacity>>(null);
+
+    // Close when another card's settings are opened (parent sets a different id)
+    useEffect(() => {
+        if (activeSettingsId !== lobby.id && isOpen) {
+            setIsOpen(false);
+        }
+    }, [activeSettingsId, lobby.id]);
+
+    const handleSettingsPress = useCallback(() => {
+        const next = !isOpen;
+        if (next && menuBtnRef.current) {
+            // Measure absolute screen position of the button so the Modal
+            // dropdown can be placed directly below it, above the nav bar.
+            menuBtnRef.current.measure((_fx, _fy, width, height, px, py) => {
+                const screenWidth = Dimensions.get('window').width;
+                setDropdownPos({
+                    top:   py + height + 4,
+                    right: screenWidth - (px + width),  // right edge = screen width minus button's right x
+                });
+            });
+        }
+        setIsOpen(next);
+        toggleSettings(next ? lobby.id : null);
+    }, [isOpen, lobby.id, toggleSettings]);
 
     const isPromoted = lobby.is_promoted;
 
@@ -69,7 +97,7 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
         <TouchableOpacity 
             style={[
                 styles.lobbyCard, 
-                { zIndex: isSettingsActive ? 10 : 1 },
+                { zIndex: isOpen ? 10 : 1 },
                 isSelected && styles.lobbyCardSelected,
                 isPromoted && styles.lobbyCardPromoted
             ]}
@@ -82,7 +110,7 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
                     colors={['rgba(251, 191, 36, 0.2)', 'rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0)']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFillObject as any}
+                    style={[StyleSheet.absoluteFillObject as any, { borderRadius: 16 }]}
                     pointerEvents="none"
                 />
             )}
@@ -162,30 +190,54 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
 
                 <View style={styles.settingsBtnWrapper}>
                     <TouchableOpacity
-                        style={[styles.settingsIconBtn, isSettingsActive && styles.settingsIconBtnActive]}
-                        onPress={() => toggleSettings(lobby.id)}
+                        ref={menuBtnRef}
+                        style={[styles.settingsIconBtn, isOpen && styles.settingsIconBtnActive]}
+                        onPress={handleSettingsPress}
                     >
                         <Settings size={18} color={Theme.colors.textSecondary} />
                     </TouchableOpacity>
 
-                    {isSettingsActive && (
-                        <View style={[styles.dropdownMenu, { top: '100%', right: 0 }] as any}>
-                            <TouchableOpacity style={styles.dropdownItem} onPress={() => onEdit(lobby)}>
-                                <Edit size={16} color={Theme.colors.textPrimary} />
-                                <Text style={styles.dropdownText}>Edit</Text>
-                            </TouchableOpacity>
-                            <View style={styles.dropdownDivider} />
-                            <TouchableOpacity style={styles.dropdownItem} onPress={() => onDelete(lobby)}>
-                                <Trash2 size={16} color={Theme.colors.danger} />
-                                <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>
-                            </TouchableOpacity>
-                            <View style={styles.dropdownDivider} />
-                            <TouchableOpacity style={styles.dropdownItem} onPress={() => onEnd(lobby)}>
-                                <Flag size={16} color={Theme.colors.warning} />
-                                <Text style={[styles.dropdownText, { color: Theme.colors.warning }]}>End</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
+                    {/* Render dropdown in a Modal so it floats above the nav bar */}
+                    <Modal
+                        visible={isOpen}
+                        transparent
+                        animationType="none"
+                        onRequestClose={handleSettingsPress}
+                        statusBarTranslucent
+                    >
+                        {/* Transparent backdrop — tap anywhere to close */}
+                        <TouchableOpacity
+                            style={{ flex: 1 }}
+                            activeOpacity={1}
+                            onPress={handleSettingsPress}
+                        >
+                            <View
+                                style={[
+                                    styles.dropdownMenu,
+                                    {
+                                        position: 'absolute',
+                                        top:   dropdownPos.top,
+                                        right: dropdownPos.right,
+                                    },
+                                ]}
+                            >
+                                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setIsOpen(false); toggleSettings(null); onEdit(lobby); }}>
+                                    <Edit size={16} color={Theme.colors.textPrimary} />
+                                    <Text style={styles.dropdownText}>Edit</Text>
+                                </TouchableOpacity>
+                                <View style={styles.dropdownDivider} />
+                                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setIsOpen(false); toggleSettings(null); onDelete(lobby); }}>
+                                    <Trash2 size={16} color={Theme.colors.danger} />
+                                    <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>
+                                </TouchableOpacity>
+                                <View style={styles.dropdownDivider} />
+                                <TouchableOpacity style={styles.dropdownItem} onPress={() => { setIsOpen(false); toggleSettings(null); onEnd(lobby); }}>
+                                    <Flag size={16} color={Theme.colors.warning} />
+                                    <Text style={[styles.dropdownText, { color: Theme.colors.warning }]}>End</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableOpacity>
+                    </Modal>
                 </View>
             </View>
         </TouchableOpacity>
@@ -206,7 +258,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 3,
         position: 'relative',
-        overflow: 'hidden',
+        // overflow: 'hidden' intentionally removed — it clips the settings dropdown.
     },
     lobbyCardSelected: {
         borderColor: Theme.colors.accent,
