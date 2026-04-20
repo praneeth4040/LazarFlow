@@ -174,6 +174,70 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
     }
   };
 
+  // Accepts a pre-built results array — used by the combined AI review+submit flow
+  // to avoid an intermediate setResults() state round-trip.
+  const handleSubmitWithResults = async (resultsData: MatchResult[]) => {
+    if (resultsData.length === 0) {
+      Alert.alert('Error', 'No results to submit');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const updates = [];
+      for (const result of resultsData) {
+        const team = teams.find((t: any) => t.id === result.team_id);
+        if (!team) continue;
+
+        const currentStats = team.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 };
+        const isWinner = parseInt(String(result.position)) === 1;
+
+        const newStats = {
+          matches_played: (currentStats.matches_played || 0) + 1,
+          wins: (currentStats.wins || 0) + (isWinner ? 1 : 0),
+          kill_points: (currentStats.kill_points || 0) + (result.kill_points || 0),
+          placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
+        };
+
+        const updatedMembers = (team.members || []).map((m: any) => {
+          const memberName = typeof m === 'object' ? m.name : m;
+          const matchPerformance = result.members?.find(rm => rm.name === memberName);
+          const matchKills = matchPerformance ? parseInt(String(matchPerformance.kills) || '0') : 0;
+          const currentMemberStats = typeof m === 'object' ? m : { name: memberName, kills: 0, wwcd: 0, matches_played: 0 };
+          return {
+            ...currentMemberStats,
+            kills: (currentMemberStats.kills || 0) + matchKills,
+            wwcd: (currentMemberStats.wwcd || 0) + (isWinner ? 1 : 0),
+            matches_played: (currentMemberStats.matches_played || 0) + 1,
+          };
+        });
+
+        updates.push({ id: team.id, total_points: newStats, members: updatedMembers });
+      }
+
+      if (updates.length > 0) {
+        await lobbyRepository.batchUpdateTeams(lobby.id, updates);
+      }
+
+      const currentStatus = (lobby as any).status?.toLowerCase() || '';
+      if (currentStatus === 'setup' || !currentStatus) {
+        try {
+          await lobbyRepository.updateLobby(lobby.id, { status: 'active' });
+        } catch (statusErr: any) {
+          console.warn('⚠️ Failed to auto-transition lobby status:', statusErr?.response?.data || statusErr.message);
+        }
+      }
+
+      Alert.alert('Success', 'Results submitted successfully!', [
+        { text: 'OK', onPress: () => navigation.navigate('Dashboard') } as any,
+      ]);
+    } catch (err) {
+      console.error('Error submitting results:', err);
+      Alert.alert('Error', 'Failed to submit results');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return {
     results,
     submitting,
@@ -185,6 +249,7 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
     handleUpdateResult,
     handleUpdateMemberKills,
     handleRemoveResult,
-    handleSubmit
+    handleSubmit,
+    handleSubmitWithResults,
   };
 };
