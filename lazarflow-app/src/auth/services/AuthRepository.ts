@@ -15,8 +15,12 @@ export class AuthRepository extends BaseRepository {
 
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
     const response = await this.post<AuthResponse>('/api/auth/register', credentials);
-    if (response.session) {
+    if (response.session && response.session.access_token) {
       await this.syncSession(response.session);
+    } else if ((response as any).requires_email_confirmation) {
+      // Supabase email confirmation is enabled — no session yet.
+      // The app should show a "check your email" screen.
+      console.log('📧 Email confirmation required. No session stored.');
     }
     return response;
   }
@@ -49,6 +53,12 @@ export class AuthRepository extends BaseRepository {
 
   private async syncSession(session: any): Promise<void> {
     const { access_token, refresh_token, expires_in } = session;
+
+    // Guard: never pass null/undefined to AsyncStorage — it will crash.
+    if (!access_token || !refresh_token) {
+      console.warn('syncSession called with null tokens — skipping storage.');
+      return;
+    }
     
     await supabase.auth.setSession({
       access_token,
