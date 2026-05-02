@@ -15,6 +15,25 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    
+    // Password validation criteria
+    const passwordCriteria = [
+        { label: '8+ characters', met: password.length >= 8 },
+        { label: 'One number', met: /\d/.test(password) },
+        { label: 'One special char', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+        { label: 'Uppercase letter', met: /[A-Z]/.test(password) },
+    ];
+
+    const isPasswordStrong = passwordCriteria.every(c => c.met);
+    const strengthCount = passwordCriteria.filter(c => c.met).length;
+    const strengthPercentage = (strengthCount / passwordCriteria.length) * 100;
+
+    const getStrengthColor = () => {
+        if (password.length === 0) return Theme.colors.border;
+        if (strengthCount <= 1) return Theme.colors.danger;
+        if (strengthCount <= 3) return Theme.colors.warning;
+        return Theme.colors.success;
+    };
 
     const handleUpdatePassword = async () => {
         if (!password || !confirmPassword) {
@@ -27,8 +46,8 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
             return;
         }
 
-        if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters');
+        if (!isPasswordStrong) {
+            Alert.alert('Error', 'Please meet all password strength requirements');
             return;
         }
 
@@ -90,6 +109,39 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
                                     {showPassword ? <EyeOff size={20} color={Theme.colors.textSecondary} /> : <Eye size={20} color={Theme.colors.textSecondary} />}
                                 </TouchableOpacity>
                             </View>
+                            
+                            <View style={styles.strengthMeterContainer}>
+                                <View 
+                                    style={[
+                                        styles.strengthMeterFill, 
+                                        { 
+                                            width: `${strengthPercentage}%`, 
+                                            backgroundColor: getStrengthColor() 
+                                        }
+                                    ]} 
+                                />
+                            </View>
+                            
+                            <View style={styles.criteriaContainer}>
+                                {passwordCriteria.map((criteria, index) => (
+                                    <View key={index} style={styles.criteriaItem}>
+                                        <View 
+                                            style={[
+                                                styles.criteriaDot, 
+                                                { backgroundColor: password === '' ? Theme.colors.border : (criteria.met ? Theme.colors.success : Theme.colors.danger) }
+                                            ]} 
+                                        />
+                                        <Text 
+                                            style={[
+                                                styles.criteriaText, 
+                                                { color: password === '' ? Theme.colors.textSecondary : (criteria.met ? Theme.colors.success : Theme.colors.danger) }
+                                            ]}
+                                        >
+                                            {criteria.label}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
 
                         <View style={styles.inputContainer}>
@@ -143,5 +195,44 @@ const styles = StyleSheet.create({
     input: { flex: 1, color: Theme.colors.textPrimary, fontSize: 16, fontFamily: Theme.fonts.outfit.regular },
     button: { backgroundColor: Theme.colors.accent, height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 8, shadowColor: Theme.colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
     buttonDisabled: { opacity: 0.7, backgroundColor: Theme.colors.textSecondary },
-    buttonText: { color: '#fff', fontSize: 16, fontFamily: Theme.fonts.outfit.bold }
+    buttonText: { color: '#fff', fontSize: 16, fontFamily: Theme.fonts.outfit.bold },
+    strengthMeterContainer: {
+        height: 4,
+        backgroundColor: Theme.colors.secondary,
+        borderRadius: 2,
+        marginTop: 8,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    strengthMeterFill: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    criteriaContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginTop: 12,
+        gap: 8,
+    },
+    criteriaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.secondary,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+    },
+    criteriaDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        marginRight: 6,
+    },
+    criteriaText: {
+        fontSize: 11,
+        fontFamily: Theme.fonts.outfit.medium,
+    },
 });
