@@ -110,11 +110,11 @@ export const AdjustmentPreviewSheet: React.FC<Props> = ({
             }
 
             // Capture the SVG-filtered view at full pixel density
+            // Note: react-native-view-shot captures at native resolution by default.
             const uri = await captureRef(imageRef, {
-                format:     'jpg',
-                quality:    0.95,
-                result:     'tmpfile',
-                pixelRatio: 3,    // 3× ensures high-resolution output on all devices
+                format:  'jpg',
+                quality: 0.95,
+                result:  'tmpfile',
             });
 
             await MediaLibrary.saveToLibraryAsync(uri);

@@ -36,6 +36,15 @@ export const useAuth = () => {
     setLoading(true);
     try {
       const data = await authRepository.register(credentials);
+      if ((data as any).requires_email_confirmation) {
+        // Email confirmation is enabled in Supabase — registration succeeded
+        // but no session is issued until the user confirms their email.
+        Alert.alert(
+          'Check Your Email 📧',
+          'Account created! Please check your email and click the confirmation link before signing in.'
+        );
+        return data;
+      }
       if (data.user || data.session) {
         console.log('✅ Registration successful');
         return data;
