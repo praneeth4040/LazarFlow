@@ -10,7 +10,7 @@ import { CustomAlert as Alert } from '../../lib/AlertService';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
 
 import { useLobbyMapping } from '../hooks/useLobbyMapping';
-import { useAIExtraction } from '../hooks/useAIExtraction';
+import { useAIExtractionAsync } from '../hooks/useAIExtractionAsync';
 import { useResultsManagement } from '../hooks/useResultsManagement';
 import { ProcessingOverlay } from '../../components/ProcessingOverlay';
 import { styles } from '../styles/calculateResults.styles';
@@ -20,7 +20,7 @@ const SCREEN_W = Dimensions.get('window').width;
 export const CalculateResultsPage = ({ route, navigation }: any) => {
     const { user, refreshUser } = useContext(UserContext);
     const [lobby, setLobby] = useState(route.params?.lobby || {});
-    const [mode, setMode] = useState<'manual' | 'ai'>('manual');
+    const [mode, setMode] = useState<'manual' | 'ai'>(route.params?.initialMode ?? 'manual');
     const [teams, setTeams] = useState<any[]>([]);
     const [teamSearch, setTeamSearch] = useState('');
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
@@ -39,6 +39,8 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     const mSavedTransX = useRef(0);  const mCurrTransX = useRef(0);
     const mSavedTransY = useRef(0);  const mCurrTransY = useRef(0);
 
+
+
     const fetchLobbyData = async () => {
         try {
             const tData = await lobbyRepository.getLobby(lobby?.id);
@@ -54,6 +56,8 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     const {
         lobbyImages,
         processingLobby,
+        lobbyPhase,
+        lobbyJobStatus,
         processedSlots,
         showSlotMapping,
         submitting: submittingMappings,
@@ -66,7 +70,8 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     } = useLobbyMapping(lobby, teams, fetchLobbyData);
 
     const {
-        extracting,
+        phase: aiPhase,
+        jobStatus: aiJobStatus,
         aiResults,
         showMapping,
         mappings,
@@ -76,7 +81,26 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         handlePickResultImages,
         handleRemoveResultImage,
         handleAIUpload,
-    } = useAIExtraction(lobby, teams, user, refreshUser, navigation);
+    } = useAIExtractionAsync(lobby, teams, user, refreshUser, navigation);
+
+    // Convenience boolean — true while the async job is in flight
+    const extracting = aiPhase === 'uploading' || aiPhase === 'queued';
+
+    // Pulsing animation for the background-job submitted state
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+    useEffect(() => {
+        if (extracting) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, { toValue: 1.18, duration: 800, useNativeDriver: true }),
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+                ])
+            ).start();
+        } else {
+            pulseAnim.stopAnimation();
+            pulseAnim.setValue(1);
+        }
+    }, [extracting]);
 
     const [editableAiData, setEditableAiData] = useState<Record<number, {
         players: { name: string; kills: number }[];
@@ -103,6 +127,13 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
             fetchLobbyData();
         }
     }, [lobby?.id]);
+
+    // Auto-switch to AI tab when slot mapping (process lobby) or AI mapping results become ready
+    useEffect(() => {
+        if (showSlotMapping || showMapping) {
+            setMode('ai');
+        }
+    }, [showSlotMapping, showMapping]);
 
     // Initialise editable kill data each time AI extraction returns new results
     useEffect(() => {
@@ -588,6 +619,9 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                                         </View>
                                         <Text style={styles.processedText}>Lobby Screenshot Processed</Text>
                                     </View>
+                                ) : processingLobby ? (
+                                    // Upload box hidden while job is in flight
+                                    null
                                 ) : (
                                     <TouchableOpacity 
                                         style={styles.uploadBox} 
@@ -629,17 +663,42 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                                         <Check size={20} color="#cbd5e1" style={{ marginRight: 8 }} />
                                         <Text style={styles.completedActionBtnText}>Completed</Text>
                                     </View>
+                                ) : processingLobby ? (
+                                    /* ── BACKGROUND JOB IN FLIGHT ─────────────────── */
+                                    <View style={{ alignItems: 'center', paddingVertical: 20, paddingHorizontal: 12, gap: 12 }}>
+                                        <View style={{
+                                            width: 60, height: 60, borderRadius: 30,
+                                            backgroundColor: Theme.colors.accent + '18',
+                                            borderWidth: 2, borderColor: Theme.colors.accent + '40',
+                                            alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            <ActivityIndicator size="large" color={Theme.colors.accent} />
+                                        </View>
+                                        <View style={{ alignItems: 'center', gap: 4 }}>
+                                            <Text style={{ color: Theme.colors.textPrimary, fontWeight: '700', fontSize: 15, textAlign: 'center' }}>
+                                                {lobbyPhase === 'uploading' ? 'Uploading Screenshots...' : 'AI is Mapping Slots'}
+                                            </Text>
+                                            <Text style={{ color: Theme.colors.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 17 }}>
+                                                {lobbyPhase === 'uploading' ? 'Sending images to the server' : 'Running in the background — safe to leave'}
+                                            </Text>
+                                        </View>
+                                        <View style={{
+                                            flexDirection: 'row', alignItems: 'center', gap: 8,
+                                            backgroundColor: Theme.colors.accent + '12',
+                                            borderWidth: 1, borderColor: Theme.colors.accent + '30',
+                                            borderRadius: 24, paddingHorizontal: 14, paddingVertical: 8,
+                                        }}>
+                                            <Text style={{ fontSize: 16 }}>🔔</Text>
+                                            <Text style={{ color: Theme.colors.accent, fontWeight: '600', fontSize: 12 }}>You'll be notified when done</Text>
+                                        </View>
+                                    </View>
                                 ) : (
-                                    <TouchableOpacity 
-                                        style={[styles.primaryActionBtn, (lobbyImages.length === 0 || processingLobby) && styles.disabledBtn]}
+                                    <TouchableOpacity
+                                        style={[styles.primaryActionBtn, lobbyImages.length === 0 && styles.disabledBtn]}
                                         onPress={handleProcessLobby}
-                                        disabled={processingLobby || lobbyImages.length === 0}
+                                        disabled={lobbyImages.length === 0}
                                     >
-                                        {processingLobby ? (
-                                            <ActivityIndicator color="#fff" />
-                                        ) : (
-                                            <Text style={styles.primaryActionBtnText}>Process Lobby</Text>
-                                        )}
+                                        <Text style={styles.primaryActionBtnText}>Process Lobby</Text>
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -657,60 +716,141 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                             </View>
 
                             <View style={styles.workflowCard}>
-                                <Text style={styles.workflowInstruction}>
-                                    Upload match result screens. <Text style={{ color: Theme.colors.accent, fontWeight: 'bold' }}>Standalone extraction</Text> is supported.
-                                </Text>
+                                {/* ── SUBMITTED / QUEUED STATE ───────────────────────── */}
+                                {extracting ? (
+                                    <View style={{
+                                        alignItems: 'center',
+                                        paddingVertical: 28,
+                                        paddingHorizontal: 16,
+                                        gap: 14,
+                                    }}>
+                                        {/* Pulsing brain icon */}
+                                        <Animated.View style={{
+                                            transform: [{ scale: pulseAnim }],
+                                            width: 72,
+                                            height: 72,
+                                            borderRadius: 36,
+                                            backgroundColor: Theme.colors.accent + '18',
+                                            borderWidth: 2,
+                                            borderColor: Theme.colors.accent + '40',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}>
+                                            <ActivityIndicator size="large" color={Theme.colors.accent} />
+                                        </Animated.View>
 
-                                <TouchableOpacity 
-                                    style={styles.uploadBox} 
-                                    onPress={handlePickResultImages}
-                                >
-                                    {resultImages.length > 0 ? (
-                                        <View style={styles.uploadedImagesGrid}>
-                                            {resultImages.map((img, idx) => (
-                                                <View key={idx} style={styles.miniPreviewContainer}>
-                                                    <Image source={{ uri: img.uri }} style={styles.miniImage} />
-                                                    <TouchableOpacity 
-                                                        style={styles.removeMiniImageBtn}
-                                                        onPress={() => handleRemoveResultImage(idx)}
+                                        {/* Status label */}
+                                        <View style={{ alignItems: 'center', gap: 4 }}>
+                                            <Text style={{ color: Theme.colors.textPrimary, fontWeight: '700', fontSize: 17, textAlign: 'center' }}>
+                                                {aiPhase === 'uploading' ? 'Uploading Screenshots...' : 'LexiView AI is Analyzing'}
+                                            </Text>
+                                            <Text style={{ color: Theme.colors.textSecondary, fontSize: 13, textAlign: 'center', lineHeight: 19 }}>
+                                                {aiPhase === 'uploading'
+                                                    ? 'Sending your images to the server'
+                                                    : aiJobStatus === 'running'
+                                                        ? 'Processing OCR and matching players'
+                                                        : 'Job queued — starting soon'}
+                                            </Text>
+                                        </View>
+
+                                        {/* Notification hint pill */}
+                                        {aiPhase === 'queued' && (
+                                            <View style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                backgroundColor: Theme.colors.accent + '12',
+                                                borderWidth: 1,
+                                                borderColor: Theme.colors.accent + '30',
+                                                borderRadius: 24,
+                                                paddingHorizontal: 14,
+                                                paddingVertical: 9,
+                                            }}>
+                                                <Text style={{ fontSize: 18 }}>🔔</Text>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={{ color: Theme.colors.accent, fontWeight: '600', fontSize: 13 }}>
+                                                        You'll be notified when done
+                                                    </Text>
+                                                    <Text style={{ color: Theme.colors.textSecondary, fontSize: 11, marginTop: 1 }}>
+                                                        Safe to leave this screen
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        )}
+
+                                        {/* Uploaded images count */}
+                                        {resultImages.length > 0 && (
+                                            <Text style={{ color: Theme.colors.textSecondary, fontSize: 12 }}>
+                                                {resultImages.length} screenshot{resultImages.length > 1 ? 's' : ''} submitted
+                                            </Text>
+                                        )}
+                                    </View>
+                                ) : aiPhase === 'done' ? (
+                                    /* ── DONE STATE ─────────────────────────────────── */
+                                    <View style={{ alignItems: 'center', paddingVertical: 24, gap: 10 }}>
+                                        <View style={styles.successIconCircle}>
+                                            <Check size={32} color="#10b981" />
+                                        </View>
+                                        <Text style={{ color: '#10b981', fontWeight: '700', fontSize: 16 }}>Extraction Complete</Text>
+                                        <Text style={{ color: Theme.colors.textSecondary, fontSize: 13, textAlign: 'center' }}>
+                                            Results loaded below — map teams and submit
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    /* ── IDLE STATE ─────────────────────────────────── */
+                                    <>
+                                        <Text style={styles.workflowInstruction}>
+                                            Upload match result screens. <Text style={{ color: Theme.colors.accent, fontWeight: 'bold' }}>Standalone extraction</Text> is supported.
+                                        </Text>
+
+                                        <TouchableOpacity
+                                            style={styles.uploadBox}
+                                            onPress={handlePickResultImages}
+                                        >
+                                            {resultImages.length > 0 ? (
+                                                <View style={styles.uploadedImagesGrid}>
+                                                    {resultImages.map((img, idx) => (
+                                                        <View key={idx} style={styles.miniPreviewContainer}>
+                                                            <Image source={{ uri: img.uri }} style={styles.miniImage} />
+                                                            <TouchableOpacity
+                                                                style={styles.removeMiniImageBtn}
+                                                                onPress={() => handleRemoveResultImage(idx)}
+                                                            >
+                                                                <X size={12} color="#fff" />
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    ))}
+                                                    <TouchableOpacity
+                                                        style={styles.addMoreMiniBtn}
+                                                        onPress={handlePickResultImages}
                                                     >
-                                                        <X size={12} color="#fff" />
+                                                        <Plus size={20} color={Theme.colors.accent} />
                                                     </TouchableOpacity>
                                                 </View>
-                                            ))}
-                                            <TouchableOpacity 
-                                                style={styles.addMoreMiniBtn}
-                                                onPress={handlePickResultImages}
-                                            >
-                                                <Plus size={20} color={Theme.colors.accent} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ) : (
-                                        <>
-                                            <View style={styles.uploadIconCircle}>
-                                                <Upload size={32} color={Theme.colors.accent} />
-                                            </View>
-                                            <Text style={styles.uploadBoxText}>Upload Result Screenshots</Text>
-                                            <Text style={styles.uploadBoxSubtext}>Select multiple images for all ranks</Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
+                                            ) : (
+                                                <>
+                                                    <View style={styles.uploadIconCircle}>
+                                                        <Upload size={32} color={Theme.colors.accent} />
+                                                    </View>
+                                                    <Text style={styles.uploadBoxText}>Upload Result Screenshots</Text>
+                                                    <Text style={styles.uploadBoxSubtext}>Select multiple images for all ranks</Text>
+                                                </>
+                                            )}
+                                        </TouchableOpacity>
 
-                                <TouchableOpacity 
-                                    style={[styles.secondaryActionBtn, (resultImages.length === 0 || extracting) && styles.disabledBtn]}
-                                    onPress={() => handleAIUpload(resultImages)}
-                                    disabled={extracting || resultImages.length === 0}
-                                >
-                                    {extracting ? (
-                                        <ActivityIndicator color={Theme.colors.accent} />
-                                    ) : (
-                                        <Text style={styles.secondaryActionBtnText}>Extract From Screenshots</Text>
-                                    )}
-                                </TouchableOpacity>
-                                
-                                <Text style={styles.independentModeHint}>
-                                    Independent mode: Requires manual team mapping
-                                </Text>
+                                        <TouchableOpacity
+                                            style={[styles.secondaryActionBtn, resultImages.length === 0 && styles.disabledBtn]}
+                                            onPress={() => handleAIUpload(resultImages)}
+                                            disabled={resultImages.length === 0}
+                                        >
+                                            <Text style={styles.secondaryActionBtnText}>Extract From Screenshots</Text>
+                                        </TouchableOpacity>
+
+                                        <Text style={styles.independentModeHint}>
+                                            Independent mode: Requires manual team mapping
+                                        </Text>
+                                    </>
+                                )}
                             </View>
                         </View>
                     </View>
@@ -852,7 +992,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
             )}
 
 
-            <ProcessingOverlay visible={processingLobby || extracting} />
+            <ProcessingOverlay visible={false} />
 
             {/* ── Full-screen reference zoom modal ── */}
             <Modal
