@@ -501,3 +501,71 @@ export const updateThemeConfig = async (id, status, mappingConfig) => {
     const { data } = await apiClient.put(`/api/themes/${id}/config`, body);
     return data;
 };
+
+// ─── Async Background OCR Job Functions (v2 endpoints) ───────────────────────
+
+/**
+ * Submit scoreboard screenshots for async AI extraction.
+ * Returns a job_id immediately (HTTP 202). The heavy AI pipeline runs in the background.
+ * @param {string} lobbyId
+ * @param {Array}  imageAssets - array of Expo ImagePicker assets
+ * @param {Object} options     - { provider?: string }
+ * @returns {Promise<{ job_id: string, status: string }>}
+ */
+export const submitExtractResultsJob = async (lobbyId, imageAssets, options = {}) => {
+    const formData = new FormData();
+    formData.append('lobbyId', lobbyId);
+    imageAssets.forEach((asset, idx) => {
+        const filename = asset.uri.split('/').pop() || `image_${idx}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        formData.append('images', { uri: asset.uri, name: filename, type });
+    });
+    if (options.provider) formData.append('provider', options.provider);
+    const { data } = await apiClient.post('/api/ai/extract-results-v2', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data; // { job_id, status: "pending" }
+};
+
+/**
+ * Submit lobby screenshots for async slot extraction.
+ * Returns a job_id immediately (HTTP 202).
+ * @param {string} lobbyId
+ * @param {Array}  imageAssets - array of Expo ImagePicker assets
+ * @returns {Promise<{ job_id: string, status: string }>}
+ */
+export const submitProcessLobbyJob = async (lobbyId, imageAssets) => {
+    const formData = new FormData();
+    formData.append('lobbyId', lobbyId);
+    imageAssets.forEach((asset, idx) => {
+        const filename = asset.uri.split('/').pop() || `image_${idx}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        formData.append('images', { uri: asset.uri, name: filename, type });
+    });
+    const { data } = await apiClient.post('/api/ai/process-lobby-v2', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data; // { job_id, status: "pending" }
+};
+
+/**
+ * Poll a single job's status and result.
+ * @param {string} jobId
+ * @returns {Promise<{ id, status, result, error, job_type, lobby_id, created_at, updated_at }>}
+ */
+export const getOcrJobStatus = async (jobId) => {
+    const { data } = await apiClient.get(`/api/ai/jobs/${jobId}`);
+    return data;
+};
+
+/**
+ * List recent OCR jobs for the current authenticated user.
+ * @param {number} limit - max 100, default 20
+ * @returns {Promise<{ jobs: Array, count: number }>}
+ */
+export const listOcrJobs = async (limit = 20) => {
+    const { data } = await apiClient.get(`/api/ai/jobs?limit=${limit}`);
+    return data;
+};

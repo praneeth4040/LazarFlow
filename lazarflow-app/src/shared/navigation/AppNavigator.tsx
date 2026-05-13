@@ -9,6 +9,9 @@ import { Theme } from '../../styles/theme';
 import { authService } from '../../lib/authService';
 import { authEvents } from '../../lib/authEvents';
 import { supabase } from '../../lib/supabaseClient';
+// navigationRef is defined in App.js and passed here so push-notification
+// tap handlers can call navigate() from outside the React tree.
+import { navigationRef } from '../../../App';
 
 // Modules: Onboarding & Auth
 import { OnboardingPage } from '../../onboarding/pages/OnboardingPage';
@@ -33,6 +36,7 @@ import { DesignDetailsPage } from '../../dashboard/pages/DesignDetailsPage';
 import { SubscriptionPlansPage } from '../../subscription/pages/SubscriptionPlansPage';
 import { PaymentStatusPage } from '../../subscription/pages/PaymentStatusPage';
 import { GenericErrorPage } from '../../shared/pages/GenericErrorPage';
+import NotificationsPage from '../../notifications/pages/NotificationsPage';
 
 export type RootStackParamList = {
     Onboarding: undefined;
@@ -52,6 +56,7 @@ export type RootStackParamList = {
     SubscriptionPlans: undefined;
     PaymentStatus: undefined;
     GenericError: undefined;
+    Notifications: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -137,7 +142,7 @@ export default function AppNavigator() {
     };
 
     return (
-        <NavigationContainer linking={linking as any}>
+        <NavigationContainer ref={navigationRef} linking={linking as any}>
             <Stack.Navigator
                 id="RootStack"
                 screenOptions={{
@@ -209,9 +214,14 @@ export default function AppNavigator() {
                             component={PaymentStatusPage}
                             options={{ headerShown: false }}
                         />
-                         <Stack.Screen
+                        <Stack.Screen
                             name="GenericError"
                             component={GenericErrorPage}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="Notifications"
+                            component={NotificationsPage}
                             options={{ headerShown: false }}
                         />
 

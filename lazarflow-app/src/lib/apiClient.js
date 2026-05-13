@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 
-const BASE_URL = 'https://www.api.lazarflow.app';
+const BASE_URL = 'https://937d-49-204-102-57.ngrok-free.app';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;

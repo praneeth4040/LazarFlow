@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useFonts, Outfit_300Light, Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import * as Notifications from 'expo-notifications';
 import AppNavigator from './src/shared/navigation/AppNavigator';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { UserProvider } from './src/context/UserContext';
@@ -13,8 +14,13 @@ import { Theme } from './src/styles/theme';
 import { AlertTriangle } from 'lucide-react-native';
 import GlobalAlert from './src/components/GlobalAlert';
 import { globalAlertRef } from './src/lib/AlertService';
+import { getOcrJobStatus } from './src/lib/dataService';
+import { OcrJobProvider } from './src/context/OcrJobContext';
 
 const queryClient = new QueryClient();
+
+/** Shared navigation reference so notification handlers can navigate outside React tree */
+export const navigationRef = React.createRef();
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -81,6 +87,53 @@ export default function App() {
     }
   }, [fontsLoaded, fontError]);
 
+  // ── OCR Job push notification handlers ──────────────────────────────────────
+  useEffect(() => {
+    // Foreground notifications — job finished while app is open
+    const foregroundSub = Notifications.addNotificationReceivedListener(async (notification) => {
+      const data = notification.request.content.data;
+
+      if (data?.type === 'ocr_job_complete' && data?.job_id) {
+        try {
+          const job = await getOcrJobStatus(data.job_id);
+          console.log('📲 OCR job complete (foreground):', data.job_id, '| result teams:', job?.result?.teams?.length ?? 0);
+          // The polling loop in useAIExtractionAsync will pick this up automatically.
+          // No manual state update needed here.
+        } catch (e) {
+          console.warn('📲 Failed to fetch completed OCR job from push:', e);
+        }
+      }
+
+      if (data?.type === 'ocr_job_failed' && data?.job_id) {
+        console.warn('📲 OCR job failed (foreground):', data.job_id);
+        // The polling loop will detect the 'failed' status and surface the error alert.
+      }
+    });
+
+    // Background / killed tap — navigate user to the relevant lobby screen
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+
+      if (data?.type === 'ocr_job_complete' && data?.lobby_id) {
+        console.log('📲 User tapped OCR complete notification. Navigating to CalculateResults...');
+        // navigationRef may not be ready immediately on cold start; delay slightly
+        setTimeout(() => {
+          if (navigationRef.current?.isReady()) {
+            navigationRef.current.navigate('CalculateResults', {
+              lobby: { id: data.lobby_id },
+            });
+          }
+        }, 500);
+      }
+    });
+
+    return () => {
+      foregroundSub.remove();
+      responseSub.remove();
+    };
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────────
+
   if (!fontsLoaded && !fontError) {
     return null;
   }
@@ -90,10 +143,12 @@ export default function App() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <SafeAreaProvider onLayout={onLayoutRootView}>
-            <UserProvider>
-              <AppNavigator />
-              <PushNotificationHandler />
-            </UserProvider>
+            <OcrJobProvider>
+              <UserProvider>
+                <AppNavigator />
+                <PushNotificationHandler />
+              </UserProvider>
+            </OcrJobProvider>
             <GlobalAlert ref={globalAlertRef} />
             <StatusBar style="auto" />
           </SafeAreaProvider>
