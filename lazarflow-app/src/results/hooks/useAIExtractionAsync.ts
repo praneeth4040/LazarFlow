@@ -168,11 +168,37 @@ export function useAIExtractionAsync(
     contextJob?.status === 'done' ? contextJob.jobId : null,
   );
 
+  // ── Rebuild mappings when teams become available (e.g., after async load) ──
+  useEffect(() => {
+    // Only rebuild if we have results but no mappings yet and teams are now available
+    if (aiResults.length > 0 && Object.keys(mappings).length === 0 && teams.length > 0) {
+      const rebuiltMappings = buildInitialMappings(aiResults, teams);
+      if (Object.keys(rebuiltMappings).length > 0) {
+        setMappings(rebuiltMappings);
+        setShowMapping(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teams]);
+
   // ── Watch context job for live updates (polling → done/failed) ────────────
 
   useEffect(() => {
     if (!lobby?.id) return;
     const job = ocrJobCtx.activeJobForLobby(lobby.id);
+
+    // If job no longer exists but we have local state, reset it
+    // This handles the case where user dismissed/submitted results
+    if (!job && (aiResults.length > 0 || showMapping || phase !== 'idle')) {
+      setAiResults([]);
+      setShowMapping(false);
+      setPhase('idle');
+      setMappings({});
+      setJobStatus(null);
+      processedJobIdRef.current = null;
+      return;
+    }
+
     if (!job) return;
 
     // Update live status text

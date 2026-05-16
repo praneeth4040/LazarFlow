@@ -54,7 +54,8 @@
     "react-native-svg": "^15.15.4",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-view-shot": "4.0.3",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "socket.io-client": "^4.8.3"
   },
   "private": true,
   "devDependencies": {
