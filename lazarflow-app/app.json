@@ -93,7 +93,15 @@
           "isAccessMediaLocationEnabled": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/padded_icon.png",
+          "color": "#ffffff",
+          "sounds": []
+        }
+      ]
     ],
     "extra": {
       "eas": {

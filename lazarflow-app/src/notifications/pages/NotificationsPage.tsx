@@ -9,7 +9,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Bell, CheckCircle, XCircle, Trash2, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Bell, CheckCircle, XCircle, Trash2, ChevronRight, Clock, Upload, Brain, Check, X } from 'lucide-react-native';
 import { useOcrJobs, OcrJob } from '../../context/OcrJobContext';
 import { Theme } from '../../styles/theme';
 
@@ -28,16 +28,17 @@ function timeAgo(iso: string): string {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const StatusBadge = ({ status }: { status: OcrJob['status'] }) => {
-  const config: Record<string, { label: string; bg: string; text: string }> = {
-    queued:   { label: '⏳ Queued',      bg: '#fef3c7', text: '#92400e' },
-    uploading:{ label: '📤 Uploading',   bg: '#eff6ff', text: '#1d4ed8' },
-    running:  { label: '🧠 Analyzing',   bg: '#eff6ff', text: '#1d4ed8' },
-    done:     { label: '✅ Complete',    bg: '#d1fae5', text: '#065f46' },
-    failed:   { label: '❌ Failed',      bg: '#fee2e2', text: '#991b1b' },
+  const config: Record<string, { label: string; bg: string; text: string; icon: React.ReactNode }> = {
+    queued:   { label: 'Queued',       bg: '#fef3c7', text: '#92400e', icon: <Clock size={12} color="#92400e" /> },
+    uploading:{ label: 'Uploading',    bg: '#eff6ff', text: '#1d4ed8', icon: <Upload size={12} color="#1d4ed8" /> },
+    running:  { label: 'Analyzing',    bg: '#eff6ff', text: '#1d4ed8', icon: <Brain size={12} color="#1d4ed8" /> },
+    done:     { label: 'Complete',    bg: '#d1fae5', text: '#065f46', icon: <Check size={12} color="#065f46" /> },
+    failed:   { label: 'Failed',      bg: '#fee2e2', text: '#991b1b', icon: <X size={12} color="#991b1b" /> },
   };
   const c = config[status] ?? config.queued;
   return (
     <View style={[styles.badge, { backgroundColor: c.bg }]}>
+      {c.icon}
       <Text style={[styles.badgeText, { color: c.text }]}>{c.label}</Text>
     </View>
   );
@@ -103,9 +104,12 @@ const JobCard = ({ job, onReview, onDismiss }: JobCardProps) => {
       )}
 
       {isInFlight && (
-        <Text style={styles.inFlightHint}>
-          🔔 You'll be notified when complete — safe to leave this screen
-        </Text>
+        <View style={styles.inFlightHint}>
+          <Bell size={14} color={Theme.colors.accent} />
+          <Text style={{ color: Theme.colors.accent, fontSize: 12 }}>
+            You'll be notified when complete — safe to leave this screen
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -297,6 +301,9 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.outfit.regular,
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -328,10 +335,10 @@ const styles = StyleSheet.create({
     fontFamily: Theme.fonts.outfit.bold,
   },
   inFlightHint: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    fontFamily: Theme.fonts.outfit.regular,
-    textAlign: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
   },
   emptyState: {
     alignItems: 'center',
