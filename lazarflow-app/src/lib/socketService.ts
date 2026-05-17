@@ -22,7 +22,6 @@ interface SocketServiceConfig {
 
 const SOCKET_URL = 'https://937d-49-204-102-57.ngrok-free.app'; // TODO: Replace with your ngrok URL
 const MAX_RECONNECT_ATTEMPTS = 5;
-
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
 class SocketService {
