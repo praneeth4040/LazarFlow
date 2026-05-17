@@ -41,14 +41,14 @@ export const getDesignImageSource = (theme) => {
     if (cleanPath.startsWith('optimized/')) {
         // Fallback to supabase for old assets if needed, or point to new API
         // For now, assuming new API handles serving or returns full URLs
-        return { uri: `https://446a-2401-4900-1c0e-672f-616c-3448-8e0b-a295.ngrok-free.app/storage/themes/${cleanPath}` }; 
+        return { uri: `https://www.api.lazarflow.app/storage/themes/${cleanPath}` }; 
     }
 
     if (theme.user_id || theme.is_user_theme) {
-         return { uri: `https://446a-2401-4900-1c0e-672f-616c-3448-8e0b-a295.ngrok-free.app/storage/themes/${cleanPath}` };
+         return { uri: `https://www.api.lazarflow.app/storage/themes/${cleanPath}` };
     }
     
-    return { uri: `https://446a-2401-4900-1c0e-672f-616c-3448-8e0b-a295.ngrok-free.app/storage/${cleanPath}` };
+    return { uri: `https://www.api.lazarflow.app/storage/${cleanPath}` };
 };
 
 /**
