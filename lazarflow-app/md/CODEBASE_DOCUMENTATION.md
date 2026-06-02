@@ -7,7 +7,7 @@
 
 LazarFlow is a mobile application designed for competitive gaming tournament management. It enables users to create lobbies, manage teams, extract participant data from images/text using AI, and generate professional-grade visual standings and results.
 
-The application is built with **React Native (Expo)** and communicates with a custom backend (`api.lazarflow.app`) and **Supabase** for authentication and data persistence.
+The application is built with **React Native (Expo)** and communicates with a custom backend (`www.api.lazarflow.app`) and **Supabase** for authentication and data persistence.
 
 ---
 
@@ -112,7 +112,7 @@ The app requires extensive permissions on Android to support its media features:
 
 ## 6. API Interface Summary
 
-The application interacts with `https://api.lazarflow.app` (proxied or direct) for the following key resources:
+The application interacts with `https://www.api.lazarflow.app` (proxied or direct) for the following key resources:
 
 | Resource | Methods | Description |
 | :--- | :--- | :--- |

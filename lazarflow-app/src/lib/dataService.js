@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient, { BASE_URL } from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CACHE_KEYS = {
@@ -41,14 +41,14 @@ export const getDesignImageSource = (theme) => {
     if (cleanPath.startsWith('optimized/')) {
         // Fallback to supabase for old assets if needed, or point to new API
         // For now, assuming new API handles serving or returns full URLs
-        return { uri: `https://www.api.lazarflow.app/storage/themes/${cleanPath}` }; 
+        return { uri: `${BASE_URL}/storage/themes/${cleanPath}` }; 
     }
 
     if (theme.user_id || theme.is_user_theme) {
-         return { uri: `https://www.api.lazarflow.app/storage/themes/${cleanPath}` };
+         return { uri: `${BASE_URL}/storage/themes/${cleanPath}` };
     }
     
-    return { uri: `https://www.api.lazarflow.app/storage/${cleanPath}` };
+    return { uri: `${BASE_URL}/storage/${cleanPath}` };
 };
 
 /**
