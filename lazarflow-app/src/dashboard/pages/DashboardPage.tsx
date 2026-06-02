@@ -1,7 +1,7 @@
 import React, { useEffect, useContext, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar, Image, Modal, ScrollView, TextInput, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Home, User, Plus, Palette, Crown, X, Zap } from 'lucide-react-native';
+import { Home, User, Plus, Palette, Crown, X, Zap, Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -12,6 +12,7 @@ import { UserContext } from '../../context/UserContext';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useFocusEffect } from '@react-navigation/native';
 import { CustomAlert as Alert } from '../../lib/AlertService';
+import { useOcrJobs } from '../../context/OcrJobContext';
 
 // Dashboard Hooks & Repository
 import { useDashboard } from '../hooks/useDashboard';
@@ -28,6 +29,7 @@ import { SubscriptionPlansPage } from '../../subscription/pages/SubscriptionPlan
 const DashboardPage = ({ navigation, route }: any) => {
     const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
     const { user, loading: userLoading, refreshUser } = useContext(UserContext);
+    const { unreadCount, activeJobsCount } = useOcrJobs();
     
     const dashboard = useDashboard(user, refreshUser);
 
@@ -267,7 +269,31 @@ const DashboardPage = ({ navigation, route }: any) => {
             );
         }
 
-        let title = 'Home';
+        const renderHeaderRight = () => (
+            <View style={styles.headerRight}>
+                <View style={styles.headerBalanceBadge}>
+                    <Zap size={12} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 4 }} />
+                    <Text style={styles.headerBalanceText}>{user?.flux_balance || 0}</Text>
+                </View>
+                {/* Notification Bell */}
+                <TouchableOpacity
+                    style={styles.bellBtn}
+                    onPress={() => navigation.navigate('Notifications')}
+                >
+                    <View style={styles.bellIconWrapper}>
+                        <Bell size={20} color={activeJobsCount > 0 ? Theme.colors.accent : Theme.colors.textPrimary} />
+                    </View>
+                    {unreadCount > 0 && (
+                        <View style={styles.bellBadge}>
+                            <Text style={styles.bellBadgeText}>
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            </View>
+        );
+
         if (dashboard.activeTab === 'home') {
              return (
                 <View style={styles.header}>
@@ -275,15 +301,12 @@ const DashboardPage = ({ navigation, route }: any) => {
                         <Image source={require('../../../assets/logo.png')} style={styles.headerLogo} resizeMode="contain" />
                         <Text style={styles.headerTitle}>LazarFlow</Text>
                     </View>
-                    <View style={styles.headerRight}>
-                        <View style={styles.headerBalanceBadge}>
-                            <Zap size={12} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 4 }} />
-                            <Text style={styles.headerBalanceText}>{user?.flux_balance || 0}</Text>
-                        </View>
-                    </View>
+                    {renderHeaderRight()}
                 </View>
             );
         }
+
+        let title = 'Home';
         if (dashboard.activeTab === 'lobbies') title = 'All Lobbies';
         else if (dashboard.activeTab === 'design') title = 'Design Studio';
         else if (dashboard.activeTab === 'plans') title = 'Subscription Plans';
@@ -292,7 +315,7 @@ const DashboardPage = ({ navigation, route }: any) => {
         return (
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>{title}</Text>
-                <View style={styles.headerRight} />
+                {renderHeaderRight()}
             </View>
         );
     };
@@ -595,9 +618,13 @@ const styles = StyleSheet.create({
     cancelSelectionBtn: { padding: 4 },
     promoteBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
     promoteBtnText: { color: '#fff', fontSize: 14, fontFamily: Theme.fonts.outfit.bold },
-    headerRight: { flex: 1, alignItems: 'flex-end' },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     headerBalanceBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#ffedd5' },
     headerBalanceText: { fontSize: 13, fontFamily: Theme.fonts.outfit.bold, color: '#c2410c' },
+    bellBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Theme.colors.secondary, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+    bellIconWrapper: { position: 'relative', alignItems: 'center', justifyContent: 'center', width: 24, height: 24 },
+    bellBadge: { position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Theme.colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+    bellBadgeText: { color: '#fff', fontSize: 10, fontFamily: Theme.fonts.outfit.bold },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     tabBar: { 
         flexDirection: 'row', 

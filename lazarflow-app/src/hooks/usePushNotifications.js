@@ -17,80 +17,17 @@ Notifications.setNotificationHandler({
     }),
 });
 
-async function registerForPushNotificationsAsync() {
-    let token;
-
-    if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [0, 250, 250, 250],
-            lightColor: '#FF231F7C',
-        });
-    }
-
-    if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-            const { status } = await Notifications.requestPermissionsAsync();
-            finalStatus = status;
-        }
-        if (finalStatus !== 'granted') {
-            console.log('Failed to get push token for push notification!');
-            return;
-        }
-
-        try {
-            // Fetch the native device token (FCM for Android, APNs for iOS)
-            // for the Direct Push method.
-            token = (await Notifications.getDevicePushTokenAsync()).data;
-            console.log('📱 Native Device Push Token:', token);
-        } catch (e) {
-            console.error("❌ Error getting native push token:", e);
-        }
-
-    } else {
-        console.log('Must use physical device for Push Notifications');
-    }
-
-    return token;
-}
-
 export const usePushNotifications = () => {
     const { user } = useContext(UserContext);
     const [expoPushToken, setExpoPushToken] = useState('');
     const [notification, setNotification] = useState(false);
     const tokenRef = useRef('');
+    const tokenSentRef = useRef(false); // Track if token was already sent
     const notificationListener = useRef();
     const responseListener = useRef();
 
+    // Only setup listeners (not token fetching) at mount
     useEffect(() => {
-        let isMounted = true;
-
-        const setupNotifications = async () => {
-            console.log('📱 usePushNotifications: Setting up notifications...');
-            const token = await registerForPushNotificationsAsync();
-            if (!isMounted) return;
-            
-            setExpoPushToken(token);
-            tokenRef.current = token;
-
-            // Store token for logout cleanup
-            if (token) {
-                await AsyncStorage.setItem('last_push_token', token);
-            }
-
-            if (token && user?.id) {
-                console.log('📱 usePushNotifications: User ID found, saving token to profile...', user.id);
-                await saveTokenToProfile(user.id, token);
-            } else if (token) {
-                console.log('📱 usePushNotifications: Token generated but no user ID found yet.');
-            }
-        };
-
-        setupNotifications();
-
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             setNotification(notification);
         });
@@ -100,13 +37,90 @@ export const usePushNotifications = () => {
         });
 
         return () => {
-            isMounted = false;
             if (notificationListener.current) {
                 notificationListener.current.remove();
             }
             if (responseListener.current) {
                 responseListener.current.remove();
             }
+        };
+    }, []);
+
+    // Request permission AND get token AFTER user logs in
+    useEffect(() => {
+        if (!user?.id) return; // Don't run if no user
+
+        let isMounted = true;
+
+        const setupNotificationsAfterLogin = async () => {
+            console.log('📱 usePushNotifications: User logged in, setting up notifications...');
+
+            // Set up notification channel for Android
+            if (Platform.OS === 'android') {
+                await Notifications.setNotificationChannelAsync('default', {
+                    name: 'default',
+                    importance: Notifications.AndroidImportance.MAX,
+                    vibrationPattern: [0, 250, 250, 250],
+                    lightColor: '#FF231F7C',
+                });
+            }
+
+            if (!Device.isDevice) {
+                console.log('📱 usePushNotifications: Must use physical device');
+                return;
+            }
+
+            // Request permissions
+            const { status: existingStatus } = await Notifications.getPermissionsAsync();
+            let finalStatus = existingStatus;
+            if (existingStatus !== 'granted') {
+                const { status } = await Notifications.requestPermissionsAsync();
+                finalStatus = status;
+            }
+
+            if (finalStatus !== 'granted') {
+                console.log('📱 usePushNotifications: Permission denied');
+                return;
+            }
+
+            console.log('📱 usePushNotifications: Permission granted, getting token...');
+
+            try {
+                // Fetch the Expo Push Token
+                // Explicitly provide projectId from app.json/Constants for reliability
+                const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+                
+                if (!projectId) {
+                    console.warn('📱 usePushNotifications: No projectId found in Constants. Ensure app.json has extra.eas.projectId');
+                }
+
+                const { data: expoToken } = await Notifications.getExpoPushTokenAsync({
+                    projectId: projectId
+                });
+
+                if (!isMounted) return;
+
+                tokenRef.current = expoToken;
+                setExpoPushToken(expoToken);
+                console.log('📱 Expo Push Token:', expoToken);
+
+                // Store token for logout cleanup
+                await AsyncStorage.setItem('last_push_token', expoToken);
+
+                // Send to backend
+                console.log('📱 usePushNotifications: Saving token to profile...', user.id);
+                await saveTokenToProfile(user.id, expoToken);
+                tokenSentRef.current = true;
+
+            } catch (e) {
+                console.error("❌ Error getting Expo push token:", e);
+            }
+        };
+
+        setupNotificationsAfterLogin();
+
+        return () => {
+            isMounted = false;
         };
     }, [user?.id]);
 

@@ -1,26 +1,33 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image, Modal, Dimensions, Animated } from 'react-native';
-import { PinchGestureHandler, PanGestureHandler, State as GestureState, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Modal, Animated } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Camera, X, Upload, Search, ArrowLeft, Plus, Check, ChevronDown, ChevronUp, Info, Save, AlertCircle, Skull } from 'lucide-react-native';
+import { ArrowLeft, Info } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { UserContext } from '../../context/UserContext';
+import { useOcrJobs } from '../../context/OcrJobContext';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
 
 import { useLobbyMapping } from '../hooks/useLobbyMapping';
-import { useAIExtraction } from '../hooks/useAIExtraction';
+import { useAIExtractionAsync } from '../hooks/useAIExtractionAsync';
 import { useResultsManagement } from '../hooks/useResultsManagement';
-import { ProcessingOverlay } from '../../components/ProcessingOverlay';
 import { styles } from '../styles/calculateResults.styles';
 
-const SCREEN_W = Dimensions.get('window').width;
+// Import child components
+import { ManualSection } from '../components/ManualSection';
+import { AIWorkflowSection } from '../components/AIWorkflowSection';
+import { SlotMappingSection } from '../components/SlotMappingSection';
+import { AIMappingReview } from '../components/AIMappingReview';
+import { ResultCard } from '../components/ResultCard';
+import { ImageZoomModal } from '../components/ImageZoomModal';
+import { TeamMappingModal } from '../components/TeamMappingModal';
 
 export const CalculateResultsPage = ({ route, navigation }: any) => {
     const { user, refreshUser } = useContext(UserContext);
+    const { clearJob, activeJobForLobby } = useOcrJobs();
     const [lobby, setLobby] = useState(route.params?.lobby || {});
-    const [mode, setMode] = useState<'manual' | 'ai'>('manual');
+    const [mode, setMode] = useState<'manual' | 'ai'>(route.params?.initialMode ?? 'manual');
     const [teams, setTeams] = useState<any[]>([]);
     const [teamSearch, setTeamSearch] = useState('');
     const [mappingModalVisible, setMappingModalVisible] = useState(false);
@@ -29,15 +36,18 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     const [referenceImage, setReferenceImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [zoomModalVisible, setZoomModalVisible] = useState(false);
 
-    // Modal zoom+pan — RN Animated (no extra deps needed)
+    // Modal zoom+pan — RN Animated
     const mPinchRef = useRef<any>(null);
-    const mPanRef   = useRef<any>(null);
-    const mScale    = useRef(new Animated.Value(1)).current;
-    const mTransX   = useRef(new Animated.Value(0)).current;
-    const mTransY   = useRef(new Animated.Value(0)).current;
-    const mSavedScale  = useRef(1);  const mCurrScale  = useRef(1);
-    const mSavedTransX = useRef(0);  const mCurrTransX = useRef(0);
-    const mSavedTransY = useRef(0);  const mCurrTransY = useRef(0);
+    const mPanRef = useRef<any>(null);
+    const mScale = useRef(new Animated.Value(1)).current;
+    const mTransX = useRef(new Animated.Value(0)).current;
+    const mTransY = useRef(new Animated.Value(0)).current;
+    const mSavedScale = useRef(1);
+    const mCurrScale = useRef(1);
+    const mSavedTransX = useRef(0);
+    const mCurrTransX = useRef(0);
+    const mSavedTransY = useRef(0);
+    const mCurrTransY = useRef(0);
 
     const fetchLobbyData = async () => {
         try {
@@ -54,6 +64,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     const {
         lobbyImages,
         processingLobby,
+        lobbyPhase,
         processedSlots,
         showSlotMapping,
         submitting: submittingMappings,
@@ -66,7 +77,8 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     } = useLobbyMapping(lobby, teams, fetchLobbyData);
 
     const {
-        extracting,
+        phase: aiPhase,
+        jobStatus: aiJobStatus,
         aiResults,
         showMapping,
         mappings,
@@ -76,7 +88,19 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         handlePickResultImages,
         handleRemoveResultImage,
         handleAIUpload,
-    } = useAIExtraction(lobby, teams, user, refreshUser, navigation);
+    } = useAIExtractionAsync(lobby, teams, user, refreshUser, navigation);
+
+    // Wrapper to clear job after successful manual submission
+    const handleManualSubmit = async () => {
+        const existingAiJob = activeJobForLobby(lobby?.id);
+        await handleSubmit();
+        if (lobby?.id && existingAiJob) {
+            clearJob(lobby.id, 'extract_results');
+        }
+    };
+
+    // Convenience boolean — true while the async job is in flight
+    const extracting = aiPhase === 'uploading' || aiPhase === 'queued';
 
     const [editableAiData, setEditableAiData] = useState<Record<number, {
         players: { name: string; kills: number }[];
@@ -104,6 +128,13 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         }
     }, [lobby?.id]);
 
+    // Auto-switch to AI tab when slot mapping (process lobby) or AI mapping results become ready
+    useEffect(() => {
+        if (showSlotMapping || showMapping) {
+            setMode('ai');
+        }
+    }, [showSlotMapping, showMapping]);
+
     // Initialise editable kill data each time AI extraction returns new results
     useEffect(() => {
         if (aiResults.length > 0) {
@@ -118,61 +149,101 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         }
     }, [aiResults]);
 
-    const handleApplyMapping = () => {
-        const newExpandedState = { ...expandedResults };
-        const newResults = aiResults.map(res => {
-            const teamId = mappings[res.rank] || (res.rank && mappings[String(res.rank)]);
-            const team = teams.find(t => t.id === teamId);
-
-            if (!team) return null;
-
-            newExpandedState[team.id] = true;
-
-            const pos = parseInt(String(res.rank));
-            const pointsEntry = lobby.points_system.find((p: any) => p.placement === pos);
-            const placementPoints = pointsEntry ? pointsEntry.points : 0;
-            const killPoints = (res.kills || 0) * (lobby.kill_points || 0);
-
-            const registeredMembers = team.members || [];
-            
-            let finalMembers: any[] = [];
-            if (registeredMembers.length === 0) {
-                finalMembers = (res.players || []).map(p => ({
-                    name: p.name,
-                    kills: p.kills || 0,
-                    isExtracted: true
-                }));
-            } else {
-                const { fuzzyMatchName } = require('../../lib/aiUtils');
-                finalMembers = (res.players || []).map(p => {
-                    const match = fuzzyMatchName(p.name, registeredMembers, 0.75);
-                    return {
-                        name: match ? (typeof match.member === 'object' ? match.member.name : match.member) : p.name,
-                        kills: p.kills || 0,
-                        isExtracted: !match
-                    };
-                });
-            }
-
-            return {
-                team_id: team.id,
-                team_name: team.team_name,
-                position: String(res.rank),
-                kills: res.kills || 0,
-                placement_points: placementPoints,
-                kill_points: killPoints,
-                total_points: placementPoints + killPoints,
-                members: finalMembers,
-                isExtracted: true
-            };
-        }).filter(r => r !== null);
-
-        setExpandedResults(newExpandedState);
-        setResults(newResults as any);
-        setShowMapping(false);
+    const handlePickReferenceImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsMultipleSelection: false,
+            quality: 0.9,
+        });
+        if (!result.canceled && result.assets.length > 0) {
+            setReferenceImage(result.assets[0]);
+        }
     };
 
-    // Builds results from AI data + user edits and submits without an intermediate state round-trip
+    // Modal gesture handlers
+    const onModalPinch = ({ nativeEvent }: any) => {
+        const next = Math.max(1, Math.min(6, mSavedScale.current * nativeEvent.scale));
+        mCurrScale.current = next;
+        mScale.setValue(next);
+    };
+
+    const onModalPinchEnd = ({ nativeEvent }: any) => {
+        if (nativeEvent.oldState === GestureState.ACTIVE) mSavedScale.current = mCurrScale.current;
+    };
+
+    const onModalPan = ({ nativeEvent }: any) => {
+        mCurrTransX.current = mSavedTransX.current + nativeEvent.translationX;
+        mCurrTransY.current = mSavedTransY.current + nativeEvent.translationY;
+        mTransX.setValue(mCurrTransX.current);
+        mTransY.setValue(mCurrTransY.current);
+    };
+
+    const onModalPanEnd = ({ nativeEvent }: any) => {
+        if (nativeEvent.oldState === GestureState.ACTIVE) {
+            mSavedTransX.current = mCurrTransX.current;
+            mSavedTransY.current = mCurrTransY.current;
+        }
+    };
+
+    const openZoomModal = () => {
+        mSavedScale.current = 1;
+        mCurrScale.current = 1;
+        mScale.setValue(1);
+        mSavedTransX.current = 0;
+        mCurrTransX.current = 0;
+        mTransX.setValue(0);
+        mSavedTransY.current = 0;
+        mCurrTransY.current = 0;
+        mTransY.setValue(0);
+        setZoomModalVisible(true);
+    };
+
+    // Import GestureState for pinch handler
+    const { State: GestureState } = require('react-native-gesture-handler');
+
+    const filteredSearchTeams = teamSearch.trim()
+        ? teams.filter(t => t.team_name.toLowerCase().includes(teamSearch.trim().toLowerCase()) && !results.some(r => r.team_id === t.id))
+        : [];
+
+    // Handler for team selection in mapping modal
+    const handleMappingTeamSelect = (teamId: string) => {
+        if (selectedSlotIndex !== null) {
+            handleUpdateSlotMapping(selectedSlotIndex, teamId);
+        } else if (selectedAiTeam && selectedAiTeam.rank) {
+            setMappings((prev: Record<string, string>) => ({
+                ...prev,
+                [selectedAiTeam.rank]: teamId
+            }));
+        }
+        setMappingModalVisible(false);
+    };
+
+    // Handler for clearing mapping
+    const handleClearMapping = () => {
+        if (selectedSlotIndex !== null) {
+            handleUpdateSlotMapping(selectedSlotIndex, null);
+        } else if (selectedAiTeam) {
+            const newMappings = { ...mappings };
+            delete newMappings[selectedAiTeam.rank];
+            setMappings(newMappings);
+        }
+        setMappingModalVisible(false);
+    };
+
+    // Handlers for AI mapping review
+    const handleSelectTeamForAI = (result: any) => {
+        setSelectedAiTeam(result);
+        setMappingModalVisible(true);
+    };
+
+    const handleUpdateEditableData = (index: number, data: { players: { name: string; kills: number }[]; totalKills: number }) => {
+        setEditableAiData((prev) => ({
+            ...prev,
+            [index]: data,
+        }));
+    };
+
+    // Handler for combined submit (AI mapping review)
     const handleCombinedSubmit = async () => {
         const unmapped = aiResults.filter((res: any) => !mappings[String(res.rank)]);
         if (unmapped.length > 0) {
@@ -227,56 +298,11 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         }).filter(Boolean) as any[];
 
         await handleSubmitWithResults(builtResults);
-    };
 
-    const handlePickReferenceImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsMultipleSelection: false,
-            quality: 0.9,
-        });
-        if (!result.canceled && result.assets.length > 0) {
-            setReferenceImage(result.assets[0]);
+        if (lobby?.id) {
+            clearJob(lobby.id, 'extract_results');
         }
     };
-
-    const onModalPinch = ({ nativeEvent }: any) => {
-        const next = Math.max(1, Math.min(6, mSavedScale.current * nativeEvent.scale));
-        mCurrScale.current = next;
-        mScale.setValue(next);
-    };
-    const onModalPinchEnd = ({ nativeEvent }: any) => {
-        if (nativeEvent.oldState === GestureState.ACTIVE) mSavedScale.current = mCurrScale.current;
-    };
-
-    const onModalPan = ({ nativeEvent }: any) => {
-        mCurrTransX.current = mSavedTransX.current + nativeEvent.translationX;
-        mCurrTransY.current = mSavedTransY.current + nativeEvent.translationY;
-        mTransX.setValue(mCurrTransX.current);
-        mTransY.setValue(mCurrTransY.current);
-    };
-    const onModalPanEnd = ({ nativeEvent }: any) => {
-        if (nativeEvent.oldState === GestureState.ACTIVE) {
-            mSavedTransX.current = mCurrTransX.current;
-            mSavedTransY.current = mCurrTransY.current;
-        }
-    };
-
-    const openZoomModal = () => {
-        mSavedScale.current = 1;  mCurrScale.current = 1;  mScale.setValue(1);
-        mSavedTransX.current = 0; mCurrTransX.current = 0; mTransX.setValue(0);
-        mSavedTransY.current = 0; mCurrTransY.current = 0; mTransY.setValue(0);
-        setZoomModalVisible(true);
-    };
-
-    // Pre-compute ref image display height from its real aspect ratio
-    const refImgH = referenceImage && referenceImage.width && referenceImage.height
-        ? Math.min(420, Math.round(SCREEN_W / (referenceImage.width / referenceImage.height)))
-        : 260;
-
-    const filteredSearchTeams = teamSearch.trim()
-        ? teams.filter(t => t.team_name.toLowerCase().includes(teamSearch.trim().toLowerCase()) && !results.some(r => r.team_id === t.id))
-        : [];
 
     return (
         <SafeAreaView style={styles.container}>
@@ -292,14 +318,14 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
 
             <View style={styles.toggleContainer}>
                 <View style={styles.toggleBackground}>
-                    <TouchableOpacity 
-                        style={[styles.toggleBtn, mode === 'manual' && styles.toggleBtnActive]} 
+                    <TouchableOpacity
+                        style={[styles.toggleBtn, mode === 'manual' && styles.toggleBtnActive]}
                         onPress={() => setMode('manual')}
                     >
                         <Text style={[styles.toggleText, mode === 'manual' && styles.toggleTextActive]}>Manual</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={[styles.toggleBtn, mode === 'ai' && styles.toggleBtnActive]} 
+                    <TouchableOpacity
+                        style={[styles.toggleBtn, mode === 'ai' && styles.toggleBtnActive]}
                         onPress={() => setMode('ai')}
                     >
                         <Text style={[styles.toggleText, mode === 'ai' && styles.toggleTextActive]}>LexiView AI</Text>
@@ -309,411 +335,74 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
 
             <ScrollView contentContainerStyle={[styles.content, styles.contentContainer]} showsVerticalScrollIndicator={false}>
                 {mode === 'manual' ? (
-                    <View>
-                        {/* ── Reference Screenshot — full-bleed, no card ────── */}
-                        <View style={{ marginHorizontal: -20, marginBottom: 16 }}>
-                            {referenceImage ? (
-                                /* Tap to open full-screen zoom modal */
-                                <TouchableOpacity onPress={openZoomModal} activeOpacity={0.9}>
-                                    <Image
-                                        source={{ uri: referenceImage.uri }}
-                                        style={{ width: SCREEN_W, height: refImgH }}
-                                        resizeMode="cover"
-                                    />
-                                </TouchableOpacity>
-                            ) : (
-                                <TouchableOpacity
-                                    onPress={handlePickReferenceImage}
-                                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, backgroundColor: Theme.colors.accent + '0a', borderTopWidth: 1, borderBottomWidth: 1, borderColor: Theme.colors.accent + '25' }}
-                                    activeOpacity={0.75}
-                                >
-                                    <Camera size={17} color={Theme.colors.accent} />
-                                    <Text style={{ color: Theme.colors.accent, fontWeight: '600', fontSize: 14 }}>Add Reference Screenshot</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
-
-                        {/* ── Team Search ──────────────────────────────────── */}
-                        <View style={styles.searchSection}>
-                            <View style={styles.searchInputContainer}>
-                                <Search size={20} color={Theme.colors.textSecondary} style={styles.searchIcon} />
-                                <TextInput
-                                    style={styles.searchInput}
-                                    placeholder="Search & Add Team..."
-                                    value={teamSearch}
-                                    onChangeText={setTeamSearch}
-                                    placeholderTextColor={Theme.colors.textSecondary}
-                                />
-                            </View>
-                            {filteredSearchTeams.length > 0 && (
-                                <View style={styles.searchResults}>
-                                    {filteredSearchTeams.map(team => (
-                                        <TouchableOpacity key={team.id} style={styles.searchItem} onPress={() => { handleAddResult(team); setTeamSearch(''); }}>
-                                            <Text style={styles.searchItemName}>{team.team_name}</Text>
-                                            <Plus size={18} color={Theme.colors.accent} />
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
-                        </View>
-                    </View>
+                    <ManualSection
+                        referenceImage={referenceImage}
+                        teamSearch={teamSearch}
+                        filteredSearchTeams={filteredSearchTeams}
+                        onPickReferenceImage={handlePickReferenceImage}
+                        onTeamSearchChange={setTeamSearch}
+                        onAddTeam={handleAddResult}
+                        onOpenZoomModal={openZoomModal}
+                    />
                 ) : showSlotMapping ? (
-                    <View style={styles.mappingSection}>
-                        <View style={styles.mappingHeader}>
-                            <Text style={styles.mappingTitle}>Lobby Slot Mapping</Text>
-                            <Text style={styles.mappingSubtitle}>Map extracted slots to registered teams</Text>
-                        </View>
-
-                        {processedSlots.map((item, index) => (
-                            <View key={index} style={styles.slotCard}>
-                                <View style={styles.slotHeader}>
-                                    <Text style={styles.slotLabel}>SLOT {item.slot}</Text>
-                                </View>
-                                
-                                <View style={styles.slotBody}>
-                                    <Text style={styles.slotFieldLabel}>TEAM:</Text>
-                                    <TouchableOpacity 
-                                        style={styles.slotPicker}
-                                        onPress={() => {
-                                            setSelectedSlotIndex(index);
-                                            setMappingModalVisible(true);
-                                        }}
-                                    >
-                                        <Text style={[
-                                            styles.slotPickerText,
-                                            !item.mappedTeamId && { color: Theme.colors.textSecondary }
-                                        ]}>
-                                            {teams.find(t => t.id === item.mappedTeamId)?.team_name || 'Select Team'}
-                                        </Text>
-                                        <ChevronDown size={18} color={Theme.colors.textSecondary} />
-                                    </TouchableOpacity>
-
-                                    <Text style={styles.slotFieldLabel}>PLAYERS:</Text>
-                                    <View style={styles.slotPlayerList}>
-                                        {item.players && item.players.length > 0 ? (
-                                            item.players.map((p, pIdx) => (
-                                                <View key={pIdx} style={styles.playerBadge}>
-                                                    <Text style={styles.playerBadgeText}>{p}</Text>
-                                                </View>
-                                            ))
-                                        ) : (
-                                            <Text style={styles.noPlayersText}>No players identified</Text>
-                                        )}
-                                    </View>
-                                </View>
-                            </View>
-                        ))}
-
-                        <TouchableOpacity 
-                            style={[styles.applyBtn, submittingMappings && styles.disabledBtn]} 
-                            onPress={handleSaveSlotMappings}
-                            disabled={submittingMappings}
-                        >
-                            {submittingMappings ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <>
-                                    <Save size={20} color="#fff" />
-                                    <Text style={styles.applyBtnText}>Save Mappings</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowSlotMapping(false)}>
-                            <Text style={styles.cancelBtnText}>Go Back</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <SlotMappingSection
+                        processedSlots={processedSlots}
+                        teams={teams}
+                        submittingMappings={submittingMappings}
+                        onSelectSlot={(index) => {
+                            setSelectedSlotIndex(index);
+                            setMappingModalVisible(true);
+                        }}
+                        onSaveMappings={() => {
+                            handleSaveSlotMappings();
+                            if (lobby?.id) {
+                                clearJob(lobby.id, 'process_lobby');
+                            }
+                        }}
+                        onCancel={() => setShowSlotMapping(false)}
+                        onDismiss={() => {
+                            setShowSlotMapping(false);
+                            if (lobby?.id) {
+                                clearJob(lobby.id, 'process_lobby');
+                            }
+                        }}
+                    />
                 ) : showMapping ? (
-                    <View style={styles.mappingSection}>
-                        <View style={styles.mappingHeader}>
-                            <Text style={styles.mappingTitle}>Review & Submit</Text>
-                            <Text style={styles.mappingSubtitle}>Map teams, adjust kills if needed, then submit in one step</Text>
-                        </View>
-
-                        {aiResults.map((res, index) => {
-                            const rankStr = String(res.rank);
-                            const isMapped = !!mappings[rankStr];
-                            const editable = editableAiData[index] || {
-                                players: (res.players || []).map((p: any) => ({ name: p.name, kills: p.kills || 0 })),
-                                totalKills: res.kills || 0,
-                            };
-                            const placementPoints = lobby.points_system?.find((p: any) => p.placement === parseInt(rankStr))?.points || 0;
-                            const killPoints = editable.totalKills * (lobby.kill_points || 0);
-                            const totalPoints = placementPoints + killPoints;
-
-                            return (
-                                <View key={index} style={[
-                                    styles.resultCard,
-                                    isMapped ? styles.resultCardMapped : styles.resultCardUnmapped
-                                ]}>
-                                    {/* Rank + status badge */}
-                                    <View style={styles.rankHeader}>
-                                        <Text style={styles.rankPrefix}>#</Text>
-                                        <Text style={styles.rankInput}>{res.rank}</Text>
-                                        {isMapped ? (
-                                            <View style={styles.matchedBadge}>
-                                                <Check size={10} color="#fff" />
-                                                <Text style={styles.matchedBadgeText}>MAPPED</Text>
-                                            </View>
-                                        ) : (
-                                            <View style={styles.unmatchedBadge}>
-                                                <AlertCircle size={10} color="#fff" />
-                                                <Text style={styles.matchedBadgeText}>UNMAPPED</Text>
-                                            </View>
-                                        )}
-                                    </View>
-
-                                    {/* Team picker */}
-                                    <TouchableOpacity
-                                        style={[styles.teamSelectorBox, isMapped && styles.teamSelectorBoxMapped]}
-                                        onPress={() => { setSelectedAiTeam(res); setMappingModalVisible(true); }}
-                                    >
-                                        <Text style={[
-                                            styles.teamNameText,
-                                            !isMapped && { color: Theme.colors.textSecondary }
-                                        ]} numberOfLines={1}>
-                                            {teams.find(t => t.id === mappings[rankStr])?.team_name || 'Select Team...'}
-                                        </Text>
-                                        <ChevronDown size={20} color={isMapped ? Theme.colors.accent : Theme.colors.textPrimary} />
-                                    </TouchableOpacity>
-
-                                    {/* Editable player kills */}
-                                    <View style={[styles.expandedMembersContainer, isMapped && { backgroundColor: '#fff', borderColor: '#d1fae5' }]}>
-                                        <View style={styles.membersHeaderRow}>
-                                            <Text style={styles.membersHeaderLabel}>PLAYER KILLS</Text>
-                                        </View>
-                                        {editable.players.length > 0 ? (
-                                            <View style={styles.membersList}>
-                                                {editable.players.map((player: any, pIdx: number) => (
-                                                    <View key={pIdx} style={[styles.playerListItem, isMapped && { borderColor: '#d1fae5' }]}>
-                                                        <View style={styles.playerListItemLeft}>
-                                                            <View style={styles.playerAvatarPlaceholderSmall}>
-                                                                <Text style={styles.avatarLetterSmall}>{pIdx + 1}</Text>
-                                                            </View>
-                                                            <Text style={styles.memberNameText} numberOfLines={1}>{player.name}</Text>
-                                                        </View>
-                                                        <View style={[styles.playerListItemRight, isMapped && { borderColor: '#10b981' }]}>
-                                                            <Skull size={12} color={isMapped ? '#10b981' : Theme.colors.accent} style={{ marginRight: 6 }} />
-                                                            <TextInput
-                                                                style={[styles.memberKillInput, isMapped && { color: '#059669' }]}
-                                                                keyboardType="numeric"
-                                                                value={String(player.kills)}
-                                                                onChangeText={(val) => {
-                                                                    const newKills = parseInt(val) || 0;
-                                                                    const newPlayers = editable.players.map((p: any, i: number) =>
-                                                                        i === pIdx ? { ...p, kills: newKills } : p
-                                                                    );
-                                                                    const newTotal = newPlayers.reduce((sum: number, p: any) => sum + (p.kills || 0), 0);
-                                                                    setEditableAiData(prev => ({
-                                                                        ...prev,
-                                                                        [index]: { players: newPlayers, totalKills: newTotal },
-                                                                    }));
-                                                                }}
-                                                                placeholder="0"
-                                                                placeholderTextColor={Theme.colors.textSecondary}
-                                                            />
-                                                        </View>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        ) : (
-                                            <Text style={styles.noPlayersText}>No players identified</Text>
-                                        )}
-                                    </View>
-
-                                    {/* Live points summary */}
-                                    <View style={styles.statsFooter}>
-                                        <View style={styles.statBox}>
-                                            <Text style={styles.statLabel}>POSITION{'\n'}POINTS</Text>
-                                            <Text style={styles.statValue}>{placementPoints}</Text>
-                                        </View>
-                                        <View style={styles.statBox}>
-                                            <Text style={styles.statLabel}>KILL{'\n'}POINTS</Text>
-                                            <Text style={styles.statValue}>{killPoints}</Text>
-                                        </View>
-                                        <View style={[styles.statBox, isMapped ? { backgroundColor: '#10b981', borderColor: '#10b981' } : styles.totalStatBox]}>
-                                            <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>TOTAL{'\n'}POINTS</Text>
-                                            <Text style={[styles.statValue, { color: '#fff' }]}>{totalPoints}</Text>
-                                        </View>
-                                    </View>
-                                </View>
-                            );
-                        })}
-
-                        {/* Single submit — replaces the old Apply Results + Submit Results two-step */}
-                        <TouchableOpacity
-                            style={[styles.applyBtn, submitting && styles.disabledBtn]}
-                            onPress={handleCombinedSubmit}
-                            disabled={submitting}
-                        >
-                            {submitting ? (
-                                <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                                <>
-                                    <Check size={20} color="#fff" />
-                                    <Text style={styles.applyBtnText}>Submit Results</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowMapping(false)}>
-                            <Text style={styles.cancelBtnText}>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <AIMappingReview
+                        aiResults={aiResults}
+                        mappings={mappings}
+                        editableAiData={editableAiData}
+                        teams={teams}
+                        lobby={lobby}
+                        submitting={submitting}
+                        onSelectTeam={handleSelectTeamForAI}
+                        onUpdateEditableData={handleUpdateEditableData}
+                        onSubmit={handleCombinedSubmit}
+                        onCancel={() => setShowMapping(false)}
+                        onDismiss={() => {
+                            setShowMapping(false);
+                            if (lobby?.id) {
+                                clearJob(lobby.id, 'extract_results');
+                            }
+                        }}
+                    />
                 ) : (
-                    <View style={styles.aiWorkflowContainer}>
-                        <View style={styles.workflowSection}>
-                            <View style={styles.sectionHeaderRow}>
-                                <Text style={styles.workflowSectionTitle}>Process Lobby</Text>
-                                {teams.some(t => t.members && t.members.length > 0) ? (
-                                    <View style={styles.completedBadgeNew}>
-                                        <Text style={styles.completedBadgeTextNew}>COMPLETED</Text>
-                                    </View>
-                                ) : (
-                                    <View style={styles.stepBadgeNew}>
-                                        <Text style={styles.stepBadgeTextNew}>STEP 1</Text>
-                                    </View>
-                                )}
-                            </View>
-                            
-                            <View style={styles.workflowCard}>
-                                <Text style={styles.workflowInstruction}>
-                                    Upload a lobby screenshot to automatically detect teams and players.
-                                </Text>
-                                
-                                {teams.some(t => t.members && t.members.length > 0) ? (
-                                    <View style={styles.uploadBoxProcessed}>
-                                        <View style={styles.successIconCircle}>
-                                            <Check size={32} color="#10b981" />
-                                        </View>
-                                        <Text style={styles.processedText}>Lobby Screenshot Processed</Text>
-                                    </View>
-                                ) : (
-                                    <TouchableOpacity 
-                                        style={styles.uploadBox} 
-                                        onPress={handlePickLobbyImages}
-                                    >
-                                        {lobbyImages.length > 0 ? (
-                                            <View style={styles.uploadedImagesGrid}>
-                                                {lobbyImages.map((img, idx) => (
-                                                    <View key={idx} style={styles.miniPreviewContainer}>
-                                                        <Image source={{ uri: img.uri }} style={styles.miniImage} />
-                                                        <TouchableOpacity 
-                                                            style={styles.removeMiniImageBtn}
-                                                            onPress={() => handleRemoveLobbyImage(idx)}
-                                                        >
-                                                            <X size={12} color="#fff" />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                ))}
-                                                <TouchableOpacity 
-                                                    style={styles.addMoreMiniBtn}
-                                                    onPress={handlePickLobbyImages}
-                                                >
-                                                    <Plus size={20} color={Theme.colors.accent} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        ) : (
-                                            <>
-                                                <View style={styles.uploadIconCircle}>
-                                                    <Camera size={32} color={Theme.colors.accent} />
-                                                </View>
-                                                <Text style={styles.uploadBoxText}>Add Lobby Screenshot</Text>
-                                            </>
-                                        )}
-                                    </TouchableOpacity>
-                                )}
-
-                                {teams.some(t => t.members && t.members.length > 0) ? (
-                                    <View style={styles.completedActionBtn}>
-                                        <Check size={20} color="#cbd5e1" style={{ marginRight: 8 }} />
-                                        <Text style={styles.completedActionBtnText}>Completed</Text>
-                                    </View>
-                                ) : (
-                                    <TouchableOpacity 
-                                        style={[styles.primaryActionBtn, (lobbyImages.length === 0 || processingLobby) && styles.disabledBtn]}
-                                        onPress={handleProcessLobby}
-                                        disabled={processingLobby || lobbyImages.length === 0}
-                                    >
-                                        {processingLobby ? (
-                                            <ActivityIndicator color="#fff" />
-                                        ) : (
-                                            <Text style={styles.primaryActionBtnText}>Process Lobby</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        </View>
-
-                        <View style={styles.workflowSection}>
-                            <View style={styles.sectionHeaderRow}>
-                                <View style={styles.titleWithIcon}>
-                                    <Text style={styles.workflowSectionTitle}>Extract Results</Text>
-                                    <Info size={16} color={Theme.colors.textSecondary} style={{ marginLeft: 6 }} />
-                                </View>
-                                <View style={styles.stepBadgeNew}>
-                                    <Text style={styles.stepBadgeTextNew}>STEP 2 / MANUAL</Text>
-                                </View>
-                            </View>
-
-                            <View style={styles.workflowCard}>
-                                <Text style={styles.workflowInstruction}>
-                                    Upload match result screens. <Text style={{ color: Theme.colors.accent, fontWeight: 'bold' }}>Standalone extraction</Text> is supported.
-                                </Text>
-
-                                <TouchableOpacity 
-                                    style={styles.uploadBox} 
-                                    onPress={handlePickResultImages}
-                                >
-                                    {resultImages.length > 0 ? (
-                                        <View style={styles.uploadedImagesGrid}>
-                                            {resultImages.map((img, idx) => (
-                                                <View key={idx} style={styles.miniPreviewContainer}>
-                                                    <Image source={{ uri: img.uri }} style={styles.miniImage} />
-                                                    <TouchableOpacity 
-                                                        style={styles.removeMiniImageBtn}
-                                                        onPress={() => handleRemoveResultImage(idx)}
-                                                    >
-                                                        <X size={12} color="#fff" />
-                                                    </TouchableOpacity>
-                                                </View>
-                                            ))}
-                                            <TouchableOpacity 
-                                                style={styles.addMoreMiniBtn}
-                                                onPress={handlePickResultImages}
-                                            >
-                                                <Plus size={20} color={Theme.colors.accent} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    ) : (
-                                        <>
-                                            <View style={styles.uploadIconCircle}>
-                                                <Upload size={32} color={Theme.colors.accent} />
-                                            </View>
-                                            <Text style={styles.uploadBoxText}>Upload Result Screenshots</Text>
-                                            <Text style={styles.uploadBoxSubtext}>Select multiple images for all ranks</Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-
-                                <TouchableOpacity 
-                                    style={[styles.secondaryActionBtn, (resultImages.length === 0 || extracting) && styles.disabledBtn]}
-                                    onPress={() => handleAIUpload(resultImages)}
-                                    disabled={extracting || resultImages.length === 0}
-                                >
-                                    {extracting ? (
-                                        <ActivityIndicator color={Theme.colors.accent} />
-                                    ) : (
-                                        <Text style={styles.secondaryActionBtnText}>Extract From Screenshots</Text>
-                                    )}
-                                </TouchableOpacity>
-                                
-                                <Text style={styles.independentModeHint}>
-                                    Independent mode: Requires manual team mapping
-                                </Text>
-                            </View>
-                        </View>
-                    </View>
+                    <AIWorkflowSection
+                        teams={teams}
+                        lobbyImages={lobbyImages}
+                        resultImages={resultImages}
+                        processingLobby={processingLobby}
+                        extracting={extracting}
+                        aiPhase={aiPhase}
+                        aiJobStatus={aiJobStatus}
+                        lobbyPhase={lobbyPhase}
+                        onPickLobbyImages={handlePickLobbyImages}
+                        onRemoveLobbyImage={handleRemoveLobbyImage}
+                        onProcessLobby={handleProcessLobby}
+                        onPickResultImages={handlePickResultImages}
+                        onRemoveResultImage={handleRemoveResultImage}
+                        onAIUpload={handleAIUpload}
+                    />
                 )}
 
                 {!showMapping && <Text style={styles.sectionTitle}>Match Entries ({results.length})</Text>}
@@ -723,110 +412,18 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                     </View>
                 ) : results.length > 0 ? (
                     <View style={styles.resultsList}>
-                        {results.map((item, index) => {
-                            const isAiSync = !!item.isExtracted || (item.members && item.members.some(m => !!m.isExtracted));
-                            const cardStyle = [styles.resultCard, isAiSync && styles.resultCardMapped];
-
-                            return (
-                                <View key={item.team_id} style={cardStyle}>
-                                    <View style={styles.rankHeader}>
-                                        <Text style={styles.rankPrefix}>#</Text>
-                                        <TextInput
-                                            style={styles.rankInput}
-                                            keyboardType="numeric"
-                                            value={String(item.position)}
-                                            onChangeText={(v) => handleUpdateResult(index, 'position', v)}
-                                            placeholder="1"
-                                            placeholderTextColor={Theme.colors.accent + '80'}
-                                        />
-                                        <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemoveResult(index)}>
-                                            <X size={16} color={Theme.colors.textSecondary} />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <View style={[styles.teamSelectorBox, isAiSync && styles.teamSelectorBoxMapped]}>
-                                        <Text style={styles.teamNameText} numberOfLines={1}>{item.team_name}</Text>
-                                        <TouchableOpacity 
-                                            style={styles.dropdownToggle}
-                                            onPress={() => toggleResultExpansion(item.team_id)}
-                                        >
-                                            {expandedResults[item.team_id] ? (
-                                                <ChevronUp size={20} color={isAiSync ? '#10b981' : Theme.colors.textPrimary} />
-                                            ) : (
-                                                <ChevronDown size={20} color={isAiSync ? '#10b981' : Theme.colors.textPrimary} />
-                                            )}
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    {expandedResults[item.team_id] && (
-                                        <View style={[styles.expandedMembersContainer, isAiSync && { backgroundColor: '#fff', borderColor: '#d1fae5' }]}>
-                                            <View style={styles.membersHeaderRow}>
-                                                <Text style={styles.membersHeaderLabel}>INDIVIDUAL KILLS</Text>
-                                            </View>
-                                            {item.members && item.members.length > 0 ? (
-                                                <View style={styles.membersList}>
-                                                    {item.members.map((member, mIdx) => (
-                                                        <View key={mIdx} style={[styles.playerListItem, member.isExtracted && styles.aiNameContainer, isAiSync && { borderColor: '#d1fae5' }]}>
-                                                            <View style={styles.playerListItemLeft}>
-                                                                <View style={styles.playerAvatarPlaceholderSmall}>
-                                                                    <Text style={styles.avatarLetterSmall}>{mIdx + 1}</Text>
-                                                                </View>
-                                                                <Text style={styles.memberNameText} numberOfLines={1}>{member.name}</Text>
-                                                            </View>
-                                                            <View style={[styles.playerListItemRight, isAiSync && { borderColor: '#10b981' }]}>
-                                                                <Skull size={12} color={isAiSync ? '#10b981' : Theme.colors.accent} style={{ marginRight: 6 }} />
-                                                                <TextInput
-                                                                    style={[styles.memberKillInput, isAiSync && { color: '#059669' }]}
-                                                                    keyboardType="numeric"
-                                                                    value={String(member.kills || 0)}
-                                                                    onChangeText={(v) => handleUpdateMemberKills(index, mIdx, v)}
-                                                                    placeholder="0"
-                                                                    placeholderTextColor={Theme.colors.textSecondary}
-                                                                />
-                                                            </View>
-                                                        </View>
-                                                    ))}
-                                                </View>
-                                            ) : (
-                                                <View>
-                                                    <Text style={styles.noPlayersText}>No team members found</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    )}
-
-                                    <View style={styles.killsInputContainer}>
-                                        <Text style={styles.killsLabel}>Total Team Kills</Text>
-                                        <View style={[styles.killsInputBox, isAiSync && styles.killsInputBoxMapped]}>
-                                            <TextInput
-                                                style={[styles.killsInput, isAiSync && { color: '#059669' }]}
-                                                keyboardType="numeric"
-                                                value={String(item.kills || 0)}
-                                                onChangeText={(v) => handleUpdateResult(index, 'kills', v)}
-                                                placeholder="0"
-                                                placeholderTextColor={Theme.colors.textSecondary}
-                                            />
-                                        </View>
-                                    </View>
-
-                                    <View style={styles.statsFooter}>
-                                        <View style={styles.statBox}>
-                                            <Text style={styles.statLabel}>POSITION{'\n'}POINTS</Text>
-                                            <Text style={styles.statValue}>{item.placement_points || 0}</Text>
-                                        </View>
-                                        <View style={styles.statBox}>
-                                            <Text style={styles.statLabel}>KILL{'\n'}POINTS</Text>
-                                            <Text style={styles.statValue}>{item.kill_points || 0}</Text>
-                                        </View>
-                                        <View style={[styles.statBox, isAiSync ? { backgroundColor: '#10b981', borderColor: '#10b981' } : styles.totalStatBox]}>
-                                            <Text style={[styles.statLabel, { color: 'rgba(255,255,255,0.7)' }]}>TOTAL{'\n'}POINTS</Text>
-                                            <Text style={[styles.statValue, { color: '#fff' }]}>{item.total_points || 0}</Text>
-                                        </View>
-                                    </View>
-                                </View>
-                            );
-                        })}
-
+                        {results.map((item, index) => (
+                            <ResultCard
+                                key={item.team_id}
+                                item={item}
+                                index={index}
+                                isExpanded={expandedResults[item.team_id] || false}
+                                onToggleExpand={() => toggleResultExpansion(item.team_id)}
+                                onUpdateResult={(field, value) => handleUpdateResult(index, field, value)}
+                                onUpdateMemberKills={(memberIndex, value) => handleUpdateMemberKills(index, memberIndex, value)}
+                                onRemove={() => handleRemoveResult(index)}
+                            />
+                        ))}
                         <View style={{ height: 80 }} />
                     </View>
                 ) : null}
@@ -837,7 +434,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                 <View style={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10, backgroundColor: Theme.colors.background, borderTopWidth: 1, borderTopColor: Theme.colors.accent + '22' }}>
                     <TouchableOpacity
                         style={[styles.submitFinalBtn, submitting && styles.disabledBtn, { marginBottom: 0 }]}
-                        onPress={handleSubmit}
+                        onPress={handleManualSubmit}
                         disabled={submitting}
                     >
                         {submitting ? (
@@ -851,9 +448,6 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                 </View>
             )}
 
-
-            <ProcessingOverlay visible={processingLobby || extracting} />
-
             {/* ── Full-screen reference zoom modal ── */}
             <Modal
                 visible={zoomModalVisible}
@@ -862,170 +456,44 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                 statusBarTranslucent={true}
                 onRequestClose={() => setZoomModalVisible(false)}
             >
-                {/* GestureHandlerRootView required inside Modal for Android gesture context */}
-                <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
-                    <TouchableOpacity
-                        onPress={() => setZoomModalVisible(false)}
-                        style={{ position: 'absolute', top: 52, right: 16, zIndex: 10, width: 38, height: 38, borderRadius: 19, backgroundColor: '#ffffff25', borderWidth: 1, borderColor: '#ffffff30', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                        <X size={18} color="#fff" />
-                    </TouchableOpacity>
-
-                    <PinchGestureHandler
-                        ref={mPinchRef}
-                        simultaneousHandlers={mPanRef}
-                        onGestureEvent={onModalPinch}
-                        onHandlerStateChange={onModalPinchEnd}
-                    >
-                        <Animated.View style={{ flex: 1 }}>
-                            <PanGestureHandler
-                                ref={mPanRef}
-                                simultaneousHandlers={mPinchRef}
-                                onGestureEvent={onModalPan}
-                                onHandlerStateChange={onModalPanEnd}
-                                minPointers={1}
-                                maxPointers={2}
-                            >
-                                <Animated.View
-                                    style={{
-                                        flex: 1,
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        transform: [
-                                            { translateX: mTransX },
-                                            { translateY: mTransY },
-                                            { scale: mScale },
-                                        ],
-                                    }}
-                                >
-                                    {referenceImage && (
-                                        <Image
-                                            source={{ uri: referenceImage.uri }}
-                                            style={{
-                                                width: SCREEN_W,
-                                                aspectRatio: (referenceImage.width && referenceImage.height)
-                                                    ? referenceImage.width / referenceImage.height
-                                                    : 16 / 9,
-                                            }}
-                                            resizeMode="contain"
-                                        />
-                                    )}
-                                </Animated.View>
-                            </PanGestureHandler>
-                        </Animated.View>
-                    </PinchGestureHandler>
-                </GestureHandlerRootView>
+                <ImageZoomModal
+                    visible={zoomModalVisible}
+                    imageUri={referenceImage?.uri || null}
+                    imageWidth={referenceImage?.width}
+                    imageHeight={referenceImage?.height}
+                    onClose={() => setZoomModalVisible(false)}
+                    mPinchRef={mPinchRef}
+                    mPanRef={mPanRef}
+                    mScale={mScale}
+                    mTransX={mTransX}
+                    mTransY={mTransY}
+                    onPinchGestureEvent={onModalPinch}
+                    onPinchHandlerStateChange={onModalPinchEnd}
+                    onPanGestureEvent={onModalPan}
+                    onPanHandlerStateChange={onModalPanEnd}
+                />
             </Modal>
 
+            {/* ── Team mapping modal ── */}
             <Modal
                 transparent={true}
                 visible={mappingModalVisible}
                 animationType="slide"
                 onRequestClose={() => setMappingModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Map AI Result</Text>
-                            <TouchableOpacity onPress={() => setMappingModalVisible(false)}>
-                                <X size={24} color={Theme.colors.textPrimary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.aiSummary}>
-                            <Text style={styles.aiSummaryLabel}>AI extracted data for:</Text>
-                            {selectedSlotIndex !== null ? (
-                                <>
-                                    <Text style={styles.aiSummaryName}>SLOT {processedSlots[selectedSlotIndex]?.slot}</Text>
-                                    <Text style={styles.aiSummaryDetail}>{processedSlots[selectedSlotIndex]?.players?.length || 0} players identified</Text>
-                                </>
-                            ) : (
-                                <>
-                                    <Text style={styles.aiSummaryName}>#{selectedAiTeam?.rank}</Text>
-                                    <Text style={styles.aiSummaryDetail}>{selectedAiTeam?.kills} kills</Text>
-                                </>
-                            )}
-                        </View>
-
-                        <Text style={styles.sectionLabel}>Select Registered Team</Text>
-                        <ScrollView style={styles.teamOptionsList}>
-                            {teams.map(team => {
-                                let isSelected = false;
-                                let isMappedToOther = false;
-
-                                if (selectedSlotIndex !== null) {
-                                    isSelected = processedSlots[selectedSlotIndex].mappedTeamId === team.id;
-                                    isMappedToOther = processedSlots.some(
-                                        (slot, idx) => slot.mappedTeamId === team.id && idx !== selectedSlotIndex
-                                    );
-                                } else {
-                                    isSelected = mappings[selectedAiTeam?.rank] === team.id;
-                                    isMappedToOther = Object.entries(mappings).some(
-                                        ([rank, registeredId]) => registeredId === team.id && parseInt(rank, 10) !== parseInt(selectedAiTeam?.rank, 10)
-                                    );
-                                }
-
-                                return (
-                                    <TouchableOpacity
-                                        key={team.id}
-                                        style={[
-                                            styles.teamOption,
-                                            isSelected && styles.teamOptionSelected,
-                                            isMappedToOther && styles.teamOptionDisabled
-                                        ]}
-                                        disabled={isMappedToOther}
-                                        onPress={() => {
-                                            if (selectedSlotIndex !== null) {
-                                                handleUpdateSlotMapping(selectedSlotIndex, team.id);
-                                            } else if (selectedAiTeam && selectedAiTeam.rank) {
-                                                setMappings(prev => ({
-                                                    ...prev,
-                                                    [selectedAiTeam.rank]: team.id
-                                                }));
-                                            }
-                                            setMappingModalVisible(false);
-                                        }}
-                                    >
-                                        <View style={styles.teamOptionLeft}>
-                                            <Text style={[
-                                                styles.teamOptionText,
-                                                isSelected && styles.teamOptionTextSelected,
-                                                isMappedToOther && styles.teamOptionTextDisabled
-                                            ]}>
-                                                {team.team_name}
-                                            </Text>
-                                            {isMappedToOther && (
-                                                <Text style={styles.alreadyMappedText}>Already assigned</Text>
-                                            )}
-                                        </View>
-                                        {isSelected && (
-                                            <Check size={20} color={Theme.colors.accent} />
-                                        )}
-                                        {isMappedToOther && (
-                                            <X size={16} color={Theme.colors.textSecondary} />
-                                        )}
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </ScrollView>
-
-                        <TouchableOpacity
-                            style={styles.clearMappingBtn}
-                            onPress={() => {
-                                if (selectedSlotIndex !== null) {
-                                    handleUpdateSlotMapping(selectedSlotIndex, null);
-                                } else {
-                                    const newMappings = { ...mappings };
-                                    delete newMappings[selectedAiTeam?.rank];
-                                    setMappings(newMappings);
-                                }
-                                setMappingModalVisible(false);
-                            }}
-                        >
-                            <Text style={styles.clearMappingText}>Clear Mapping</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
+                <TeamMappingModal
+                    visible={mappingModalVisible}
+                    teams={teams}
+                    selectedSlotIndex={selectedSlotIndex}
+                    selectedAiTeam={selectedAiTeam}
+                    processedSlots={processedSlots}
+                    mappings={mappings}
+                    onSelectTeam={handleMappingTeamSelect}
+                    onClearMapping={handleClearMapping}
+                    onClose={() => setMappingModalVisible(false)}
+                    handleUpdateSlotMapping={handleUpdateSlotMapping}
+                    setMappings={setMappings}
+                />
             </Modal>
         </SafeAreaView>
     );
