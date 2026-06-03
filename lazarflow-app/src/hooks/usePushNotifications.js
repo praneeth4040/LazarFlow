@@ -87,7 +87,17 @@ export const usePushNotifications = () => {
 
             try {
                 // Fetch the Expo Push Token
-                const { data: expoToken } = await Notifications.getExpoPushTokenAsync();
+                // Explicitly provide projectId from app.json/Constants for reliability
+                const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+                
+                if (!projectId) {
+                    console.warn('📱 usePushNotifications: No projectId found in Constants. Ensure app.json has extra.eas.projectId');
+                }
+
+                const { data: expoToken } = await Notifications.getExpoPushTokenAsync({
+                    projectId: projectId
+                });
+
                 if (!isMounted) return;
 
                 tokenRef.current = expoToken;

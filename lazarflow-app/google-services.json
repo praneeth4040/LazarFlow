@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "924905645832",
-    "project_id": "lazarflowapp",
-    "storage_bucket": "lazarflowapp.firebasestorage.app"
+    "project_number": "729960704927",
+    "project_id": "lazarflow-fc9c5",
+    "storage_bucket": "lazarflow-fc9c5.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:924905645832:android:f9ac20b54bec5508a1aebd",
+        "mobilesdk_app_id": "1:729960704927:android:60d789bf601f56d74b6baa",
         "android_client_info": {
           "package_name": "com.lazarflow.app"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBUdZ3TJ6QVv4P0ZaW4qYZ4_KwvMbXfuvA"
+          "current_key": "AIzaSyAkk-C7QNuZj9xF_OibJH1OUfLCQkY458g"
         }
       ],
       "services": {

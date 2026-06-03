@@ -19,7 +19,6 @@ interface SocketServiceConfig {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
 const SOCKET_URL = 'https://www.api.lazarflow.app'; // Production URL
 const MAX_RECONNECT_ATTEMPTS = 5;
 // ─── Singleton ────────────────────────────────────────────────────────────────

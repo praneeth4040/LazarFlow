@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions } from 'react-native';
-import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, HandMetalIcon, Check, Star } from 'lucide-react-native';
+import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, Check } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../styles/theme';
 import { formatAlphanumericDate } from '../../lib/dateUtils';
 import { Lobby } from '../types';
+import { useOcrJobs } from '../../context/OcrJobContext';
 
 export const getLobbyIconConfig = (game: string, index: number = 0) => {
     const gameName = String(game || '').toLowerCase();
@@ -61,6 +62,11 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
     onPress
 }) => {
     const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
+    const { activeJobForLobby } = useOcrJobs();
+    
+    // Check if there is an active extraction job for this lobby
+    const activeJob = activeJobForLobby(lobby.id);
+    const isProcessing = activeJob && ['uploading', 'queued', 'running'].includes(activeJob.status);
 
     // Local toggle state — instant, no prop round-trip delay
     const [isOpen, setIsOpen] = useState(false);
@@ -99,13 +105,15 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
                 styles.lobbyCard, 
                 { zIndex: isOpen ? 10 : 1 },
                 isSelected && styles.lobbyCardSelected,
-                isPromoted && styles.lobbyCardPromoted
+                isPromoted && styles.lobbyCardPromoted,
+                isProcessing && styles.lobbyCardProcessing
             ]}
             onLongPress={onLongPress}
-            onPress={onPress}
-            activeOpacity={onPress || onLongPress ? 0.8 : 1}
+            onPress={isProcessing ? undefined : onPress}
+            activeOpacity={isProcessing ? 1 : (onPress || onLongPress ? 0.8 : 1)}
+            disabled={isProcessing}
         >
-            {isPromoted && (
+            {isPromoted && !isProcessing && (
                 <LinearGradient
                     colors={['rgba(251, 191, 36, 0.2)', 'rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0)']}
                     start={{ x: 0, y: 0 }}
@@ -113,6 +121,14 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
                     style={[StyleSheet.absoluteFillObject as any, { borderRadius: 16 }]}
                     pointerEvents="none"
                 />
+            )}
+
+            {isProcessing && (
+                <View style={[StyleSheet.absoluteFillObject as any, styles.processingOverlay]}>
+                     <View style={styles.processingBadge}>
+                        <Text style={styles.processingBadgeText}>PROCESSING...</Text>
+                    </View>
+                </View>
             )}
             
             <View style={styles.lobbyCardHeader}>
@@ -161,11 +177,12 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
                 <View style={[styles.statItem, { flex: 1, alignItems: 'flex-end' }]}>
                     {lobby.status === 'setup' ? (
                         <TouchableOpacity 
-                            style={styles.manageTeamsLink}
-                            onPress={() => onManageTeams(lobby)}
+                            style={[styles.manageTeamsLink, isProcessing && { opacity: 0.5 }]}
+                            onPress={() => !isProcessing && onManageTeams(lobby)}
+                            disabled={isProcessing}
                         >
                             <Text style={styles.manageTeamsLinkText}>Manage Teams</Text>
-                            <ArrowRight size={14} color={Theme.colors.accent} />
+                            <ArrowRight size={14} color={isProcessing ? Theme.colors.textSecondary : Theme.colors.accent} />
                         </TouchableOpacity>
                     ) : (
                         <View style={{ height: 20 }} />
@@ -191,7 +208,10 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
                 <View style={styles.settingsBtnWrapper}>
                     <TouchableOpacity
                         ref={menuBtnRef}
-                        style={[styles.settingsIconBtn, isOpen && styles.settingsIconBtnActive]}
+                        style={[
+                            styles.settingsIconBtn, 
+                            isOpen && styles.settingsIconBtnActive
+                        ]}
                         onPress={handleSettingsPress}
                     >
                         <Settings size={18} color={Theme.colors.textSecondary} />
@@ -268,6 +288,34 @@ const styles = StyleSheet.create({
     lobbyCardPromoted: {
         borderColor: '#fcd34d',
         borderWidth: 1,
+    },
+    lobbyCardProcessing: {
+        opacity: 0.7,
+        borderColor: '#94a3b8',
+    },
+    processingOverlay: {
+        backgroundColor: 'rgba(255, 255, 255, 0.4)',
+        zIndex: 10,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    processingBadge: {
+        backgroundColor: '#475569',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    processingBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        letterSpacing: 1,
     },
     lobbyCardHeader: {
         flexDirection: 'row',
