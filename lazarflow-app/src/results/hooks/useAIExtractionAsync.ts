@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { submitExtractResultsJob } from '../../lib/dataService';
+import { BASE_URL } from '../../lib/apiClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { useOcrJobs } from '../../context/OcrJobContext';
 import { ExtractedAIResult, LobbyData } from '../types';
@@ -40,6 +41,20 @@ export function transformExtractResult(raw: any): ExtractedAIResult[] {
         name: p.name,
         kills: parseInt(p.kills ?? 0, 10),
       })),
+      verification_urls: (() => {
+        const rawUrls = team.verification_urls || (team.verification_url ? [team.verification_url] : []);
+        const urlArray = Array.isArray(rawUrls) ? rawUrls : [rawUrls];
+        return urlArray
+          .map((url: any) => String(url).replace(/`/g, '').trim())
+          .filter((url: string) => !!url)
+          .map((url: string) => {
+            if (url.startsWith('/') && !url.startsWith('http')) {
+              return `${BASE_URL}${url}`;
+            }
+            return url;
+          });
+      })(),
+      cell_request_id: team.cell_request_id,
     };
   });
 }
@@ -99,7 +114,6 @@ function buildInitialMappings(
     });
   } catch (e) {
     // fuzzyMatchName may not be available in all builds
-    console.warn('[useAIExtractionAsync] fuzzy match unavailable:', e);
   }
 
   return initialMappings;

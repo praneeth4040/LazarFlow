@@ -159,7 +159,7 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
         try {
           await lobbyRepository.updateLobby(lobby.id, { status: 'active' });
         } catch (statusErr: any) {
-          console.warn('⚠️ Failed to auto-transition lobby status:', statusErr?.response?.data || statusErr.message);
+          // Silent fail for status transition
         }
       }
 
@@ -167,7 +167,6 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
         { text: 'OK', onPress: () => navigation.navigate('Dashboard') } as any
       ]);
     } catch (err) {
-      console.error('Error submitting results:', err);
       Alert.alert('Error', 'Failed to submit results');
     } finally {
       setSubmitting(false);
@@ -231,7 +230,6 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
         { text: 'OK', onPress: () => navigation.navigate('Dashboard') } as any,
       ]);
     } catch (err) {
-      console.error('Error submitting results:', err);
       Alert.alert('Error', 'Failed to submit results');
     } finally {
       setSubmitting(false);
