@@ -31,8 +31,9 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
 .env*.local
-
 # Firebase Service Account keys
 *-firebase-adminsdk-*.json
 service-account.json
