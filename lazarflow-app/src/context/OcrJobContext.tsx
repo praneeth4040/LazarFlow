@@ -38,6 +38,7 @@ interface StartJobParams {
 interface OcrJobContextValue {
   jobs: OcrJob[];
   unreadCount: number;
+  activeJobsCount: number;
   activeJobForLobby: (lobbyId: string) => OcrJob | null;
   startJob: (params: StartJobParams) => void;
   markAllRead: () => void;
@@ -466,11 +467,16 @@ export const OcrJobProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     j => !j.isRead && (j.status === 'done' || j.status === 'failed'),
   ).length;
 
+  const activeJobsCount = jobs.filter(
+    j => j.status === 'running' || j.status === 'queued' || j.status === 'uploading',
+  ).length;
+
   return (
     <OcrJobContext.Provider
       value={{
         jobs,
         unreadCount,
+        activeJobsCount,
         activeJobForLobby,
         startJob,
         markAllRead,

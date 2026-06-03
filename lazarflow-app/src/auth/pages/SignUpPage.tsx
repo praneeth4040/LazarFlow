@@ -14,12 +14,32 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Password validation criteria
+  const passwordCriteria = [
+    { label: '8+ characters', met: password.length >= 8 },
+    { label: 'One number', met: /\d/.test(password) },
+    { label: 'One special char', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+    { label: 'Uppercase letter', met: /[A-Z]/.test(password) },
+  ];
+
+  const isPasswordStrong = passwordCriteria.every(c => c.met);
+  const strengthCount = passwordCriteria.filter(c => c.met).length;
+  const strengthPercentage = (strengthCount / passwordCriteria.length) * 100;
+  
+  const getStrengthColor = () => {
+    if (password.length === 0) return Theme.colors.border;
+    if (strengthCount <= 1) return Theme.colors.danger;
+    if (strengthCount <= 3) return Theme.colors.warning;
+    return Theme.colors.success;
+  };
+
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState(true);
   const { loading, signUp } = useAuth();
 
   const handleSignUp = async () => {
-    if (!agreeTerms) {
+    if (!agreeTerms || !isPasswordStrong) {
       return;
     }
     await signUp({ 
@@ -76,7 +96,39 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
                   </TouchableOpacity>
                 }
               />
-              <Text style={styles.hint}>Must be at least 6 characters</Text>
+              
+              <View style={styles.strengthMeterContainer}>
+                <View 
+                  style={[
+                    styles.strengthMeterFill, 
+                    { 
+                      width: `${strengthPercentage}%`, 
+                      backgroundColor: getStrengthColor() 
+                    }
+                  ]} 
+                />
+              </View>
+              
+              <View style={styles.criteriaContainer}>
+                {passwordCriteria.map((criteria, index) => (
+                  <View key={index} style={styles.criteriaItem}>
+                    <View 
+                      style={[
+                        styles.criteriaDot, 
+                        { backgroundColor: password === '' ? Theme.colors.border : (criteria.met ? Theme.colors.success : Theme.colors.danger) }
+                      ]} 
+                    />
+                    <Text 
+                      style={[
+                        styles.criteriaText, 
+                        { color: password === '' ? Theme.colors.textSecondary : (criteria.met ? Theme.colors.success : Theme.colors.danger) }
+                      ]}
+                    >
+                      {criteria.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
 
             <View style={styles.checkboxContainer}>
@@ -114,9 +166,9 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, (loading || email === '' || password === '' || !agreeTerms) && styles.buttonDisabled]}
+              style={[styles.button, (loading || email === '' || password === '' || !agreeTerms || !isPasswordStrong) && styles.buttonDisabled]}
               onPress={handleSignUp}
-              disabled={loading || email === '' || password === '' || !agreeTerms}
+              disabled={loading || email === '' || password === '' || !agreeTerms || !isPasswordStrong}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -199,11 +251,44 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 20,
   },
-  hint: {
-    fontSize: 12,
-    color: Theme.colors.textSecondary,
-    marginTop: 4,
-    marginLeft: 4,
+  strengthMeterContainer: {
+    height: 4,
+    backgroundColor: Theme.colors.secondary,
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  strengthMeterFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  criteriaContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    gap: 8,
+  },
+  criteriaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  criteriaDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  criteriaText: {
+    fontSize: 11,
+    fontFamily: Theme.fonts.outfit.medium,
   },
   checkboxContainer: {
     marginBottom: 24,
