@@ -37,7 +37,6 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
     // If job no longer exists but we have local state, reset it
     // This handles the case where user dismissed/submitted results
     if (!job && (processedSlots.length > 0 || showSlotMapping || lobbyPhase !== 'idle')) {
-      console.log('[useLobbyMapping] Job cleared, resetting local state');
       setProcessedSlots([]);
       setShowSlotMapping(false);
       setLobbyPhase('idle');

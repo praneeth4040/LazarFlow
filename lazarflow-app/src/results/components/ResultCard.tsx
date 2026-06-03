@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
-import { X, ChevronDown, ChevronUp, Skull } from 'lucide-react-native';
+import { View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { X, ChevronDown, ChevronUp, Skull, Maximize2 } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { styles } from '../styles/calculateResults.styles';
 import { MatchResult } from '../types';
@@ -12,6 +12,7 @@ interface ResultCardProps {
     onToggleExpand: () => void;
     onUpdateResult: (field: keyof MatchResult, value: any) => void;
     onUpdateMemberKills: (memberIndex: number, value: string) => void;
+    onViewVerification?: (url: string) => void;
     onRemove: () => void;
 }
 
@@ -22,6 +23,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({
     onToggleExpand,
     onUpdateResult,
     onUpdateMemberKills,
+    onViewVerification,
     onRemove,
 }) => {
     const isAiSync = !!item.isExtracted || (item.members && item.members.some(m => !!m.isExtracted));
@@ -30,18 +32,23 @@ export const ResultCard: React.FC<ResultCardProps> = ({
     return (
         <View style={cardStyle}>
             <View style={styles.rankHeader}>
-                <Text style={styles.rankPrefix}>#</Text>
-                <TextInput
-                    style={styles.rankInput}
-                    keyboardType="numeric"
-                    value={String(item.position)}
-                    onChangeText={(v) => onUpdateResult('position', v)}
-                    placeholder="1"
-                    placeholderTextColor={Theme.colors.accent + '80'}
-                />
-                <TouchableOpacity style={styles.removeBtn} onPress={onRemove}>
-                    <X size={16} color={Theme.colors.textSecondary} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.rankPrefix}>#</Text>
+                    <TextInput
+                        style={styles.rankInput}
+                        keyboardType="numeric"
+                        value={String(item.position)}
+                        onChangeText={(v) => onUpdateResult('position', v)}
+                        placeholder="1"
+                        placeholderTextColor={Theme.colors.accent + '80'}
+                    />
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity style={styles.removeBtn} onPress={onRemove}>
+                        <X size={16} color={Theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={[styles.teamSelectorBox, isAiSync && styles.teamSelectorBoxMapped]}>
@@ -60,6 +67,51 @@ export const ResultCard: React.FC<ResultCardProps> = ({
 
             {isExpanded && (
                 <View style={[styles.expandedMembersContainer, isAiSync && { backgroundColor: '#fff', borderColor: '#d1fae5' }]}>
+                    {/* Verification Images List */}
+                    {item.verification_urls && item.verification_urls.length > 0 && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                            {item.verification_urls.map((url, uIdx) => (
+                                <TouchableOpacity 
+                                    key={uIdx}
+                                    style={[styles.verificationImageContainer, { flex: 1, minWidth: '45%', marginBottom: 0 }]}
+                                    onPress={() => onViewVerification && onViewVerification(url)}
+                                    activeOpacity={0.9}
+                                >
+                                    <Image 
+                                        source={{ uri: url }} 
+                                        style={styles.verificationImage}
+                                        resizeMode="cover"
+                                    />
+                                    <View style={{ 
+                                        position: 'absolute', 
+                                        bottom: 4, 
+                                        right: 4, 
+                                        backgroundColor: 'rgba(0,0,0,0.5)', 
+                                        padding: 4, 
+                                        borderRadius: 6,
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.2)'
+                                    }}>
+                                        <Maximize2 size={10} color="#fff" />
+                                    </View>
+                                    {item.verification_urls!.length > 1 && (
+                                        <View style={{ 
+                                            position: 'absolute', 
+                                            top: 4, 
+                                            left: 4, 
+                                            backgroundColor: Theme.colors.accent, 
+                                            paddingHorizontal: 6, 
+                                            paddingVertical: 2, 
+                                            borderRadius: 4,
+                                        }}>
+                                            <Text style={{ color: '#fff', fontSize: 8, fontFamily: Theme.fonts.outfit.bold }}>V{uIdx + 1}</Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
+
                     <View style={styles.membersHeaderRow}>
                         <Text style={styles.membersHeaderLabel}>INDIVIDUAL KILLS</Text>
                     </View>

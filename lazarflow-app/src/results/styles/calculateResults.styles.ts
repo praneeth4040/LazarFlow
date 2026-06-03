@@ -178,5 +178,7 @@ export const styles = StyleSheet.create({
     didYouKnowLabel: { fontSize: 12, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent, textAlign: 'center', marginBottom: 12, letterSpacing: 1 },
     didYouKnowText: { fontSize: 14, fontFamily: Theme.fonts.outfit.medium, color: '#475569', textAlign: 'center', lineHeight: 20, fontStyle: 'italic' },
     flexRowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-    resultsList: { gap: 16 }
+    resultsList: { gap: 16 },
+    verificationImageContainer: { width: '100%', height: 60, borderRadius: 12, overflow: 'hidden', backgroundColor: '#f1f5f9', marginBottom: 16, borderWidth: 1, borderColor: '#e2e8f0' },
+    verificationImage: { width: '100%', height: '100%' }
 });

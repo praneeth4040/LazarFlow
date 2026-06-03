@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient, { BASE_URL } from './apiClient';
 
 /**
  * Process lobby screenshots to extract teams and members
@@ -7,8 +7,6 @@ import apiClient from './apiClient';
  * @returns {Promise<Object>} Processed lobby data
  */
 export const processLobbyScreenshots = async (imageFiles, lobbyId) => {
-    console.log(`🔍 Processing ${imageFiles.length} lobby screenshots for lobby ${lobbyId}...`);
-
     const formData = new FormData();
     
     // Add lobby_id to form data
@@ -35,7 +33,6 @@ export const processLobbyScreenshots = async (imageFiles, lobbyId) => {
             },
         });
 
-        console.log('🔍 Lobby Processing Response:', response.data);
         return response.data;
     } catch (error) {
         console.error('❌ Error processing lobby:', error);
@@ -50,8 +47,6 @@ export const processLobbyScreenshots = async (imageFiles, lobbyId) => {
  * @returns {Promise<Array>} Extracted rank data
  */
 export const extractResultsFromScreenshot = async (imageFiles, options = {}, lobbyId) => {
-    console.log(`🔍 Extracting results from ${imageFiles.length} screenshots...`);
-
     // Create FormData for image upload
     const formData = new FormData();
     
@@ -89,8 +84,6 @@ export const extractResultsFromScreenshot = async (imageFiles, options = {}, lob
             },
         });
 
-        console.log('🔍 Raw Result Extraction Response:', response.data);
-
         let results = [];
         const data = response.data;
 
@@ -125,12 +118,26 @@ export const extractResultsFromScreenshot = async (imageFiles, options = {}, lob
                     players: players.map(p => ({
                         name: p.name,
                         kills: parseInt(p.kills || 0, 10)
-                    }))
+                    })),
+                    verification_urls: (() => {
+                        const rawUrls = team.verification_urls || (team.verification_url ? [team.verification_url] : []);
+                        const urlArray = Array.isArray(rawUrls) ? rawUrls : [rawUrls];
+                        return urlArray
+                            .map(url => String(url).replace(/`/g, '').trim())
+                            .filter(url => !!url)
+                            .map(url => {
+                                 // If it's a relative path, prepend BASE_URL
+                                 if (url.startsWith('/') && !url.startsWith('http')) {
+                                     return `${BASE_URL}${url}`;
+                                 }
+                                 return url;
+                             });
+                    })(),
+                    cell_request_id: team.cell_request_id
                 };
             });
         }
 
-        console.log(`✅ Extracted ${results.length} result entries`);
         return results;
     } catch (error) {
         console.error('❌ Error extracting results:', error);

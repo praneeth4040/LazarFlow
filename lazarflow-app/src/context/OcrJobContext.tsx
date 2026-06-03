@@ -78,13 +78,11 @@ export const OcrJobProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const handleSocketJobUpdate = useCallback((payload: JobUpdatePayload) => {
     const { job_id, status, result, error } = payload;
-    console.log(`[OcrJobContext] 📡 Socket update received for job ${job_id}: ${status}`);
     socketUpdatedJobsRef.current.add(job_id);
 
     setJobs(prev => {
       const existing = prev.find(j => j.jobId === job_id);
       if (!existing) {
-        console.log(`[OcrJobContext] ⚠️ Socket update for unknown job: ${job_id}`);
         return prev;
       }
 
@@ -92,7 +90,6 @@ export const OcrJobProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (pollersRef.current[job_id]) {
         clearInterval(pollersRef.current[job_id]);
         delete pollersRef.current[job_id];
-        console.log(`[OcrJobContext] ⏹️ Stopped polling due to socket update for job: ${job_id}`);
       }
 
       const next = prev.map(j =>

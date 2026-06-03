@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Modal, Animated } from 'react-native';
+import { useState, useEffect, useContext, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Animated } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Info } from 'lucide-react-native';
@@ -34,6 +34,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
     const [selectedAiTeam, setSelectedAiTeam] = useState<any>(null);
     const [referenceImage, setReferenceImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+    const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
     const [zoomModalVisible, setZoomModalVisible] = useState(false);
 
     // Modal zoom+pan — RN Animated
@@ -111,8 +112,6 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         results,
         submitting,
         expandedResults,
-        setResults,
-        setExpandedResults,
         toggleResultExpansion,
         handleAddResult,
         handleUpdateResult,
@@ -186,6 +185,21 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     };
 
     const openZoomModal = () => {
+        mSavedScale.current = 1;
+        mCurrScale.current = 1;
+        mScale.setValue(1);
+        mSavedTransX.current = 0;
+        mCurrTransX.current = 0;
+        mTransX.setValue(0);
+        mSavedTransY.current = 0;
+        mCurrTransY.current = 0;
+        mTransY.setValue(0);
+        setZoomModalVisible(true);
+    };
+
+    const handleViewVerification = (url: string) => {
+        setVerificationUrl(url);
+        // Reset zoom state for the new image
         mSavedScale.current = 1;
         mCurrScale.current = 1;
         mScale.setValue(1);
@@ -294,6 +308,8 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                 kill_points: killPoints,
                 total_points: placementPoints + killPoints,
                 members: finalMembers,
+                verification_urls: res.verification_urls,
+                cell_request_id: res.cell_request_id,
             };
         }).filter(Boolean) as any[];
 
@@ -368,24 +384,24 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                         }}
                     />
                 ) : showMapping ? (
-                    <AIMappingReview
-                        aiResults={aiResults}
-                        mappings={mappings}
-                        editableAiData={editableAiData}
-                        teams={teams}
-                        lobby={lobby}
-                        submitting={submitting}
-                        onSelectTeam={handleSelectTeamForAI}
-                        onUpdateEditableData={handleUpdateEditableData}
-                        onSubmit={handleCombinedSubmit}
-                        onCancel={() => setShowMapping(false)}
-                        onDismiss={() => {
-                            setShowMapping(false);
-                            if (lobby?.id) {
-                                clearJob(lobby.id, 'extract_results');
-                            }
-                        }}
-                    />
+                        <AIMappingReview
+                            aiResults={aiResults}
+                            mappings={mappings}
+                            editableAiData={editableAiData}
+                            teams={teams}
+                            lobby={lobby}
+                            submitting={submitting}
+                            onSelectTeam={handleSelectTeamForAI}
+                            onUpdateEditableData={handleUpdateEditableData}
+                            onViewVerification={handleViewVerification}
+                            onSubmit={handleCombinedSubmit}
+                            onDismiss={() => {
+                                setShowMapping(false);
+                                if (lobby?.id) {
+                                    clearJob(lobby.id, 'extract_results');
+                                }
+                            }}
+                        />
                 ) : (
                     <AIWorkflowSection
                         teams={teams}
@@ -421,6 +437,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                                 onToggleExpand={() => toggleResultExpansion(item.team_id)}
                                 onUpdateResult={(field, value) => handleUpdateResult(index, field, value)}
                                 onUpdateMemberKills={(memberIndex, value) => handleUpdateMemberKills(index, memberIndex, value)}
+                                onViewVerification={handleViewVerification}
                                 onRemove={() => handleRemoveResult(index)}
                             />
                         ))}
@@ -458,10 +475,13 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
             >
                 <ImageZoomModal
                     visible={zoomModalVisible}
-                    imageUri={referenceImage?.uri || null}
-                    imageWidth={referenceImage?.width}
-                    imageHeight={referenceImage?.height}
-                    onClose={() => setZoomModalVisible(false)}
+                    imageUri={verificationUrl || (referenceImage ? referenceImage.uri : (resultImages.length > 0 ? resultImages[0].uri : null))}
+                    imageWidth={verificationUrl ? 800 : (referenceImage ? referenceImage.width : 1080)}
+                    imageHeight={verificationUrl ? 200 : (referenceImage ? referenceImage.height : 1920)}
+                    onClose={() => {
+                        setZoomModalVisible(false);
+                        setVerificationUrl(null);
+                    }}
                     mPinchRef={mPinchRef}
                     mPanRef={mPanRef}
                     mScale={mScale}

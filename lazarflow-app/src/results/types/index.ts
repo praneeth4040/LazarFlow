@@ -8,6 +8,8 @@ export interface ExtractedAIResult {
     rank: string | number;
     kills?: number;
     players?: { name: string; kills?: number }[];
+    verification_urls?: string[];
+    cell_request_id?: string;
 }
 
 export interface MatchResult {
@@ -19,6 +21,8 @@ export interface MatchResult {
     kill_points: number;
     total_points: number;
     isExtracted?: boolean;
+    verification_urls?: string[];
+    cell_request_id?: string;
     members?: { name: string; kills: number; isExtracted?: boolean }[];
 }
 
