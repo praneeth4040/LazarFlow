@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import { CreditCard, Users, HelpCircle, LogOut, ChevronRight, Zap } from 'lucide-react-native';
+import { CreditCard, Users, HelpCircle, LogOut, ChevronRight, Zap, Languages, Check } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { getTierColors } from './HomeTab';
 import { User } from '../types';
@@ -30,9 +31,16 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
     onNavigateToPlans,
     onNavigateToPrivacy
 }) => {
+    const { t, i18n } = useTranslation();
     const email = user?.emails || user?.email || '—';
     const username = user?.username || '—';
     const displayName = user?.display_name || username || email.split('@')[0] || 'User';
+
+    const currentLanguage = i18n.language;
+
+    const changeLanguage = (lng: string) => {
+        i18n.changeLanguage(lng);
+    };
 
     return (
         <ScrollView style={styles.profileContentWrapper} showsVerticalScrollIndicator={false}>
@@ -47,27 +55,61 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
                 <Text style={styles.profileNameCustom}>{displayName}</Text>
                 <View style={styles.balanceBadgeProfile}>
                     <Zap size={14} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 6 }} />
-                    <Text style={styles.balanceTextProfile}>{user?.flux_balance || 0} CREDITS</Text>
+                    <Text style={styles.balanceTextProfile}>{user?.flux_balance || 0} {t('profile.credits')}</Text>
                 </View>
             </View>
 
             <View style={styles.settingsSection}>
-                <Text style={styles.sectionHeaderLabel}>ACCOUNT & SUBSCRIPTION</Text>
+                <Text style={styles.sectionHeaderLabel}>{t('profile.accountSubscription')}</Text>
                 
                 <TouchableOpacity style={styles.settingCard} onPress={onNavigateToPlans}>
                     <View style={[styles.settingIconBg, { backgroundColor: '#eef2ff' }]}>
                         <CreditCard size={20} color="#4f46e5" />
                     </View>
                     <View style={styles.settingTextContent}>
-                        <Text style={styles.settingTitle}>Manage Billing</Text>
-                        <Text style={styles.settingSubtitle}>Plan details and invoices</Text>
+                        <Text style={styles.settingTitle}>{t('profile.manageBilling')}</Text>
+                        <Text style={styles.settingSubtitle}>{t('profile.planDetails')}</Text>
                     </View>
                     <ChevronRight size={20} color={Theme.colors.border} />
                 </TouchableOpacity>
             </View>
 
             <View style={styles.settingsSection}>
-                <Text style={styles.sectionHeaderLabel}>COMMUNITY</Text>
+                <Text style={styles.sectionHeaderLabel}>{t('profile.language')}</Text>
+                
+                <View style={styles.languageGrid}>
+                    {[
+                        { id: 'en', label: t('profile.english'), flag: '🇺🇸' },
+                        { id: 'hi', label: t('profile.hindi'), flag: '🇮🇳' },
+                        { id: 'th', label: t('profile.thai'), flag: '🇹🇭' },
+                        { id: 'pt-BR', label: t('profile.brazilian'), flag: '🇧🇷' },
+                        { id: 'pt', label: t('profile.portuguese'), flag: '🇵🇹' }
+                    ].map((lang) => (
+                        <TouchableOpacity 
+                            key={lang.id}
+                            style={[
+                                styles.languageChip, 
+                                currentLanguage === lang.id && styles.languageChipActive
+                            ]} 
+                            onPress={() => changeLanguage(lang.id)}
+                        >
+                            <Text style={styles.languageFlag}>{lang.flag}</Text>
+                            <Text style={[
+                                styles.languageChipText, 
+                                currentLanguage === lang.id && styles.languageChipTextActive
+                            ]}>
+                                {lang.label}
+                            </Text>
+                            {currentLanguage === lang.id && (
+                                <View style={styles.activeDot} />
+                            )}
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
+
+            <View style={styles.settingsSection}>
+                <Text style={styles.sectionHeaderLabel}>{t('profile.community')}</Text>
                 
                 <TouchableOpacity 
                     style={[styles.settingCard, styles.communityCard]} 
@@ -86,23 +128,23 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
                         <Users size={20} color="#ea580c" />
                     </View>
                     <View style={styles.settingTextContent}>
-                        <Text style={styles.settingTitle}>Partnership</Text>
-                        <Text style={styles.settingSubtitle}>Collaborations and rewards</Text>
+                        <Text style={styles.settingTitle}>{t('profile.partnership')}</Text>
+                        <Text style={styles.settingSubtitle}>{t('profile.collabRewards')}</Text>
                     </View>
                     <ChevronRight size={20} color={Theme.colors.border} />
                 </TouchableOpacity>
             </View>
 
             <View style={styles.settingsSection}>
-                <Text style={styles.sectionHeaderLabel}>SUPPORT</Text>
+                <Text style={styles.sectionHeaderLabel}>{t('profile.support')}</Text>
                 
                 <TouchableOpacity style={styles.settingCard} onPress={onNavigateToPrivacy}>
                     <View style={[styles.settingIconBg, { backgroundColor: '#f1f5f9' }]}>
                         <HelpCircle size={20} color="#475569" />
                     </View>
                     <View style={styles.settingTextContent}>
-                        <Text style={styles.settingTitle}>Legal & Support</Text>
-                        <Text style={styles.settingSubtitle}>Terms of service and help center</Text>
+                        <Text style={styles.settingTitle}>{t('profile.legalSupport')}</Text>
+                        <Text style={styles.settingSubtitle}>{t('profile.termsHelp')}</Text>
                     </View>
                     <ChevronRight size={20} color={Theme.colors.border} />
                 </TouchableOpacity>
@@ -110,7 +152,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
 
             <TouchableOpacity style={styles.newLogoutBtn} onPress={handleLogout}>
                 <LogOut size={20} color="#ef4444" style={{ marginRight: 10 }} />
-                <Text style={styles.newLogoutText}>Log Out</Text>
+                <Text style={styles.newLogoutText}>{t('profile.logout')}</Text>
             </TouchableOpacity>
 
             <Text style={styles.versionFooter}>LazarFlow v2.4.1 (Build 829)</Text>
@@ -208,6 +250,47 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontFamily: Theme.fonts.outfit.regular,
         color: '#64748b',
+    },
+    languageGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginTop: 4,
+    },
+    languageChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        minWidth: '47%',
+    },
+    languageChipActive: {
+        backgroundColor: Theme.colors.accent + '08',
+        borderColor: Theme.colors.accent + '40',
+    },
+    languageFlag: {
+        fontSize: 18,
+        marginRight: 10,
+    },
+    languageChipText: {
+        fontSize: 14,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: '#475569',
+        flex: 1,
+    },
+    languageChipTextActive: {
+        color: Theme.colors.accent,
+        fontFamily: Theme.fonts.outfit.bold,
+    },
+    activeDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: Theme.colors.accent,
     },
     communityCard: {
         backgroundColor: '#f8fafc',

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { useAuth } from '../hooks/useAuth';
 import { AuthInput } from '../components/AuthInput';
@@ -11,6 +12,7 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -32,20 +34,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.topBadge}>LOGIN</Text>
+            <Text style={styles.topBadge}>{t('auth.loginBadge')}</Text>
             <Image
               source={require('../../../assets/logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to continue to LazarFlow</Text>
+            <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
+            <Text style={styles.subtitle}>{t('auth.loginToContinue')}</Text>
           </View>
 
           <View style={styles.form}>
             <AuthInput
-              label="Email Address"
-              placeholder="your@email.com"
+              label={t('auth.email')}
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChangeText={setEmail}
               icon={<Mail size={20} color={Theme.colors.textSecondary} />}
@@ -58,12 +60,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ navigation }) => {
                 <TouchableOpacity
                   onPress={() => navigation.navigate('ForgotPassword')}
                 >
-                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                  <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
                 </TouchableOpacity>
               </View>
               <AuthInput
-                label="Password"
-                placeholder="••••••••"
+                label={t('auth.password')}
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChangeText={setPassword}
                 icon={<Lock size={20} color={Theme.colors.textSecondary} />}
@@ -89,16 +91,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ navigation }) => {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Text style={styles.buttonText}>Login</Text>
+                  <Text style={styles.buttonText}>{t('auth.login')}</Text>
                   <ArrowRight size={20} color="#fff" />
                 </>
               )}
             </TouchableOpacity>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account?</Text>
+              <Text style={styles.footerText}>{t('auth.noAccount')}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                <Text style={styles.footerLink}>Sign up</Text>
+                <Text style={styles.footerLink}>{t('auth.signup')}</Text>
               </TouchableOpacity>
             </View>
           </View>

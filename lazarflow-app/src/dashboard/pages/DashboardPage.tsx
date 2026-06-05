@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Home, User, Plus, Palette, Crown, X, Zap, Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -27,6 +28,7 @@ import ProfileTab from '../components/ProfileTab';
 import { SubscriptionPlansPage } from '../../subscription/pages/SubscriptionPlansPage';
 
 const DashboardPage = ({ navigation, route }: any) => {
+    const { t } = useTranslation();
     const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
     const { user, loading: userLoading, refreshUser } = useContext(UserContext);
     const { unreadCount, activeJobsCount } = useOcrJobs();
@@ -306,11 +308,11 @@ const DashboardPage = ({ navigation, route }: any) => {
             );
         }
 
-        let title = 'Home';
-        if (dashboard.activeTab === 'lobbies') title = 'All Lobbies';
-        else if (dashboard.activeTab === 'design') title = 'Design Studio';
-        else if (dashboard.activeTab === 'plans') title = 'Subscription Plans';
-        else if (dashboard.activeTab === 'profile') title = 'Account Settings';
+        let title = t('dashboard.tabs.home');
+        if (dashboard.activeTab === 'lobbies') title = t('dashboard.tabs.lobbies');
+        else if (dashboard.activeTab === 'design') title = t('dashboard.tabs.design');
+        else if (dashboard.activeTab === 'plans') title = t('dashboard.tabs.plans');
+        else if (dashboard.activeTab === 'profile') title = t('dashboard.tabs.profile');
 
         return (
             <View style={styles.header}>
@@ -429,10 +431,10 @@ const DashboardPage = ({ navigation, route }: any) => {
             </View>
 
             <View style={styles.tabBar}>
-                <TabItem icon={Home} label="Home" active={dashboard.activeTab === 'home'} onPress={() => dashboard.setActiveTab('home')} isPremium={false} />
-                <TabItem icon={Palette} label="Design" active={dashboard.activeTab === 'design'} onPress={() => dashboard.setActiveTab('design')} isPremium={false} />
-                <TabItem icon={Crown} label="Plans" active={dashboard.activeTab === 'plans'} onPress={() => dashboard.setActiveTab('plans')} isPremium />
-                <TabItem icon={User} label="Profile" active={dashboard.activeTab === 'profile'} onPress={() => dashboard.setActiveTab('profile')} isPremium={false} />
+                <TabItem icon={Home} label={t('dashboard.tabs.home')} active={dashboard.activeTab === 'home'} onPress={() => dashboard.setActiveTab('home')} isPremium={false} />
+                <TabItem icon={Palette} label={t('dashboard.tabs.design')} active={dashboard.activeTab === 'design'} onPress={() => dashboard.setActiveTab('design')} isPremium={false} />
+                <TabItem icon={Crown} label={t('dashboard.tabs.plans')} active={dashboard.activeTab === 'plans'} onPress={() => dashboard.setActiveTab('plans')} isPremium />
+                <TabItem icon={User} label={t('dashboard.tabs.profile')} active={dashboard.activeTab === 'profile'} onPress={() => dashboard.setActiveTab('profile')} isPremium={false} />
             </View>
 
             <UploadModal 

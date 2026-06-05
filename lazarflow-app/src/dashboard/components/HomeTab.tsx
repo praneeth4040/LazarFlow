@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { Trophy, Zap } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import LobbyCard from './LobbyCard';
 import { DashboardTabProps, Lobby } from '../types';
@@ -51,6 +52,7 @@ const HomeTab: React.FC<HomeTabProps> = ({
     selectedLobbies = [],
     toggleLobbySelection
 }) => {
+    const { t } = useTranslation();
     return (
         <ScrollView
             style={styles.content}
@@ -60,19 +62,19 @@ const HomeTab: React.FC<HomeTabProps> = ({
         >
             {/* Greeting Section */}
             <View style={styles.greetingSection}>
-                <Text style={styles.welcomeTitle}>Welcome back,</Text>
+                <Text style={styles.welcomeTitle}>{t('dashboard.welcome')}</Text>
                 <View style={styles.creditInfoContainer}>
                     <Zap size={14} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 6 }} />
                     <Text style={styles.welcomeSubtitle}>
-                        You have {user?.flux_balance || 0} Credits remaining
+                        {t('dashboard.remainingCredits', { count: user?.flux_balance || 0 })}
                     </Text>
                 </View>
             </View>
 
             <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Recent Lobbies</Text>
+                  <Text style={styles.sectionTitle}>{t('dashboard.recentLobbies')}</Text>
                   <TouchableOpacity onPress={onViewAll}>
-                      <Text style={styles.viewAllText}>View All</Text>
+                      <Text style={styles.viewAllText}>{t('dashboard.viewAll')}</Text>
                   </TouchableOpacity>
               </View>
 

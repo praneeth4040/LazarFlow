@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle, Circle } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { useAuth } from '../hooks/useAuth';
 import { AuthInput } from '../components/AuthInput';
@@ -11,16 +12,17 @@ interface SignUpPageProps {
 }
 
 export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
   // Password validation criteria
   const passwordCriteria = [
-    { label: '8+ characters', met: password.length >= 8 },
-    { label: 'One number', met: /\d/.test(password) },
-    { label: 'One special char', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
-    { label: 'Uppercase letter', met: /[A-Z]/.test(password) },
+    { label: t('auth.passwordCriteria.length'), met: password.length >= 8 },
+    { label: t('auth.passwordCriteria.number'), met: /\d/.test(password) },
+    { label: t('auth.passwordCriteria.special'), met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
+    { label: t('auth.passwordCriteria.uppercase'), met: /[A-Z]/.test(password) },
   ];
 
   const isPasswordStrong = passwordCriteria.every(c => c.met);
@@ -61,20 +63,20 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text style={styles.topBadge}>SIGN UP</Text>
+            <Text style={styles.topBadge}>{t('auth.signupBadge')}</Text>
             <Image
               source={require('../../../assets/logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.title}>Get Started</Text>
-            <Text style={styles.subtitle}>Join thousands of lobby organizers</Text>
+            <Text style={styles.title}>{t('auth.getStarted')}</Text>
+            <Text style={styles.subtitle}>{t('auth.joinOrganizers')}</Text>
           </View>
 
           <View style={styles.form}>
             <AuthInput
-              label="Email Address"
-              placeholder="name@company.com"
+              label={t('auth.email')}
+              placeholder={t('auth.signUpPlaceholder')}
               value={email}
               onChangeText={setEmail}
               icon={<Mail size={20} color={Theme.colors.textSecondary} />}
@@ -84,8 +86,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
 
             <View style={styles.inputContainer}>
               <AuthInput
-                label="Password"
-                placeholder="••••••••"
+                label={t('auth.password')}
+                placeholder={t('auth.passwordPlaceholder')}
                 value={password}
                 onChangeText={setPassword}
                 icon={<Lock size={20} color={Theme.colors.textSecondary} />}
@@ -145,7 +147,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
                   )}
                 </View>
                 <Text style={styles.checkboxLabel}>
-                  I agree to the <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/terms')}>Terms</Text> and <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/privacy')}>Privacy Policy</Text>
+                  {t('auth.agreeToTerms')} <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/terms')}>{t('auth.terms')}</Text> {t('auth.and')} <Text style={styles.link} onPress={() => Linking.openURL('https://lazarflow.app/privacy')}>{t('auth.privacyPolicy')}</Text>
                 </Text>
               </TouchableOpacity>
 
@@ -161,7 +163,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
                     <Circle size={20} color={Theme.colors.border} />
                   )}
                 </View>
-                <Text style={styles.checkboxLabel}>Subscribe to receive updates and news</Text>
+                <Text style={styles.checkboxLabel}>{t('auth.subscribeNews')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -174,16 +176,16 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Text style={styles.buttonText}>Get Started</Text>
+                  <Text style={styles.buttonText}>{t('auth.getStarted')}</Text>
                   <ArrowRight size={20} color="#fff" />
                 </>
               )}
             </TouchableOpacity>
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account?</Text>
+              <Text style={styles.footerText}>{t('auth.alreadyHaveAccount')}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.footerLink}>Sign in</Text>
+                <Text style={styles.footerLink}>{t('auth.signIn')}</Text>
               </TouchableOpacity>
             </View>
           </View>
