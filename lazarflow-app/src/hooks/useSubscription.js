@@ -33,8 +33,8 @@ export const useSubscription = () => {
 
                 // With the new Credit System:
                 // 1 Credit = 1 AI Lobby Automation
-                // All other features (Custom Social, Multiple Layouts) are now unlocked for everyone
-                setMaxAILobbies(balance);
+                // Lobbies can be created by anyone, but LexiView AI requires credits.
+                setMaxAILobbies(50); // Set a high fixed limit for lobbies (e.g., 50)
                 setCanUseAI(balance > 0);
                 setIsCasual(balance === 0);
                 setMaxLayouts(Infinity);

@@ -50,18 +50,6 @@ export const useCreateLobby = (canUseAI: boolean, maxAILobbies: number, navigati
             return;
         }
 
-        if (!canUseAI) {
-            Alert.alert(
-                'Limit Reached',
-                `You have reached your limit of ${maxAILobbies} lobbies. Upgrade to a premium plan to create more!`,
-                [
-                    { text: 'Later', style: 'cancel' } as any,
-                    { text: 'View Plans', onPress: () => navigation.navigate('SubscriptionPlans') } as any
-                ]
-            );
-            return;
-        }
-
         setLoading(true);
         try {
             if (!user) throw new Error('Not authenticated');
