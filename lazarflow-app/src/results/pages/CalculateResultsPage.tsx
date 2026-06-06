@@ -1,8 +1,9 @@
 import { useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Animated, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Info } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { UserContext } from '../../context/UserContext';
 import { useOcrJobs } from '../../context/OcrJobContext';
@@ -16,14 +17,31 @@ import { styles } from '../styles/calculateResults.styles';
 
 // Import child components
 import { ManualSection } from '../components/ManualSection';
+import { ManualResultCard } from '../components/ManualResultCard';
 import { AIWorkflowSection } from '../components/AIWorkflowSection';
 import { SlotMappingSection } from '../components/SlotMappingSection';
 import { AIMappingReview } from '../components/AIMappingReview';
 import { ResultCard } from '../components/ResultCard';
 import { ImageZoomModal } from '../components/ImageZoomModal';
 import { TeamMappingModal } from '../components/TeamMappingModal';
+import { TeamEntrySheet } from '../components/TeamEntrySheet';
+
+const safeGet = (obj: any, key: string | number) => {
+    if (!obj) return undefined;
+    const k = String(key);
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') return undefined;
+    return obj[k];
+};
+
+const safeSet = (obj: any, key: string | number, value: any) => {
+    if (!obj) return;
+    const k = String(key);
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') return;
+    obj[k] = value;
+};
 
 export const CalculateResultsPage = ({ route, navigation }: any) => {
+    const { t } = useTranslation();
     const { user, refreshUser } = useContext(UserContext);
     const { clearJob, activeJobForLobby } = useOcrJobs();
     const [lobby, setLobby] = useState(route.params?.lobby || {});
@@ -36,6 +54,9 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     const [referenceImage, setReferenceImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
     const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
     const [zoomModalVisible, setZoomModalVisible] = useState(false);
+    const [editingResult, setEditingResult] = useState<any | null>(null);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [editSheetVisible, setEditSheetVisible] = useState(false);
 
     // Modal zoom+pan — RN Animated
     const mPinchRef = useRef<any>(null);
@@ -116,6 +137,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         handleAddResult,
         handleUpdateResult,
         handleUpdateMemberKills,
+        handleReplaceResult,
         handleRemoveResult,
         handleSubmit,
         handleSubmitWithResults,
@@ -139,10 +161,10 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         if (aiResults.length > 0) {
             const initial: Record<number, { players: { name: string; kills: number }[]; totalKills: number }> = {};
             aiResults.forEach((res: any, idx: number) => {
-                initial[idx] = {
+                safeSet(initial, idx, {
                     players: (res.players || []).map((p: any) => ({ name: p.name, kills: p.kills || 0 })),
                     totalKills: res.kills || 0,
-                };
+                });
             });
             setEditableAiData(initial);
         }
@@ -157,6 +179,10 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         if (!result.canceled && result.assets.length > 0) {
             setReferenceImage(result.assets[0]);
         }
+    };
+
+    const handleRemoveReferenceImage = () => {
+        setReferenceImage(null);
     };
 
     // Modal gesture handlers
@@ -224,10 +250,11 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         if (selectedSlotIndex !== null) {
             handleUpdateSlotMapping(selectedSlotIndex, teamId);
         } else if (selectedAiTeam && selectedAiTeam.rank) {
-            setMappings((prev: Record<string, string>) => ({
-                ...prev,
-                [selectedAiTeam.rank]: teamId
-            }));
+            setMappings((prev: Record<string, string>) => {
+                const next = { ...prev };
+                safeSet(next, selectedAiTeam.rank, teamId);
+                return next;
+            });
         }
         setMappingModalVisible(false);
     };
@@ -237,9 +264,12 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         if (selectedSlotIndex !== null) {
             handleUpdateSlotMapping(selectedSlotIndex, null);
         } else if (selectedAiTeam) {
-            const newMappings = { ...mappings };
-            delete newMappings[selectedAiTeam.rank];
-            setMappings(newMappings);
+            const rankKey = String(selectedAiTeam.rank);
+            if (rankKey !== '__proto__' && rankKey !== 'constructor' && rankKey !== 'prototype') {
+                const newMappings = { ...mappings };
+                delete newMappings[rankKey];
+                setMappings(newMappings);
+            }
         }
         setMappingModalVisible(false);
     };
@@ -251,15 +281,16 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     };
 
     const handleUpdateEditableData = (index: number, data: { players: { name: string; kills: number }[]; totalKills: number }) => {
-        setEditableAiData((prev) => ({
-            ...prev,
-            [index]: data,
-        }));
+        setEditableAiData((prev) => {
+            const next = { ...prev };
+            safeSet(next, index, data);
+            return next;
+        });
     };
 
     // Handler for combined submit (AI mapping review)
     const handleCombinedSubmit = async () => {
-        const unmapped = aiResults.filter((res: any) => !mappings[String(res.rank)]);
+        const unmapped = aiResults.filter((res: any) => !safeGet(mappings, res.rank));
         if (unmapped.length > 0) {
             Alert.alert(
                 'Incomplete Mapping',
@@ -269,11 +300,11 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         }
 
         const builtResults = aiResults.map((res: any, idx: number) => {
-            const teamId = mappings[String(res.rank)];
+            const teamId = safeGet(mappings, res.rank);
             const team = teams.find((t: any) => t.id === teamId);
             if (!team) return null;
 
-            const editable = editableAiData[idx];
+            const editable = safeGet(editableAiData, idx);
             const players: { name: string; kills: number }[] = editable?.players
                 ?? (res.players || []).map((p: any) => ({ name: p.name, kills: p.kills || 0 }));
             const totalKills: number = editable?.totalKills ?? (res.kills || 0);
@@ -326,7 +357,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={Theme.colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>LexiView AI</Text>
+                <Text style={styles.headerTitle}>{t('results.lexiViewAi')}</Text>
                 <TouchableOpacity style={styles.infoButton}>
                     <Info size={24} color={Theme.colors.textPrimary} />
                 </TouchableOpacity>
@@ -338,13 +369,13 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                         style={[styles.toggleBtn, mode === 'manual' && styles.toggleBtnActive]}
                         onPress={() => setMode('manual')}
                     >
-                        <Text style={[styles.toggleText, mode === 'manual' && styles.toggleTextActive]}>Manual</Text>
+                        <Text style={[styles.toggleText, mode === 'manual' && styles.toggleTextActive]}>{t('results.manual')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.toggleBtn, mode === 'ai' && styles.toggleBtnActive]}
                         onPress={() => setMode('ai')}
                     >
-                        <Text style={[styles.toggleText, mode === 'ai' && styles.toggleTextActive]}>LexiView AI</Text>
+                        <Text style={[styles.toggleText, mode === 'ai' && styles.toggleTextActive]}>{t('results.lexiViewAi')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -352,13 +383,15 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
             <ScrollView contentContainerStyle={[styles.content, styles.contentContainer]} showsVerticalScrollIndicator={false}>
                 {mode === 'manual' ? (
                     <ManualSection
+                        lobby={lobby}
+                        results={results}
                         referenceImage={referenceImage}
                         teamSearch={teamSearch}
                         filteredSearchTeams={filteredSearchTeams}
                         onPickReferenceImage={handlePickReferenceImage}
+                        onRemoveReferenceImage={handleRemoveReferenceImage}
                         onTeamSearchChange={setTeamSearch}
                         onAddTeam={handleAddResult}
-                        onOpenZoomModal={openZoomModal}
                     />
                 ) : showSlotMapping ? (
                     <SlotMappingSection
@@ -421,25 +454,55 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                     />
                 )}
 
-                {!showMapping && <Text style={styles.sectionTitle}>Match Entries ({results.length})</Text>}
-                {results.length === 0 && !showMapping ? (
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>Add teams to start calculating</Text>
+                {(mode === 'manual' || (!showMapping && !showSlotMapping)) && (
+                    <View style={{ marginBottom: 16 }}>
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitle}>{t('results.matchEntriesCount', { count: results.length })}</Text>
+                        </View>
+                        {mode === 'manual' && results.length > 0 && (
+                            <View style={s.tableHeader}>
+                                <Text style={[s.headerCol, s.colRank]}>{t('results.rank')}</Text>
+                                <Text style={[s.headerCol, s.colName]}>{t('results.team')}</Text>
+                                <Text style={[s.headerCol, s.colPts]}>{t('results.pos')}</Text>
+                                <Text style={[s.headerCol, s.colKills]}>{t('results.kills')}</Text>
+                                <Text style={[s.headerCol, s.colTotal]}>{t('results.total')}</Text>
+                                <View style={s.colActions} />
+                            </View>
+                        )}
                     </View>
-                ) : results.length > 0 ? (
-                    <View style={styles.resultsList}>
+                )}
+                {results.length === 0 && (mode === 'manual' || (!showMapping && !showSlotMapping)) ? (
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyText}>{t('results.addTeamsToStart')}</Text>
+                    </View>
+                ) : (results.length > 0 && (mode === 'manual' || (!showMapping && !showSlotMapping))) ? (
+                    <View style={[styles.resultsList, mode === 'manual' && { gap: 0, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#F1F5F9' }]}>
                         {results.map((item, index) => (
-                            <ResultCard
-                                key={item.team_id}
-                                item={item}
-                                index={index}
-                                isExpanded={expandedResults[item.team_id] || false}
-                                onToggleExpand={() => toggleResultExpansion(item.team_id)}
-                                onUpdateResult={(field, value) => handleUpdateResult(index, field, value)}
-                                onUpdateMemberKills={(memberIndex, value) => handleUpdateMemberKills(index, memberIndex, value)}
-                                onViewVerification={handleViewVerification}
-                                onRemove={() => handleRemoveResult(index)}
-                            />
+                            mode === 'manual' ? (
+                                <ManualResultCard
+                                    key={item.team_id}
+                                    item={item}
+                                    index={index}
+                                    onEdit={() => {
+                                        setEditingResult(item);
+                                        setEditingIndex(index);
+                                        setEditSheetVisible(true);
+                                    }}
+                                    onRemove={() => handleRemoveResult(index)}
+                                />
+                            ) : (
+                                <ResultCard
+                                    key={item.team_id}
+                                    item={item}
+                                    index={index}
+                                    isExpanded={safeGet(expandedResults, item.team_id) || false}
+                                    onToggleExpand={() => toggleResultExpansion(item.team_id)}
+                                    onUpdateResult={(field, value) => handleUpdateResult(index, field, value)}
+                                    onUpdateMemberKills={(memberIndex, value) => handleUpdateMemberKills(index, memberIndex, value)}
+                                    onViewVerification={handleViewVerification}
+                                    onRemove={() => handleRemoveResult(index)}
+                                />
+                            )
                         ))}
                         <View style={{ height: 80 }} />
                     </View>
@@ -458,7 +521,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                             <ActivityIndicator color="#fff" />
                         ) : (
                             <>
-                                <Text style={styles.submitFinalBtnText}>Submit Results</Text>
+                                <Text style={styles.submitFinalBtnText}>{t('results.submitResults')}</Text>
                             </>
                         )}
                     </TouchableOpacity>
@@ -515,6 +578,53 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                     setMappings={setMappings}
                 />
             </Modal>
+
+            {/* ── Team entry sheet for editing manual results ── */}
+            {mode === 'manual' && (
+                <TeamEntrySheet
+                    visible={editSheetVisible}
+                    team={editingResult ? teams.find(t => t.id === editingResult.team_id) : null}
+                    lobby={lobby}
+                    nextPosition={results.length + 1}
+                    initialData={editingResult}
+                    onClose={() => {
+                        setEditSheetVisible(false);
+                        setEditingResult(null);
+                        setEditingIndex(null);
+                    }}
+                    onSubmit={(result) => {
+                        if (editingIndex !== null) {
+                            handleReplaceResult(editingIndex, result);
+                        }
+                    }}
+                />
+            )}
         </SafeAreaView>
     );
 };
+
+const s = StyleSheet.create({
+    tableHeader: {
+        flexDirection: 'row',
+        backgroundColor: '#F8FAFC',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    headerCol: {
+        fontSize: 10,
+        fontFamily: Theme.fonts.outfit.bold,
+        color: '#64748B',
+        textTransform: 'uppercase',
+    },
+    colRank: { width: 35, textAlign: 'center' },
+    colName: { flex: 1, paddingLeft: 8 },
+    colPts: { width: 45, textAlign: 'center' },
+    colKills: { width: 45, textAlign: 'center' },
+    colTotal: { width: 50, textAlign: 'center' },
+    // Spacer matching the remove-button column in ManualResultCard (marginLeft:4 + width:24)
+    colActions: { marginLeft: 4, width: 24 },
+});

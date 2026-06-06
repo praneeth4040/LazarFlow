@@ -85,5 +85,17 @@
     "thai": "थाई",
     "brazilian": "पुर्तगाली (ब्राजील)",
     "portuguese": "पुर्तगाली"
+  },
+  "results": {
+    "lexiViewAi": "LexiView AI",
+    "manual": "मैनुअल",
+    "matchEntriesCount": "मैच प्रविष्टियाँ ({{count}})",
+    "rank": "रैंक",
+    "team": "टीम",
+    "pos": "स्थान",
+    "kills": "किल",
+    "total": "कुल",
+    "addTeamsToStart": "गणना शुरू करने के लिए टीमें जोड़ें",
+    "submitResults": "परिणाम सबमिट करें"
   }
 }

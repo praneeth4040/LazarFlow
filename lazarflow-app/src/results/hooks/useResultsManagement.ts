@@ -15,36 +15,18 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
     }));
   };
 
-  const handleAddResult = (team: any) => {
-    if (results.some(r => r.team_id === team.id)) {
+  const handleAddResult = (result: MatchResult) => {
+    if (results.some(r => r.team_id === result.team_id)) {
       Alert.alert('Info', 'Team already added to results');
       return;
     }
 
-    const nextPosition = results.length + 1;
-    const pointsEntry = lobby.points_system?.find(p => p.placement === nextPosition);
-    const placementPoints = pointsEntry ? pointsEntry.points : 0;
-
-    const newResult: MatchResult = {
-      team_id: team.id,
-      team_name: team.team_name,
-      position: String(nextPosition),
-      kills: 0,
-      placement_points: placementPoints,
-      kill_points: 0,
-      total_points: placementPoints,
-      members: (team.members || []).map((m: any) => ({
-        name: typeof m === 'object' ? m.name : m,
-        kills: 0
-      }))
-    };
-
     setExpandedResults(prev => ({
       ...prev,
-      [team.id]: true
+      [result.team_id]: true
     }));
 
-    setResults([...results, newResult]);
+    setResults([...results, result]);
   };
 
   const handleUpdateResult = (index: number, field: keyof MatchResult, value: string) => {
@@ -82,6 +64,12 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
 
       setResults(updatedResults);
     }
+  };
+
+  const handleReplaceResult = (index: number, newResult: MatchResult) => {
+    const updated = [...results];
+    updated[index] = newResult;
+    setResults(updated);
   };
 
   const handleRemoveResult = (index: number) => {
@@ -246,6 +234,7 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
     handleAddResult,
     handleUpdateResult,
     handleUpdateMemberKills,
+    handleReplaceResult,
     handleRemoveResult,
     handleSubmit,
     handleSubmitWithResults,

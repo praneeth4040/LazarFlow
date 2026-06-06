@@ -85,5 +85,17 @@
     "thai": "ไทย",
     "brazilian": "โปรตุเกส (บราซิล)",
     "portuguese": "โปรตุเกส"
+  },
+  "results": {
+    "lexiViewAi": "LexiView AI",
+    "manual": "ด้วยตนเอง",
+    "matchEntriesCount": "รายการแมตช์ ({{count}})",
+    "rank": "อันดับ",
+    "team": "ทีม",
+    "pos": "ตำแหน่ง",
+    "kills": "การตาย",
+    "total": "รวม",
+    "addTeamsToStart": "เพิ่มทีมเพื่อเริ่มคำนวณ",
+    "submitResults": "ส่งผลลัพธ์"
   }
 }

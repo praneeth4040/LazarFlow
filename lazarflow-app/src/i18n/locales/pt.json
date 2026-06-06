@@ -85,5 +85,17 @@
     "thai": "Tailandês",
     "brazilian": "Português (Brasil)",
     "portuguese": "Português"
+  },
+  "results": {
+    "lexiViewAi": "LexiView AI",
+    "manual": "Manual",
+    "matchEntriesCount": "Entradas de Partida ({{count}})",
+    "rank": "Rank",
+    "team": "Equipa",
+    "pos": "Pos",
+    "kills": "Kills",
+    "total": "Total",
+    "addTeamsToStart": "Adicione equipas para começar a calcular",
+    "submitResults": "Submeter Resultados"
   }
 }

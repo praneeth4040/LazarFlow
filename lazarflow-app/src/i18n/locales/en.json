@@ -85,5 +85,17 @@
     "thai": "Thai",
     "brazilian": "Portuguese (Brazil)",
     "portuguese": "Portuguese"
+  },
+  "results": {
+    "lexiViewAi": "LexiView AI",
+    "manual": "Manual",
+    "matchEntriesCount": "Match Entries ({{count}})",
+    "rank": "Rank",
+    "team": "Team",
+    "pos": "Pos",
+    "kills": "Kills",
+    "total": "Total",
+    "addTeamsToStart": "Add teams to start calculating",
+    "submitResults": "Submit Results"
   }
 }
