@@ -101,7 +101,9 @@
           "color": "#ffffff",
           "sounds": []
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-localization"
     ],
     "extra": {
       "eas": {
