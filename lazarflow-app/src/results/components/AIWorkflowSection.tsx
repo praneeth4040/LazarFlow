@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, ActivityIndicator, Animated } from
 import { Camera, Upload, Plus, X, Check, Bell, Info } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { styles } from '../styles/calculateResults.styles';
+import AIProcessingBannerAd from '../../components/AIProcessingBannerAd';
 
 interface LobbyImage {
     uri: string;
@@ -160,6 +161,7 @@ export const AIWorkflowSection: React.FC<AIWorkflowSectionProps> = ({
                                 <Bell size={18} color={Theme.colors.accent} />
                                 <Text style={{ color: Theme.colors.accent, fontWeight: '600', fontSize: 12 }}>You'll be notified when done</Text>
                             </View>
+                            <AIProcessingBannerAd />
                         </View>
                     ) : (
                         <TouchableOpacity
@@ -243,6 +245,10 @@ export const AIWorkflowSection: React.FC<AIWorkflowSectionProps> = ({
                                         </Text>
                                     </View>
                                 </View>
+                            )}
+
+                            {(aiPhase === 'queued' || aiPhase === 'uploading') && (
+                                <AIProcessingBannerAd />
                             )}
 
                             {resultImages.length > 0 && (

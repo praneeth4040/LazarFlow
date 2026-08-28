@@ -37,7 +37,7 @@ This document tracks the migration of the codebase to a modular, production-grad
 ## 🎯 Production Readiness Checklist
 
 ### Critical Path
-- [x] **Backend Endpoint**: Switched to `https://www.api.lazarflow.app`. ([apiClient.js](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/src/lib/apiClient.js))
+- [x] **Backend Endpoint**: Switched to `https://8b2b-49-204-103-59.ngrok-free.app`. ([apiClient.js](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/src/lib/apiClient.js))
 - [x] **Version Control**: Updated to `1.0.2` (Build 3). ([app.json](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/app.json))
 - [ ] **TypeScript Migration**: Target 100% `.ts`/`.tsx` coverage.
 - [ ] **EAS Build Stability**: Monitor Android/iOS build status.

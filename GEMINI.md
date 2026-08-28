@@ -8,7 +8,7 @@ LazarFlow is a React Native mobile application built with the Expo framework. It
 
 **Key Technologies:**
 *   **Frontend:** React Native (with Expo)
-*   **Backend:** Supabase (for authentication and database) and a custom API backend (`api.lazarflow.app`) for AI tasks.
+*   **Backend:** Supabase (for authentication and database) and a custom API backend (`8b2b-49-204-103-59.ngrok-free.app`) for AI tasks.
 *   **Navigation:** React Navigation
 *   **State Management:** React Context API (`UserContext`) and custom hooks.
 

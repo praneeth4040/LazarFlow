@@ -70,10 +70,35 @@ export default function AppNavigator() {
         // Check for initial session
         const checkSession = async () => {
             try {
-                const { data: { session } } = await authService.getSession();
-                setSession(session);
+                // Use Supabase directly — authService.getSession() falls back to
+                // the raw AsyncStorage token which can be stale/expired.
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (session?.access_token) {
+                    // Check if the token is actually expired
+                    const expiresAt = session.expires_at; // Unix epoch seconds
+                    const isExpired = expiresAt && (expiresAt * 1000) < Date.now();
+
+                    if (isExpired) {
+                        // Try to refresh before deciding
+                        console.log('🕒 Startup: session expired, attempting refresh…');
+                        const { data: refreshed, error } = await supabase.auth.refreshSession();
+                        if (!error && refreshed?.session) {
+                            console.log('✅ Startup refresh succeeded');
+                            setSession(refreshed.session);
+                        } else {
+                            console.log('🚪 Startup refresh failed — going to login');
+                            setSession(null);
+                        }
+                    } else {
+                        setSession(session);
+                    }
+                } else {
+                    setSession(null);
+                }
             } catch (e) {
                 console.error('Session check failed', e);
+                setSession(null);
             } finally {
                 setIsLoading(false);
             }
@@ -88,14 +113,30 @@ export default function AppNavigator() {
                 console.log('🔑 Password recovery mode detected!');
                 setIsRecovering(true);
                 setSession(session);
-            } else if (event === 'SIGNED_IN') {
-                console.log('✅ Supabase SIGNED_IN Event');
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                // TOKEN_REFRESHED also means the session is alive — keep the user in
+                console.log(`✅ Supabase ${event} Event`);
                 setSession(session);
-                // DO NOT reset isRecovering here, as it might override recovery mode
             } else if (event === 'SIGNED_OUT') {
-                console.log('🚪 Supabase SIGNED_OUT Event');
-                setSession(null);
-                setIsRecovering(false);
+                // Supabase fires SIGNED_OUT for network hiccups or internal errors.
+                // Confirm by calling getUser() which hits the network — if it fails,
+                // the session is genuinely dead and we send the user to login.
+                console.log('🔔 Supabase SIGNED_OUT — verifying session before acting…');
+                supabase.auth.getUser().then(({ data, error }) => {
+                    if (!error && data?.user) {
+                        // Server confirmed the user is still valid — false SIGNED_OUT
+                        console.log('✅ False SIGNED_OUT ignored — user still authenticated.');
+                    } else {
+                        console.log('🚪 SIGNED_OUT confirmed — navigating to login.');
+                        setSession(null);
+                        setIsRecovering(false);
+                    }
+                }).catch(() => {
+                    // Network error during check — treat as signed out to avoid being stuck
+                    console.warn('⚠️ Could not verify session — treating as signed out.');
+                    setSession(null);
+                    setIsRecovering(false);
+                });
             }
         });
 

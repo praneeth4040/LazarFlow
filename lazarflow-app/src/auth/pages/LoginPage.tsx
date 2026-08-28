@@ -1,221 +1,183 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import {
+    View, Text, StyleSheet, TouchableOpacity, Image,
+    ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { useAuth } from '../hooks/useAuth';
 import { AuthInput } from '../components/AuthInput';
+import { signInWithGoogle } from '../../lib/googleAuth';
+import { CustomAlert as Alert } from '../../lib/AlertService';
 
 interface LoginPageProps {
-  navigation: any;
+    navigation: any;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ navigation }) => {
-  const { t } = useTranslation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const { loading, login } = useAuth();
+    const { t } = useTranslation();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
+    const { loading, login } = useAuth();
 
-  const handleLogin = async () => {
-    await login({ email, password });
-  };
+    const handleLogin = async () => {
+        await login({ email, password });
+    };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          style={{ backgroundColor: Theme.colors.secondary }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.header}>
-            <Text style={styles.topBadge}>{t('auth.loginBadge')}</Text>
-            <Image
-              source={require('../../../assets/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
-            <Text style={styles.subtitle}>{t('auth.loginToContinue')}</Text>
-          </View>
+    const handleGoogleSignIn = async () => {
+        setGoogleLoading(true);
+        try {
+            await signInWithGoogle();
+        } catch (err: any) {
+            if (err.message !== 'CANCELLED') {
+                Alert.alert('Google Sign-In Failed', err.message || 'Something went wrong.');
+            }
+        } finally {
+            setGoogleLoading(false);
+        }
+    };
 
-          <View style={styles.form}>
-            <AuthInput
-              label={t('auth.email')}
-              placeholder={t('auth.emailPlaceholder')}
-              value={email}
-              onChangeText={setEmail}
-              icon={<Mail size={20} color={Theme.colors.textSecondary} />}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-
-            <View style={styles.passwordContainer}>
-              <View style={styles.labelRow}>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('ForgotPassword')}
-                >
-                  <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
-                </TouchableOpacity>
-              </View>
-              <AuthInput
-                label={t('auth.password')}
-                placeholder={t('auth.passwordPlaceholder')}
-                value={password}
-                onChangeText={setPassword}
-                icon={<Lock size={20} color={Theme.colors.textSecondary} />}
-                secureTextEntry={!showPassword}
-                rightIcon={
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    {showPassword ? (
-                      <EyeOff size={20} color={Theme.colors.textSecondary} />
-                    ) : (
-                      <Eye size={20} color={Theme.colors.textSecondary} />
-                    )}
-                  </TouchableOpacity>
-                }
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.button, (loading || email === '' || password === '') && styles.buttonDisabled]}
-              onPress={handleLogin}
-              disabled={loading || email === '' || password === ''}
+    return (
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Text style={styles.buttonText}>{t('auth.login')}</Text>
-                  <ArrowRight size={20} color="#fff" />
-                </>
-              )}
-            </TouchableOpacity>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    style={{ backgroundColor: Theme.colors.secondary }}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.header}>
+                        <Text style={styles.topBadge}>{t('auth.loginBadge')}</Text>
+                        <Image
+                            source={require('../../../assets/logo.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                        <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
+                        <Text style={styles.subtitle}>{t('auth.loginToContinue')}</Text>
+                    </View>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>{t('auth.noAccount')}</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-                <Text style={styles.footerLink}>{t('auth.signup')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+                    <View style={styles.form}>
+                        {/* ── Google Sign-In ─────────────────────────── */}
+                        <TouchableOpacity
+                            style={styles.googleBtn}
+                            onPress={handleGoogleSignIn}
+                            disabled={googleLoading || loading}
+                            activeOpacity={0.85}
+                        >
+                            {googleLoading ? (
+                                <ActivityIndicator color={Theme.colors.textPrimary} size="small" />
+                            ) : (
+                                <Image
+                                    source={require('../../../assets/google.png')}
+                                    style={styles.googleIcon}
+                                />
+                            )}
+                            <Text style={styles.googleBtnText}>Continue with Google</Text>
+                        </TouchableOpacity>
+
+                        {/* ── Divider ────────────────────────────────── */}
+                        <View style={styles.dividerRow}>
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.dividerText}>or sign in with email</Text>
+                            <View style={styles.dividerLine} />
+                        </View>
+
+                        {/* ── Email / Password ───────────────────────── */}
+                        <AuthInput
+                            label={t('auth.email')}
+                            placeholder={t('auth.emailPlaceholder')}
+                            value={email}
+                            onChangeText={setEmail}
+                            icon={<Mail size={20} color={Theme.colors.textSecondary} />}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                        />
+
+                        <View style={styles.passwordContainer}>
+                            <View style={styles.labelRow}>
+                                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                                    <Text style={styles.forgotPasswordText}>{t('auth.forgotPassword')}</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <AuthInput
+                                label={t('auth.password')}
+                                placeholder={t('auth.passwordPlaceholder')}
+                                value={password}
+                                onChangeText={setPassword}
+                                icon={<Lock size={20} color={Theme.colors.textSecondary} />}
+                                secureTextEntry={!showPassword}
+                                rightIcon={
+                                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                        {showPassword
+                                            ? <EyeOff size={20} color={Theme.colors.textSecondary} />
+                                            : <Eye size={20} color={Theme.colors.textSecondary} />}
+                                    </TouchableOpacity>
+                                }
+                            />
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.button, (loading || !email || !password) && styles.buttonDisabled]}
+                            onPress={handleLogin}
+                            disabled={loading || !email || !password}
+                        >
+                            {loading
+                                ? <ActivityIndicator color="#fff" />
+                                : <>
+                                    <Text style={styles.buttonText}>{t('auth.login')}</Text>
+                                    <ArrowRight size={20} color="#fff" />
+                                </>}
+                        </TouchableOpacity>
+
+                        <View style={styles.footer}>
+                            <Text style={styles.footerText}>{t('auth.noAccount')}</Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+                                <Text style={styles.footerLink}>{t('auth.signup')}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
+    );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.secondary,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: Theme.colors.secondary,
-  },
-  header: {
-    marginBottom: 30,
-    alignItems: 'center',
-  },
-  topBadge: {
-    backgroundColor: Theme.colors.accent + '20',
-    color: Theme.colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Theme.colors.textPrimary,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Theme.colors.textSecondary,
-  },
-  form: {
-    backgroundColor: Theme.colors.card,
-    padding: 24,
-    borderRadius: Theme.radius.lg,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    shadowColor: Theme.colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  passwordContainer: {
-    position: 'relative',
-  },
-  labelRow: {
-    position: 'absolute',
-    top: 0,
-    right: 4,
-    zIndex: 1,
-  },
-  button: {
-    backgroundColor: Theme.colors.accent,
-    height: 56,
-    borderRadius: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-    gap: 8,
-    shadowColor: Theme.colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-    backgroundColor: Theme.colors.textSecondary,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: Theme.fonts.outfit.bold,
-  },
-  forgotPasswordText: {
-    color: Theme.colors.accent,
-    fontSize: 14,
-    fontFamily: Theme.fonts.outfit.semibold,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 40,
-    gap: 4,
-  },
-  footerText: {
-    color: Theme.colors.textSecondary,
-    fontSize: 15,
-    fontFamily: Theme.fonts.outfit.regular,
-  },
-  footerLink: {
-    color: Theme.colors.accent,
-    fontSize: 15,
-    fontFamily: Theme.fonts.outfit.bold,
-  },
+    container:        { flex: 1, backgroundColor: Theme.colors.secondary },
+    scrollContent:    { flexGrow: 1, justifyContent: 'center', padding: 24, backgroundColor: Theme.colors.secondary },
+    header:           { marginBottom: 30, alignItems: 'center' },
+    topBadge:         { backgroundColor: Theme.colors.accent + '20', color: Theme.colors.accent, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 16, overflow: 'hidden' },
+    logo:             { width: 80, height: 80, marginBottom: 20 },
+    title:            { fontSize: 32, fontWeight: 'bold', color: Theme.colors.textPrimary, marginBottom: 8 },
+    subtitle:         { fontSize: 16, color: Theme.colors.textSecondary },
+    form:             { backgroundColor: Theme.colors.card, padding: 24, borderRadius: Theme.radius.lg, borderWidth: 1, borderColor: Theme.colors.border, shadowColor: Theme.colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+
+    // Google button
+    googleBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 28, borderWidth: 1.5, borderColor: Theme.colors.border, backgroundColor: Theme.colors.primary, gap: 10, marginBottom: 20 },
+    googleIcon:       { width: 20, height: 20 },
+    googleBtnText:    { fontSize: 15, fontFamily: Theme.fonts.outfit.semibold, color: Theme.colors.textPrimary },
+
+    // Divider
+    dividerRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
+    dividerLine:      { flex: 1, height: 1, backgroundColor: Theme.colors.border },
+    dividerText:      { fontSize: 12, color: Theme.colors.textSecondary, fontFamily: Theme.fonts.outfit.medium },
+
+    passwordContainer: { position: 'relative' },
+    labelRow:          { position: 'absolute', top: 0, right: 4, zIndex: 1 },
+
+    button:           { backgroundColor: Theme.colors.accent, height: 56, borderRadius: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 8, shadowColor: Theme.colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
+    buttonDisabled:   { opacity: 0.7, backgroundColor: Theme.colors.textSecondary },
+    buttonText:       { color: '#fff', fontSize: 16, fontFamily: Theme.fonts.outfit.bold },
+    forgotPasswordText: { color: Theme.colors.accent, fontSize: 14, fontFamily: Theme.fonts.outfit.semibold },
+
+    footer:           { flexDirection: 'row', justifyContent: 'center', marginTop: 40, gap: 4 },
+    footerText:       { color: Theme.colors.textSecondary, fontSize: 15, fontFamily: Theme.fonts.outfit.regular },
+    footerLink:       { color: Theme.colors.accent, fontSize: 15, fontFamily: Theme.fonts.outfit.bold },
 });

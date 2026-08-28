@@ -18,6 +18,7 @@ import { useOcrJobs } from '../../context/OcrJobContext';
 // Dashboard Hooks & Repository
 import { useDashboard } from '../hooks/useDashboard';
 import { DashboardRepository } from '../services/DashboardRepository';
+import { useThemeUploadInterstitialAd } from '../../hooks/useThemeUploadInterstitialAd';
 
 // Dashboard Tabs
 import HomeTab from '../components/HomeTab';
@@ -32,6 +33,7 @@ const DashboardPage = ({ navigation, route }: any) => {
     const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
     const { user, loading: userLoading, refreshUser } = useContext(UserContext);
     const { unreadCount, activeJobsCount } = useOcrJobs();
+    const { showAdIfReady: showThemeUploadAd } = useThemeUploadInterstitialAd();
     
     const dashboard = useDashboard(user, refreshUser);
 
@@ -94,8 +96,8 @@ const DashboardPage = ({ navigation, route }: any) => {
     const handleDesignUpload = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            quality: 0.8,
+            allowsEditing: false, // disabled — cropper was causing major delay on device
+            quality: 1,           // keep original quality; backend handles processing
         });
         if (result.canceled) return;
         dashboard.setSelectedImage(result.assets[0]);
@@ -115,9 +117,13 @@ const DashboardPage = ({ navigation, route }: any) => {
         try {
             dashboard.setUploading(true);
             await DashboardRepository.uploadDesignTheme(dashboard.designDetails.name, dashboard.selectedImage.uri);
-            dashboard.fetchUserThemes();
+            // Close modal and show success immediately
             dashboard.setUploadModalVisible(false);
             Alert.alert('Success', 'Design uploaded and pending verification.');
+            // Show interstitial ad after successful upload (non-blocking)
+            showThemeUploadAd();
+            // Refresh theme list in background
+            dashboard.fetchUserThemes();
         } catch (error: any) {
             const apiDetail = error.response?.data?.detail;
             const message = typeof apiDetail === 'string'

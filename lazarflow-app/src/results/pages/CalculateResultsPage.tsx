@@ -13,6 +13,7 @@ import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyR
 import { useLobbyMapping } from '../hooks/useLobbyMapping';
 import { useAIExtractionAsync } from '../hooks/useAIExtractionAsync';
 import { useResultsManagement } from '../hooks/useResultsManagement';
+import { useResultsInterstitialAd } from '../../hooks/useResultsInterstitialAd';
 import { styles } from '../styles/calculateResults.styles';
 
 // Import child components
@@ -129,6 +130,9 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         totalKills: number;
     }>>({});
 
+    // Preload interstitial ad — fires after results are saved successfully
+    const { showAdIfReady } = useResultsInterstitialAd();
+
     const {
         results,
         submitting,
@@ -141,7 +145,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         handleRemoveResult,
         handleSubmit,
         handleSubmitWithResults,
-    } = useResultsManagement(lobby, teams, navigation);
+    } = useResultsManagement(lobby, teams, navigation, showAdIfReady);
 
     useEffect(() => {
         if (lobby?.id) {

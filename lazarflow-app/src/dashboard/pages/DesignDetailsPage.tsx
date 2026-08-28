@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, StatusBar, Platform, ActivityIndicator, Alert as RNAlert, Share } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator, Alert as RNAlert, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, Palette, Trash2, BookmarkPlus, BadgeCheck } from 'lucide-react-native';
@@ -53,7 +53,8 @@ export const DesignDetailsPage: React.FC<DesignDetailsPageProps> = ({ route, nav
         try {
             const url = getThemeShareLink(theme.id);
             await Share.share({
-                message: `Check out this design on LazarFlow: ${url}`,
+                title: `${theme.name || 'Design'} — LazarFlow`,
+                message: `Check out this tournament design on LazarFlow!\n\n"${theme.name || 'Untitled'}"\n\n${url}`,
                 url: url,
             });
         } catch (error: any) {
@@ -132,6 +133,30 @@ export const DesignDetailsPage: React.FC<DesignDetailsPageProps> = ({ route, nav
         <View style={styles.container}>
             <StatusBar barStyle="light-content" />
 
+            {/* ── Fixed header — sits above the scroll, always visible ── */}
+            <SafeAreaView style={styles.fixedHeader} edges={['top']}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                    <ArrowLeft size={22} color="#fff" />
+                </TouchableOpacity>
+
+                <View style={styles.headerActions}>
+                    {isOwner && (
+                        <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+                            <Share2 size={20} color="#fff" />
+                        </TouchableOpacity>
+                    )}
+                    {isOwner && (
+                        <TouchableOpacity
+                            style={[styles.actionButton, styles.deleteButton]}
+                            onPress={handleDelete}
+                            disabled={actionLoading}
+                        >
+                            <Trash2 size={20} color="#ef4444" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </SafeAreaView>
+
             <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
                 {/* Header Image */}
                 <View style={styles.imageContainer}>
@@ -144,34 +169,9 @@ export const DesignDetailsPage: React.FC<DesignDetailsPageProps> = ({ route, nav
                     )}
 
                     <LinearGradient
-                        colors={['rgba(0,0,0,0.6)', 'transparent', 'transparent', 'rgba(15, 23, 42, 1)']}
+                        colors={['rgba(0,0,0,0.55)', 'transparent', 'transparent', 'rgba(15, 23, 42, 1)']}
                         style={styles.gradientOverlay}
                     />
-
-                    <SafeAreaView style={styles.headerOverlay}>
-                        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                            <ArrowLeft size={24} color="#fff" />
-                        </TouchableOpacity>
-
-                        <View style={styles.headerActions}>
-                            {/* Share — enabled for owner */}
-                            {isOwner && (
-                                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
-                                    <Share2 size={20} color="#fff" />
-                                </TouchableOpacity>
-                            )}
-                            {/* Delete — only for owner */}
-                            {isOwner && (
-                                <TouchableOpacity
-                                    style={[styles.actionButton, { backgroundColor: 'rgba(239,68,68,0.35)' }]}
-                                    onPress={handleDelete}
-                                    disabled={actionLoading}
-                                >
-                                    <Trash2 size={20} color="#ef4444" />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-                    </SafeAreaView>
                 </View>
 
                 {/* Content */}
@@ -266,10 +266,12 @@ const styles = StyleSheet.create({
     image: { width: '100%', height: '100%' },
     placeholderImage: { backgroundColor: Theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
     gradientOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-    headerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 40 : 10 },
-    backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
+    // Fixed header — floats above scroll, respects SafeArea
+    fixedHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 12 },
+    backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
     headerActions: { flexDirection: 'row', gap: 10 },
-    actionButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
+    actionButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+    deleteButton: { backgroundColor: 'rgba(239,68,68,0.3)' },
     contentContainer: { marginTop: -40, backgroundColor: Theme.colors.secondary, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 32 },
     titleSection: { marginBottom: 24 },
     titleHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 },

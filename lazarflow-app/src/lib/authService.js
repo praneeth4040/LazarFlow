@@ -42,7 +42,7 @@ export const authService = {
     async login(email, password) {
         const response = await apiClient.post('/api/auth/login', { email, password });
         if (response.data?.session?.access_token && response.data?.session?.refresh_token) {
-            const { access_token, refresh_token, expires_in } = response.data.session;
+            const { access_token, refresh_token, expires_in, expires_at } = response.data.session;
             
             console.log('💾 Syncing login session with Supabase...');
             const { error } = await supabase.auth.setSession({
@@ -55,7 +55,10 @@ export const authService = {
             await AsyncStorage.setItem('access_token', access_token);
             await AsyncStorage.setItem('refresh_token', refresh_token);
             
-            if (expires_in) {
+            // Prefer expires_at (absolute Unix epoch) over expires_in (relative seconds)
+            if (expires_at) {
+                await AsyncStorage.setItem('token_expiry', String(expires_at * 1000));
+            } else if (expires_in) {
                 const expiryTime = Date.now() + (expires_in * 1000);
                 await AsyncStorage.setItem('token_expiry', String(expiryTime));
             }
@@ -126,10 +129,22 @@ export const authService = {
                 throw new Error('No session after refresh');
             } catch (error) {
                 console.error('❌ Token refresh failed:', error.message);
-                // If refresh token is invalid (often after 10 days), emit sign out
-                if (error.response?.status === 400 || error.message?.includes('invalid refresh token') || error.message?.includes('Invalid Refresh Token')) {
-                    console.log('🚪 Session unusable, triggering sign out.');
+                // Only sign out when the session is definitively dead.
+                // Network errors, timeouts, or server 5xx are transient — don't log the user out.
+                const status = error.response?.status;
+                const msg = error.message?.toLowerCase() ?? '';
+                const isHardFailure =
+                    status === 400 ||
+                    msg.includes('invalid refresh token') ||
+                    msg.includes('invalid_grant') ||
+                    msg.includes('token expired') ||
+                    msg.includes('no refresh token');
+
+                if (isHardFailure) {
+                    console.log('🚪 Refresh token is dead — triggering sign out.');
                     authEvents.emit('SIGNED_OUT');
+                } else {
+                    console.warn('⚠️ Refresh failed (transient) — not signing out.');
                 }
                 throw error;
             } finally {
@@ -145,6 +160,10 @@ export const authService = {
             console.log('🧹 authService: Logging out...');
             await unregisterPushToken().catch(e => console.warn('Push unregistration failed'));
             
+            // Sign out from Google if signed in via Google
+            const { signOutGoogle } = require('./googleAuth');
+            await signOutGoogle().catch(() => {});
+
             // Logout from Supabase
             await supabase.auth.signOut();
             

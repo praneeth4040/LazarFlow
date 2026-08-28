@@ -87,6 +87,22 @@ export default function App() {
     }
   }, [fontsLoaded, fontError]);
 
+  // ── Initialize Google Mobile Ads SDK once at app startup ────────────────────
+  useEffect(() => {
+    // react-native-google-mobile-ads requires a custom native build.
+    // This call is a no-op in Expo Go — the module simply won't be found.
+    try {
+      const { default: mobileAds } = require('react-native-google-mobile-ads');
+      mobileAds()
+        .initialize()
+        .then(() => console.log('📢 Mobile Ads SDK initialized'))
+        .catch((e) => console.warn('📢 Mobile Ads SDK init failed:', e));
+    } catch (_) {
+      console.log('📢 Mobile Ads SDK not available (Expo Go)');
+    }
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────────
+
   // ── OCR Job push notification handlers ──────────────────────────────────────
   useEffect(() => {
     // Foreground notifications — job finished while app is open

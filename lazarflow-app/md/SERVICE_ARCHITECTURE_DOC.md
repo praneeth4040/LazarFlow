@@ -58,7 +58,7 @@ Theme assets and configurations are managed via the backend, although some legac
 | **Fetch User Themes** | **Backend** | `GET /api/themes` (filtered by user) |
 | **Upload Theme Asset** | **Backend** | `POST /api/themes` (multipart/form-data) |
 | **Update Theme Config** | **Backend** | `PUT /api/themes/${id}/config` |
-| **Storage Resolution** | **Hybrid** | URLs generated for `www.api.lazarflow.app/storage` or Supabase public storage. |
+| **Storage Resolution** | **Hybrid** | URLs generated for `8b2b-49-204-103-59.ngrok-free.app/storage` or Supabase public storage. |
 
 ---
 

@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import LobbyCard from './LobbyCard';
 import { DashboardTabProps, Lobby } from '../types';
+import HomeBannerAd from '../../components/HomeBannerAd';
+import { AD_PLACEMENTS } from '../../config/adConfig';
 
 export const getTierColors = (tierName: string) => {
     const colorMap: Record<string, any> = {
@@ -80,26 +82,29 @@ const HomeTab: React.FC<HomeTabProps> = ({
 
             {lobbies.length > 0 ? (
                 lobbies.slice(0, 5).map((lobby, index) => (
-                    <LobbyCard 
-                        key={lobby.id}
-                        lobby={lobby}
-                        index={index}
-                        activeSettingsId={activeSettingsId}
-                        toggleSettings={toggleSettings}
-                        onCalculate={onCalculate}
-                        onRender={onRender}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onEnd={onEnd}
-                        onManageTeams={onManageTeams}
-                        isSelected={selectedLobbies.includes(lobby.id)}
-                        onLongPress={() => toggleLobbySelection(lobby.id)}
-                        onPress={() => {
-                            if (selectedLobbies.length > 0) {
-                                toggleLobbySelection(lobby.id);
-                            }
-                        }}
-                    />
+                    <React.Fragment key={lobby.id}>
+                        <LobbyCard 
+                            lobby={lobby}
+                            index={index}
+                            activeSettingsId={activeSettingsId}
+                            toggleSettings={toggleSettings}
+                            onCalculate={onCalculate}
+                            onRender={onRender}
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                            onEnd={onEnd}
+                            onManageTeams={onManageTeams}
+                            isSelected={selectedLobbies.includes(lobby.id)}
+                            onLongPress={() => toggleLobbySelection(lobby.id)}
+                            onPress={() => {
+                                if (selectedLobbies.length > 0) {
+                                    toggleLobbySelection(lobby.id);
+                                }
+                            }}
+                        />
+                        {/* Banner ad inserted after the configured index */}
+                        {index === AD_PLACEMENTS.HOME_BANNER.insertAfterIndex && <HomeBannerAd />}
+                    </React.Fragment>
                 ))
             ) : (
                 <View style={styles.emptyState}>

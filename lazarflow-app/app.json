@@ -4,7 +4,7 @@
     "slug": "lazarflow-app",
     "owner": "praneeth4400",
     "scheme": "lazarflow",
-    "version": "1.0.3",
+    "version": "1.1.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -27,7 +27,7 @@
     },
     "android": {
       "package": "com.lazarflow.app",
-      "versionCode": 23,
+      "versionCode": 30,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -110,5 +110,8 @@
         "projectId": "a27edfc1-6daa-41fd-9ce5-6bfcd9b1a34b"
       }
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-6740951357526226~3080877290"
   }
 }

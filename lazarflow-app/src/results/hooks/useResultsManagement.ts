@@ -3,7 +3,7 @@ import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyR
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { MatchResult, LobbyData } from '../types';
 
-export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation: any) => {
+export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation: any, onResultsSaved?: () => void) => {
   const [results, setResults] = useState<MatchResult[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [expandedResults, setExpandedResults] = useState<Record<string, boolean>>({});
@@ -151,6 +151,9 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
         }
       }
 
+      // Fire the interstitial ad BEFORE showing the success alert (non-blocking)
+      onResultsSaved?.();
+
       Alert.alert('Success', 'Results submitted successfully!', [
         { text: 'OK', onPress: () => navigation.navigate('Dashboard') } as any
       ]);
@@ -213,6 +216,9 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
           console.warn('⚠️ Failed to auto-transition lobby status:', statusErr?.response?.data || statusErr.message);
         }
       }
+
+      // Fire the interstitial ad BEFORE showing the success alert (non-blocking)
+      onResultsSaved?.();
 
       Alert.alert('Success', 'Results submitted successfully!', [
         { text: 'OK', onPress: () => navigation.navigate('Dashboard') } as any,

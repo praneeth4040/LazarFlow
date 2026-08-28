@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { useAuth } from '../hooks/useAuth';
 import { AuthInput } from '../components/AuthInput';
+import { signInWithGoogle } from '../../lib/googleAuth';
+import { CustomAlert as Alert } from '../../lib/AlertService';
 
 interface SignUpPageProps {
   navigation: any;
@@ -38,17 +40,26 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
 
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState(true);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { loading, signUp } = useAuth();
 
   const handleSignUp = async () => {
-    if (!agreeTerms || !isPasswordStrong) {
-      return;
+    if (!agreeTerms || !isPasswordStrong) return;
+    await signUp({ email, password, data: { marketing_opt_in: subscribeEmail } });
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+      // AppNavigator listens to SIGNED_IN and navigates automatically
+    } catch (err: any) {
+      if (err.message !== 'CANCELLED') {
+        Alert.alert('Google Sign-In Failed', err.message || 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setGoogleLoading(false);
     }
-    await signUp({ 
-      email, 
-      password, 
-      data: { marketing_opt_in: subscribeEmail } 
-    });
   };
 
   return (
@@ -74,6 +85,31 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
           </View>
 
           <View style={styles.form}>
+            {/* ── Google Sign-Up ─────────────────────────────── */}
+            <TouchableOpacity
+              style={styles.googleBtn}
+              onPress={handleGoogleSignIn}
+              disabled={googleLoading || loading}
+              activeOpacity={0.85}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color={Theme.colors.textPrimary} size="small" />
+              ) : (
+                <Image
+                  source={require('../../../assets/google.png')}
+                  style={styles.googleIcon}
+                />
+              )}
+              <Text style={styles.googleBtnText}>Continue with Google</Text>
+            </TouchableOpacity>
+
+            {/* ── Divider ────────────────────────────────────── */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or sign up with email</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
             <AuthInput
               label={t('auth.email')}
               placeholder={t('auth.signUpPlaceholder')}
@@ -355,4 +391,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: Theme.fonts.outfit.bold,
   },
+  // ── Google ──────────────────────────────────────────────────────────────
+  googleBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 52, borderRadius: 28, borderWidth: 1.5, borderColor: Theme.colors.border, backgroundColor: Theme.colors.primary, gap: 10, marginBottom: 20 },
+  googleIcon:    { width: 20, height: 20 },
+  googleBtnText: { fontSize: 15, fontFamily: Theme.fonts.outfit.semibold, color: Theme.colors.textPrimary },
+  dividerRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
+  dividerLine:   { flex: 1, height: 1, backgroundColor: Theme.colors.border },
+  dividerText:   { fontSize: 12, color: Theme.colors.textSecondary, fontFamily: Theme.fonts.outfit.medium },
 });

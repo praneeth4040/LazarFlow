@@ -104,4 +104,4 @@ This document details all API endpoints used in the **LazarFlow** mobile applica
 
 | Endpoint | Method | Call Site | Description |
 | :--- | :--- | :--- | :--- |
-| `https://www.api.lazarflow.app/storage/themes/:path` | GET | `Image` components in React Native | Used to load theme preview images directly from the backend storage. |
+| `https://8b2b-49-204-103-59.ngrok-free.app/storage/themes/:path` | GET | `Image` components in React Native | Used to load theme preview images directly from the backend storage. |

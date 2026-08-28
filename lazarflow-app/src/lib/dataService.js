@@ -1,5 +1,9 @@
 import apiClient, { BASE_URL } from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabaseClient';
+// expo-file-system legacy API — works in Expo Go and all build types
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 
 const CACHE_KEYS = {
     COMMUNITY_DESIGNS: 'cache_community_designs',
@@ -254,14 +258,14 @@ export const getTheme = async (themeId) => {
 };
 
 /**
- * Returns a shareable deep-link URL for a verified theme.
- * Only verified themes (status === 'verified') should be shared.
+ * Returns a shareable web URL for a verified theme.
+ * Links to https://lazarflow.app/design/<themeId> so anyone
+ * with the link can open it in a browser or tap to open the app.
  * @param {string} themeId
- * @returns {string}  e.g. "https://lazarflow.app/design/abc123"
+ * @returns {string} e.g. "https://lazarflow.app/design/abc123"
  */
 export const getThemeShareLink = (themeId) => {
-    const Linking = require('expo-linking');
-    return Linking.createURL(`design/${themeId}`);
+    return `https://lazarflow.app/design/${themeId}`;
 };
 
 /**
@@ -452,31 +456,75 @@ export const fetchThemes = async (status = null) => {
 };
 
 /**
- * Upload/Create a new theme
+ * Upload a new theme.
+ *
+ * New flow (fast):
+ *   1. Upload image directly from the device to Supabase Storage (chunked/resumable).
+ *   2. Get the public CDN URL — no temp file, no backend file I/O.
+ *   3. POST { name, image_url } as JSON to the backend — tiny payload, instant.
+ *
  * Endpoint: POST /api/themes/
- * Content-Type: multipart/form-data
  */
 export const uploadTheme = async (name, imageUri) => {
-    const formData = new FormData();
-    formData.append('name', name);
-    
-    // Append image file
-    // React Native expects: { uri, name, type }
-    const fileName = imageUri.split('/').pop() || 'theme.png';
-    const match = /\.(\w+)$/.exec(fileName);
-    const type = match ? `image/${match[1]}` : 'image/png';
-    
-    formData.append('image', {
-        uri: imageUri,
-        name: fileName,
-        type: type,
-    });
+    console.log('📤 [uploadTheme] Starting upload');
+    console.log('📤 [uploadTheme] name:', name);
+    console.log('📤 [uploadTheme] imageUri:', imageUri);
+    console.log('📤 [uploadTheme] imageUri type:', typeof imageUri);
 
-    const { data } = await apiClient.post('/api/themes/', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data',
-        },
+    if (!imageUri) {
+        throw new Error('No image URI provided to uploadTheme');
+    }
+
+    // ── Step 1: resolve file metadata ──────────────────────────────────────
+    const fileName  = imageUri.split('/').pop() || 'theme.png';
+    const ext       = (/\.(\w+)$/.exec(fileName) || [])[1] || 'png';
+    const mimeType  = `image/${ext}`;
+    console.log('📤 [uploadTheme] fileName:', fileName, '| mimeType:', mimeType);
+
+    // ── Step 2: read file as base64 using expo-file-system ───────────────
+    // XHR cannot read file:// URIs in React Native. expo-file-system/legacy
+    // works in Expo Go, dev builds, and production APKs.
+    console.log('📤 [uploadTheme] Reading file via expo-file-system...');
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
     });
+    console.log('📤 [uploadTheme] File read OK, base64 length:', base64.length);
+
+    // ── Step 3: build a unique storage path ───────────────────────────────
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) console.warn('📤 [uploadTheme] getUser error:', userError.message);
+    const userId = user?.id ?? 'anonymous';
+    const storagePath = `${userId}/${Date.now()}-${fileName}`;
+    console.log('📤 [uploadTheme] storagePath:', storagePath);
+
+    // ── Step 4: upload to Supabase Storage ───────────────────────────────
+    // Pass base64 string directly with decode:true — avoids Uint8Array conversion issues
+    console.log('📤 [uploadTheme] Uploading to Supabase Storage...');
+    const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('themes')
+        .upload(storagePath, decode(base64), {
+            contentType: mimeType,
+            upsert: false,
+        });
+
+    if (uploadError) {
+        console.error('📤 [uploadTheme] Supabase upload error:', uploadError.message, uploadError);
+        throw new Error(`Storage upload failed: ${uploadError.message}`);
+    }
+    console.log('📤 [uploadTheme] Supabase upload success:', uploadData);
+
+    // ── Step 5: get the public CDN URL ────────────────────────────────────
+    const { data: { publicUrl } } = supabase.storage
+        .from('themes')
+        .getPublicUrl(storagePath);
+    console.log('📤 [uploadTheme] Public URL:', publicUrl);
+
+    // ── Step 6: register with backend — just a tiny JSON payload ──────────
+    const payload = { name, image_url: publicUrl };
+    console.log('📤 [uploadTheme] Registering with backend, payload:', JSON.stringify(payload));
+    const { data } = await apiClient.post('/api/themes/', payload);
+    console.log('📤 [uploadTheme] Backend response:', data);
+
     return data;
 };
 
