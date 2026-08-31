@@ -4,7 +4,7 @@
     "slug": "lazarflow-app",
     "owner": "praneeth4400",
     "scheme": "lazarflow",
-    "version": "1.1.0",
+    "version": "1.0.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -27,7 +27,7 @@
     },
     "android": {
       "package": "com.lazarflow.app",
-      "versionCode": 30,
+      "versionCode": 100,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",

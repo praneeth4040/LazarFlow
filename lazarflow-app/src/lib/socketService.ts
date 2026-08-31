@@ -19,7 +19,7 @@ interface SocketServiceConfig {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SOCKET_URL = 'https://b148-49-204-103-59.ngrok-free.app'; // Production URL
+const SOCKET_URL = 'https://www.api.lazarflow.app'; // Production URL
 const MAX_RECONNECT_ATTEMPTS = 5;
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
