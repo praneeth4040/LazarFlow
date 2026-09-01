@@ -1,26 +1,52 @@
 {
   "project_info": {
-    "project_number": "729960704927",
-    "project_id": "lazarflow-fc9c5",
-    "storage_bucket": "lazarflow-fc9c5.firebasestorage.app"
+    "project_number": "790454978494",
+    "project_id": "lazarflow-real",
+    "storage_bucket": "lazarflow-real.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:729960704927:android:60d789bf601f56d74b6baa",
+        "mobilesdk_app_id": "1:790454978494:android:a6cfda0ae6d90eb6005bef",
         "android_client_info": {
           "package_name": "com.lazarflow.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "790454978494-nhkqv2vr0a3qsk5ogp8a5t4g8qka3jne.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lazarflow.app",
+            "certificate_hash": "77e36e74d4ffbf3cc3174f861e952eac776a9ac9"
+          }
+        },
+        {
+          "client_id": "790454978494-e2g4iq5qjofsg9aqs3n8149h20caieoa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lazarflow.app",
+            "certificate_hash": "c08d0f47d2ddec79425a3cc50ae47519dde13ed"
+          }
+        },
+        {
+          "client_id": "790454978494-4g33c1rqgjk16alv3ohl6ubjc01s6op1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyAkk-C7QNuZj9xF_OibJH1OUfLCQkY458g"
+          "current_key": "AIzaSyBjQMMDL8EUl3-7DfG1B6w3NAs01biVFho"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "790454978494-4g33c1rqgjk16alv3ohl6ubjc01s6op1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
