@@ -85,6 +85,7 @@
     },
     "plugins": [
       "./plugins/withAndroidRepositories.js",
+      "@react-native-google-signin/google-signin",
       [
         "react-native-google-mobile-ads",
         {
