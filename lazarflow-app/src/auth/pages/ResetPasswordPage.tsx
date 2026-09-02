@@ -5,6 +5,7 @@ import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { authService } from '../../lib/authService';
 import { supabase } from '../../lib/supabaseClient';
+import apiClient from '../../lib/apiClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import * as Linking from 'expo-linking';
 
@@ -19,13 +20,15 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
     const [showPassword, setShowPassword] = useState(false);
     const [sessionReady, setSessionReady] = useState(false);
     const [sessionError, setSessionError] = useState<string | null>(null);
+    const [recoveryTokens, setRecoveryTokens] = useState<{ access_token: string; refresh_token: string } | null>(null);
 
     useEffect(() => {
         const setupSession = async () => {
             try {
-                // Check if Supabase already has a recovery session (set by onAuthStateChange)
+                // Check if Supabase already has a recovery session (set by onAuthStateChange PASSWORD_RECOVERY event)
                 const { data: { session } } = await supabase.auth.getSession();
-                if (session?.access_token) {
+                if (session?.access_token && session?.refresh_token) {
+                    setRecoveryTokens({ access_token: session.access_token, refresh_token: session.refresh_token });
                     setSessionReady(true);
                     return;
                 }
@@ -54,6 +57,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
                     return;
                 }
 
+                setRecoveryTokens({ access_token, refresh_token });
                 setSessionReady(true);
             } catch (e: any) {
                 setSessionError('Something went wrong. Please request a new password reset.');
@@ -98,12 +102,22 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
             return;
         }
 
+        if (!recoveryTokens) {
+            Alert.alert('Error', 'Recovery session lost. Please request a new password reset.');
+            return;
+        }
+
         setLoading(true);
 
         try {
-            await authService.updatePassword(password);
+            // Send all three fields to backend — tokens + new password
+            await apiClient.post('/api/auth/reset-password', {
+                new_password: password,
+                access_token: recoveryTokens.access_token,
+                refresh_token: recoveryTokens.refresh_token,
+            });
 
-            // Log out after reset to ensure a clean session for the user
+            // Sign out to ensure a clean session after reset
             await authService.logout();
 
             Alert.alert(
@@ -112,7 +126,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
                 [{ text: 'OK', onPress: () => navigation.navigate('Login') } as any]
             );
         } catch (error: any) {
-            Alert.alert('Update Failed', error.message || 'An error occurred');
+            Alert.alert('Update Failed', error.response?.data?.message || error.message || 'An error occurred');
         } finally {
             setLoading(false);
         }
