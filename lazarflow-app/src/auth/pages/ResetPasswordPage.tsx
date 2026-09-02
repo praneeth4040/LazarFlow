@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { authService } from '../../lib/authService';
+import { supabase } from '../../lib/supabaseClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
+import * as Linking from 'expo-linking';
 
 interface ResetPasswordPageProps {
     navigation: any;
@@ -15,6 +17,51 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [sessionReady, setSessionReady] = useState(false);
+    const [sessionError, setSessionError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const setupSession = async () => {
+            try {
+                // Check if Supabase already has a recovery session (set by onAuthStateChange)
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.access_token) {
+                    setSessionReady(true);
+                    return;
+                }
+
+                // No session yet — try to parse tokens from the deep link URL
+                const url = await Linking.getInitialURL();
+                if (!url) {
+                    setSessionError('No recovery link found. Please request a new password reset.');
+                    return;
+                }
+
+                // Supabase appends tokens as hash fragment: #access_token=...&refresh_token=...&type=recovery
+                const hash = url.includes('#') ? url.split('#')[1] : '';
+                const params = Object.fromEntries(new URLSearchParams(hash));
+                const { access_token, refresh_token, type } = params;
+
+                if (type !== 'recovery' || !access_token || !refresh_token) {
+                    setSessionError('Invalid or expired recovery link. Please request a new password reset.');
+                    return;
+                }
+
+                // Set the session in Supabase using the tokens from the URL
+                const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+                if (error) {
+                    setSessionError('Recovery link has expired. Please request a new password reset.');
+                    return;
+                }
+
+                setSessionReady(true);
+            } catch (e: any) {
+                setSessionError('Something went wrong. Please request a new password reset.');
+            }
+        };
+
+        setupSession();
+    }, []);
     
     // Password validation criteria
     const passwordCriteria = [
@@ -70,6 +117,37 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
             setLoading(false);
         }
     };
+
+    if (!sessionReady && !sessionError) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={Theme.colors.accent} />
+                    <Text style={{ color: Theme.colors.textSecondary, marginTop: 16, fontFamily: Theme.fonts.outfit.regular }}>
+                        Verifying recovery link...
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (sessionError) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+                    <Text style={{ color: Theme.colors.danger, fontSize: 16, fontFamily: Theme.fonts.outfit.semibold, textAlign: 'center', marginBottom: 24 }}>
+                        {sessionError}
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.button}
+                        onPress={() => navigation.navigate('ForgotPassword')}
+                    >
+                        <Text style={styles.buttonText}>Request New Reset Link</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container}>

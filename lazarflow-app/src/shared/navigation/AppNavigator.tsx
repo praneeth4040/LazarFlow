@@ -172,10 +172,16 @@ export default function AppNavigator() {
     const prefix = Linking.createURL('/');
 
     const linking = {
-        prefixes: [prefix, 'lazarflow://', 'https://lazarflow.app', 'https://pg-router.dev.razorpay.in'],
+        prefixes: [prefix, 'lazarflow://', 'https://lazarflow.app', 'https://pg-router.razorpay.in', 'https://pg-router.dev.razorpay.in'],
         config: {
             screens: {
-                ResetPassword: 'reset-password',
+                ResetPassword: {
+                    path: 'reset-password',
+                    parse: {
+                        access_token: (value: string) => value,
+                        refresh_token: (value: string) => value,
+                    },
+                },
                 Login: 'login',
                 DesignDetails: 'design/:themeId',
             }
