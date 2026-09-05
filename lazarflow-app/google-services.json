@@ -14,19 +14,19 @@
       },
       "oauth_client": [
         {
+          "client_id": "790454978494-e2g4iq5qjofsg9aqs3n8149h20caieoa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lazarflow.app",
+            "certificate_hash": "c08d0f47d2dddec79425a3cc50ae47519dde13ed"
+          }
+        },
+        {
           "client_id": "790454978494-nhkqv2vr0a3qsk5ogp8a5t4g8qka3jne.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.lazarflow.app",
             "certificate_hash": "77e36e74d4ffbf3cc3174f861e952eac776a9ac9"
-          }
-        },
-        {
-          "client_id": "790454978494-e2g4iq5qjofsg9aqs3n8149h20caieoa.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.lazarflow.app",
-            "certificate_hash": "c08d0f47d2ddec79425a3cc50ae47519dde13ed"
           }
         },
         {
