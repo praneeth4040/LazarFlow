@@ -23,7 +23,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:lazarflow.app"
+      ],
+      "bundleIdentifier": "com.lazarflow.app"
     },
     "android": {
       "package": "com.lazarflow.app",
@@ -62,7 +66,6 @@
         },
         {
           "action": "VIEW",
-          "autoVerify": true,
           "data": [
             {
               "scheme": "https",
@@ -89,7 +92,8 @@
       [
         "react-native-google-mobile-ads",
         {
-          "android_app_id": "ca-app-pub-6740951357526226~3080877290"
+          "androidAppId": "ca-app-pub-6740951357526226~3080877290",
+          "iosAppId": "ca-app-pub-6740951357526226~3080877290"
         }
       ],
       [
@@ -117,8 +121,5 @@
         "projectId": "a27edfc1-6daa-41fd-9ce5-6bfcd9b1a34b"
       }
     }
-  },
-  "react-native-google-mobile-ads": {
-    "android_app_id": "ca-app-pub-6740951357526226~3080877290"
   }
 }
