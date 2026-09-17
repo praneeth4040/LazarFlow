@@ -6,8 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { useAuth } from '../hooks/useAuth';
 import { AuthInput } from '../components/AuthInput';
-import { signInWithGoogle } from '../../lib/googleAuth';
+import { signInWithGoogle, isGoogleSignInAvailable } from '../../lib/googleAuth';
 import { CustomAlert as Alert } from '../../lib/AlertService';
+import Constants from 'expo-constants';
 
 interface SignUpPageProps {
   navigation: any;
@@ -18,6 +19,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const showGoogleBtn = !isExpoGo && isGoogleSignInAvailable();
   
   // Password validation criteria
   const passwordCriteria = [
@@ -86,29 +89,33 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigation }) => {
 
           <View style={styles.form}>
             {/* ── Google Sign-Up ─────────────────────────────── */}
-            <TouchableOpacity
-              style={styles.googleBtn}
-              onPress={handleGoogleSignIn}
-              disabled={googleLoading || loading}
-              activeOpacity={0.85}
-            >
-              {googleLoading ? (
-                <ActivityIndicator color={Theme.colors.textPrimary} size="small" />
-              ) : (
-                <Image
-                  source={require('../../../assets/google.png')}
-                  style={styles.googleIcon}
-                />
-              )}
-              <Text style={styles.googleBtnText}>Continue with Google</Text>
-            </TouchableOpacity>
+            {showGoogleBtn && (
+              <TouchableOpacity
+                style={styles.googleBtn}
+                onPress={handleGoogleSignIn}
+                disabled={googleLoading || loading}
+                activeOpacity={0.85}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color={Theme.colors.textPrimary} size="small" />
+                ) : (
+                  <Image
+                    source={require('../../../assets/google.png')}
+                    style={styles.googleIcon}
+                  />
+                )}
+                <Text style={styles.googleBtnText}>Continue with Google</Text>
+              </TouchableOpacity>
+            )}
 
             {/* ── Divider ────────────────────────────────────── */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or sign up with email</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {showGoogleBtn && (
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or sign up with email</Text>
+                <View style={styles.dividerLine} />
+              </View>
+            )}
 
             <AuthInput
               label={t('auth.email')}

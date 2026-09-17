@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions } from 'react-native';
-import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, Check } from 'lucide-react-native';
+import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, Check, Share2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../styles/theme';
 import { formatAlphanumericDate } from '../../lib/dateUtils';
@@ -41,6 +41,7 @@ interface LobbyCardProps {
     onDelete: (lobby: Lobby) => void;
     onEnd: (lobby: Lobby) => void;
     onManageTeams: (lobby: Lobby) => void;
+    onShare?: (lobby: Lobby) => void;
     isSelected: boolean;
     onLongPress: () => void;
     onPress: () => void;
@@ -57,6 +58,7 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
     onDelete, 
     onEnd,
     onManageTeams,
+    onShare,
     isSelected,
     onLongPress,
     onPress
@@ -246,6 +248,15 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
                                     <Text style={styles.dropdownText}>Edit</Text>
                                 </TouchableOpacity>
                                 <View style={styles.dropdownDivider} />
+                                {onShare && (
+                                    <>
+                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => { setIsOpen(false); toggleSettings(null); onShare(lobby); }}>
+                                            <Share2 size={16} color={Theme.colors.accent} />
+                                            <Text style={[styles.dropdownText, { color: Theme.colors.accent }]}>Share</Text>
+                                        </TouchableOpacity>
+                                        <View style={styles.dropdownDivider} />
+                                    </>
+                                )}
                                 <TouchableOpacity style={styles.dropdownItem} onPress={() => { setIsOpen(false); toggleSettings(null); onDelete(lobby); }}>
                                     <Trash2 size={16} color={Theme.colors.danger} />
                                     <Text style={[styles.dropdownText, { color: Theme.colors.danger }]}>Delete</Text>

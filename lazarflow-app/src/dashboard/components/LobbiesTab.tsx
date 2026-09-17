@@ -21,6 +21,7 @@ interface LobbiesTabProps {
     onEnd?: (lobby: Lobby) => void;
     onDeleteHistory?: () => void;
     onManageTeams?: (lobby: Lobby) => void;
+    onShare?: (lobby: Lobby) => void;
     selectedLobbies?: string[];
     toggleLobbySelection?: (id: string) => void;
 }
@@ -41,6 +42,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
     onEnd = () => {},
     onDeleteHistory,
     onManageTeams = () => {},
+    onShare,
     selectedLobbies = [],
     toggleLobbySelection = () => {}
 }) => {
@@ -75,6 +77,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
+                            onShare={onShare}
                             isSelected={selectedLobbies.includes(lobby.id)}
                             onLongPress={() => toggleLobbySelection(lobby.id)}
                             onPress={() => {
@@ -138,6 +141,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
+                            onShare={onShare}
                             isSelected={selectedLobbies.includes(lobby.id)}
                             onLongPress={() => toggleLobbySelection(lobby.id)}
                             onPress={() => {

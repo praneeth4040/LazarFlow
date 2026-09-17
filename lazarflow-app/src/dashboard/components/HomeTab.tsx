@@ -30,6 +30,7 @@ interface HomeTabProps extends DashboardTabProps {
     onDelete: (lobby: Lobby) => void;
     onEnd: (lobby: Lobby) => void;
     onManageTeams: (lobby: Lobby) => void;
+    onShare?: (lobby: Lobby) => void;
     selectedLobbies?: string[];
     toggleLobbySelection: (id: string) => void;
 }
@@ -51,6 +52,7 @@ const HomeTab: React.FC<HomeTabProps> = ({
     onDelete,
     onEnd,
     onManageTeams,
+    onShare,
     selectedLobbies = [],
     toggleLobbySelection
 }) => {
@@ -94,6 +96,7 @@ const HomeTab: React.FC<HomeTabProps> = ({
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
+                            onShare={onShare}
                             isSelected={selectedLobbies.includes(lobby.id)}
                             onLongPress={() => toggleLobbySelection(lobby.id)}
                             onPress={() => {

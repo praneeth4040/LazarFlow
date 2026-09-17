@@ -182,6 +182,42 @@ const DashboardPage = ({ navigation, route }: any) => {
         }
     };
 
+    // ── Lobby: share link for teams / LazarTrack import ────────────────────
+    // The recipient DOES NOT need the LazarFlow app installed.
+    // The shared HTTPS link auto-redirects into the LazarTrack app.
+    const handleShareLobby = async (lobby: any) => {
+        const { getLobbyShareLink } = require('../../lib/dataService');
+        const url = getLobbyShareLink(lobby.id);
+        const game = lobby.game || 'General';
+        const teamsCount =
+            typeof lobby.teams_count === 'number'
+                ? lobby.teams_count
+                : Array.isArray(lobby.teams)
+                  ? lobby.teams.length
+                  : 0;
+        const line1 = `🏆 *${lobby.name || 'Tournament'}* — ${game}\n`;
+        const line2 = teamsCount ? `👥 ${teamsCount} teams registered\n\n` : '\n';
+        const line3 =
+            'Tap the link below to open this tournament in *LazarTrack* — ' +
+            'your live match tracker. Results, standings, and updates are added automatically as the tournament runs:\n\n';
+        const body = line1 + line2 + line3 + url + '\n\n(LazarTrack app required — free on Play Store / App Store)';
+
+        try {
+            const shareResult = await Share.share({
+                title: `${lobby.name || 'Tournament'} — Open in LazarTrack`,
+                message: body,
+                url,
+            });
+
+            if (shareResult?.action === Share.sharedAction && shareResult.activityType) {
+                console.log(`[share] Lobby ${lobby.id} shared via ${shareResult.activityType}`);
+            }
+        } catch (err) {
+            console.warn('Lobby share error', err);
+            Alert.alert('Unable to Share', 'Please copy the link manually:\n' + url);
+        }
+    };
+
     const confirmEndLobby = (lobby: any) => {
         Alert.alert("End Lobby", `Are you sure you want to end "${lobby.name}"?`, [
             { text: "Cancel", style: "cancel" },
@@ -357,6 +393,7 @@ const DashboardPage = ({ navigation, route }: any) => {
                         onDelete={confirmDeleteLobby} 
                         onEnd={confirmEndLobby}
                         onManageTeams={(l: any) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}
+                        onShare={handleShareLobby}
                         selectedLobbies={dashboard.selectedLobbies} 
                         toggleLobbySelection={toggleLobbySelection}
                     />
@@ -378,6 +415,7 @@ const DashboardPage = ({ navigation, route }: any) => {
                         onDelete={confirmDeleteLobby} 
                         onEnd={confirmEndLobby}
                         onManageTeams={(l: any) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}
+                        onShare={handleShareLobby}
                         selectedLobbies={dashboard.selectedLobbies} 
                         toggleLobbySelection={toggleLobbySelection}
                     />
