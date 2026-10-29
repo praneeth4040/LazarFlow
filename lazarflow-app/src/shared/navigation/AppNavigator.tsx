@@ -27,7 +27,6 @@ import { LiveLobbyPage } from '../../lobby/pages/LiveLobbyPage';
 import { CreateLobbyPage } from '../../lobby/pages/CreateLobbyPage';
 import { ManageTeamsPage } from '../../lobby/pages/ManageTeamsPage';
 import { EditLobbyPage } from '../../lobby/pages/EditLobbyPage';
-import LobbySharePage from '../../lobby/pages/LobbySharePage';
 
 import { PrivacyPolicyPage } from '../../settings/pages/PrivacyPolicyPage';
 import { TermsAndConditionsPage } from '../../settings/pages/TermsAndConditionsPage';
@@ -47,7 +46,6 @@ export type RootStackParamList = {
     ResetPassword: { access_token?: string; refresh_token?: string } | undefined;
     Dashboard: { tab?: string } | undefined;
     LiveLobby: { id: string };
-    LobbyShare: { lobbyId: string };
     PrivacyPolicy: undefined;
     TermsAndConditions: undefined;
     CreateLobby: undefined;
@@ -186,12 +184,6 @@ export default function AppNavigator() {
                 },
                 Login: 'login',
                 DesignDetails: 'design/:themeId',
-                LobbyShare: {
-                    path: 'lobby/:lobbyId',
-                    parse: {
-                        lobbyId: (value: string) => value,
-                    },
-                },
             }
         }
     };
@@ -214,11 +206,6 @@ export default function AppNavigator() {
                         <Stack.Screen name="SignUp" component={SignUpPage} />
                         <Stack.Screen name="ForgotPassword" component={ForgotPasswordPage} />
                         <Stack.Screen name="ResetPassword" component={ResetPasswordPage} />
-                        <Stack.Screen
-                            name="LobbyShare"
-                            component={LobbySharePage}
-                            options={{ headerShown: false }}
-                        />
                     </>
                 ) : (
                     <>
@@ -282,11 +269,6 @@ export default function AppNavigator() {
                         <Stack.Screen
                             name="Notifications"
                             component={NotificationsPage}
-                            options={{ headerShown: false }}
-                        />
-                        <Stack.Screen
-                            name="LobbyShare"
-                            component={LobbySharePage}
                             options={{ headerShown: false }}
                         />
 
