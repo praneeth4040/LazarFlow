@@ -1,16 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { Palette, Upload, Sparkles } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Linking } from 'react-native';
+import { Palette, MessageCircle, Sparkles } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { CommunityDesignCard, UserThemeCard } from './ThemeCards';
 import { getDesignImageSource } from '../../lib/dataService';
 import { Theme as ThemeType } from '../types';
 
+const WHATSAPP_NUMBER = '919121314837';
+const WHATSAPP_MESSAGE = "Hello LazarFlow, I'd like to request a custom design theme!";
+
+const openWhatsApp = () => {
+    const deepLink = `whatsapp://send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
+    Linking.canOpenURL(deepLink).then(supported => {
+        if (supported) {
+            Linking.openURL(deepLink);
+        } else {
+            Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`);
+        }
+    });
+};
+
 interface DesignTabProps {
     designTab: string;
     setDesignTab: (tab: string) => void;
-    handleDesignUpload: () => void;
-    uploading: boolean;
     userThemesList: ThemeType[];
     communityThemesList: ThemeType[];
     loadingCommunity: boolean;
@@ -23,8 +35,6 @@ interface DesignTabProps {
 const DesignTab: React.FC<DesignTabProps> = ({
     designTab,
     setDesignTab,
-    handleDesignUpload,
-    uploading,
     userThemesList,
     communityThemesList,
     loadingCommunity,
@@ -55,22 +65,21 @@ const DesignTab: React.FC<DesignTabProps> = ({
 
             {designTab === 'own' && (
                 <View style={styles.designSection}>
-                    <TouchableOpacity style={styles.uploadAreaSmall} onPress={handleDesignUpload} disabled={uploading}>
-                        {uploading ? (
-                            <ActivityIndicator color={Theme.colors.accent} />
-                        ) : (
-                            <>
-                                <Upload size={24} color={Theme.colors.accent} />
-                                <Text style={styles.uploadTitleSmall}>Upload New Design</Text>
-                            </>
-                        )}
+                    <TouchableOpacity style={styles.whatsappCard} onPress={openWhatsApp} activeOpacity={0.8}>
+                        <View style={styles.whatsappIconWrap}>
+                            <MessageCircle size={28} color="#25D366" />
+                        </View>
+                        <View style={styles.whatsappBody}>
+                            <Text style={styles.whatsappTitle}>Want a Custom Design?</Text>
+                            <Text style={styles.whatsappSubtitle}>Message us on WhatsApp and we'll create it for you!</Text>
+                        </View>
                     </TouchableOpacity>
 
                     {userThemesList.length === 0 ? (
                         <View style={[styles.emptyState, { marginTop: 40 }]}>
                             <Palette size={48} color={Theme.colors.border} />
                             <Text style={styles.emptyText}>No Custom Designs Yet</Text>
-                            <Text style={styles.emptySubText}>Upload your first design to see it here!</Text>
+                            <Text style={styles.emptySubText}>Message us on WhatsApp to get a custom design!</Text>
                         </View>
                     ) : (
                         <View style={styles.pinterestGrid}>
@@ -177,23 +186,38 @@ const styles = StyleSheet.create({
     designSection: {
         gap: 16,
     },
-    uploadAreaSmall: {
-        height: 100,
+    whatsappCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Theme.colors.primary,
         borderRadius: 16,
         borderWidth: 1,
-        borderColor: Theme.colors.border,
-        borderStyle: 'dashed',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
+        borderColor: '#25D366',
+        padding: 16,
+        gap: 14,
         marginBottom: 8,
     },
-    uploadTitleSmall: {
+    whatsappIconWrap: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(37, 211, 102, 0.12)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    whatsappBody: {
+        flex: 1,
+    },
+    whatsappTitle: {
         fontSize: 15,
         fontFamily: Theme.fonts.outfit.semibold,
         color: Theme.colors.textPrimary,
+    },
+    whatsappSubtitle: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.regular,
+        color: Theme.colors.textSecondary,
+        marginTop: 4,
     },
     emptyState: {
         alignItems: 'center',

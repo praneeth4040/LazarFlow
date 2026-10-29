@@ -37,12 +37,14 @@ This document tracks the migration of the codebase to a modular, production-grad
 ## 🎯 Production Readiness Checklist
 
 ### Critical Path
-- [x] **Backend Endpoint**: Switched to `https://8b2b-49-204-103-59.ngrok-free.app`. ([apiClient.js](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/src/lib/apiClient.js))
-- [x] **Version Control**: Updated to `1.0.2` (Build 3). ([app.json](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/app.json))
+- [x] **Backend Endpoint**: Switched to `https://a7e8-49-204-103-59.ngrok-free.app`. ([apiClient.js](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/src/lib/apiClient.js))
+- [x] **AI Extraction v3**: Integrated `/api/ai/extract-results-v3` pipeline (~20s parallel extraction with `qwen/qwen3.7-flash`). ([dataService.js](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/src/lib/dataService.js))
+- [x] **Version Control**: Updated to `2.0.0` (Build 40). ([app.json](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/app.json))
 - [ ] **TypeScript Migration**: Target 100% `.ts`/`.tsx` coverage.
 - [ ] **EAS Build Stability**: Monitor Android/iOS build status.
 
 ### UI/UX Refinement
+- [x] **AI Verification Carousel**: Built `VerificationImageSlider` component (removed `V1`/`V2` badges, single image horizontal sliding with pagination dots). ([VerificationImageSlider.tsx](file:///Users/praneeth/Lazarflow/LazarFlow/lazarflow-app/src/results/components/VerificationImageSlider.tsx))
 - [x] **AI Feedback**: Enhanced player numbering and icons.
 - [x] **Visual Differentiation**: Added mapping status indicators.
 - [ ] **Dark Mode Audit**: Ensure consistent UI across all new modules.

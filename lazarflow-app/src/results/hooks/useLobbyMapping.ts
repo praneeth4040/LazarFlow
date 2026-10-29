@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import * as ImagePicker from 'expo-image-picker';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
 import { CustomAlert as Alert } from '../../lib/AlertService';
@@ -68,7 +69,7 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
 
       const formattedSlots: ProcessedSlot[] = rawSlots
         .map((item: any, index: number) => {
-          const slotNum = item.team_number ?? item.slot ?? (index + 1);
+          const slotNum = item.team_number ?? item.slot ?? item.position ?? (index + 1);
           const players = (item.players ?? []).map((p: any) =>
             typeof p === 'object' ? p.name : p,
           );
@@ -82,6 +83,7 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
             slot: slotNum,
             players,
             mappedTeamId: matchedTeam ? matchedTeam.id : null,
+            url: item.url || (item.verification_urls && item.verification_urls.length > 0 ? item.verification_urls[0] : undefined),
           };
         })
         .sort((a, b) => (Number(a.slot) || 0) - (Number(b.slot) || 0));
@@ -159,6 +161,14 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
     setProcessedSlots(updatedSlots);
   };
 
+  const handleUpdatePlayerName = (slotIndex: number, playerIndex: number, newName: string) => {
+    const updatedSlots = [...processedSlots];
+    if (updatedSlots[slotIndex] && updatedSlots[slotIndex].players) {
+        updatedSlots[slotIndex].players[playerIndex] = newName;
+        setProcessedSlots(updatedSlots);
+    }
+  };
+
   const handleSaveSlotMappings = async () => {
     setSubmitting(true);
     try {
@@ -197,7 +207,7 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
       if (fetchLobbyData) fetchLobbyData();
     } catch (err) {
       console.error('Error saving slot mappings:', err);
-      Alert.alert('Error', 'Failed to save team member mappings');
+      Alert.alert('Error', extractApiErrorMessage(err, 'Failed to save team member mappings'));
     } finally {
       setSubmitting(false);
     }
@@ -218,6 +228,7 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
     handleRemoveLobbyImage,
     handleProcessLobby,
     handleUpdateSlotMapping,
+    handleUpdatePlayerName,
     handleSaveSlotMappings,
   };
 };

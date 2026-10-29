@@ -4,9 +4,26 @@ import { supabase } from '../../lib/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from '../../lib/authEvents';
 
+import * as Application from 'expo-application';
+import { Platform } from 'react-native';
+
+async function getDeviceId() {
+    if (Platform.OS === 'android') {
+        return Application.getAndroidId();
+    } else {
+        return await Application.getIosIdForVendorAsync();
+    }
+}
+
 export class AuthRepository extends BaseRepository {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await this.post<AuthResponse>('/api/auth/login', credentials);
+    const deviceId = await getDeviceId();
+    console.log('📱 Device ID generated:', deviceId);
+    
+    const payload = { ...credentials, device_id: deviceId };
+    console.log('📤 Sending login payload:', { ...payload, password: '***' });
+    
+    const response = await this.post<AuthResponse>('/api/auth/login', payload);
     if (response.session) {
       await this.syncSession(response.session);
     }
@@ -46,13 +63,13 @@ export class AuthRepository extends BaseRepository {
       await this.post('/api/auth/logout');
     } finally {
       await supabase.auth.signOut();
-      await AsyncStorage.multiRemove(['access_token', 'refresh_token', 'token_expiry']);
+      await AsyncStorage.multiRemove(['access_token', 'refresh_token', 'token_expiry', 'session_token']);
       authEvents.emit('SIGNED_OUT');
     }
   }
 
   private async syncSession(session: any): Promise<void> {
-    const { access_token, refresh_token, expires_in } = session;
+    const { access_token, refresh_token, expires_in, session_token } = session;
 
     // Guard: never pass null/undefined to AsyncStorage — it will crash.
     if (!access_token || !refresh_token) {
@@ -60,18 +77,24 @@ export class AuthRepository extends BaseRepository {
       return;
     }
     
-    await supabase.auth.setSession({
-      access_token,
-      refresh_token
-    });
-
     await AsyncStorage.setItem('access_token', access_token);
     await AsyncStorage.setItem('refresh_token', refresh_token);
     
+    if (session_token) {
+      await AsyncStorage.setItem('session_token', session_token);
+      console.log('💾 Session token stored for device session.');
+    }
+
     if (expires_in) {
       const expiryTime = Date.now() + (expires_in * 1000);
       await AsyncStorage.setItem('token_expiry', String(expiryTime));
     }
+
+    console.log('💾 Syncing login session with Supabase...');
+    await supabase.auth.setSession({
+      access_token,
+      refresh_token
+    });
     
     authEvents.emit('SIGNED_IN', { session });
   }

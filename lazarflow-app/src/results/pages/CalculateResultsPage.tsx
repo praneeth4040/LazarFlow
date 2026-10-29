@@ -26,6 +26,7 @@ import { ResultCard } from '../components/ResultCard';
 import { ImageZoomModal } from '../components/ImageZoomModal';
 import { TeamMappingModal } from '../components/TeamMappingModal';
 import { TeamEntrySheet } from '../components/TeamEntrySheet';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 
 const safeGet = (obj: any, key: string | number) => {
     if (!obj) return undefined;
@@ -80,7 +81,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
             const data = await lobbyRepository.getLobbyTeams(lobby.id);
             setTeams(data || []);
         } catch (err) {
-            Alert.alert('Error', 'Failed to fetch teams');
+            Alert.alert('Error', extractApiErrorMessage(err, 'Failed to fetch teams'));
         }
     };
 
@@ -96,6 +97,7 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
         handleRemoveLobbyImage,
         handleProcessLobby,
         handleUpdateSlotMapping,
+        handleUpdatePlayerName,
         handleSaveSlotMappings
     } = useLobbyMapping(lobby, teams, fetchLobbyData);
 
@@ -419,6 +421,8 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
                                 clearJob(lobby.id, 'process_lobby');
                             }
                         }}
+                        onInspectCrop={handleViewVerification}
+                        onUpdatePlayerName={handleUpdatePlayerName}
                     />
                 ) : showMapping ? (
                         <AIMappingReview

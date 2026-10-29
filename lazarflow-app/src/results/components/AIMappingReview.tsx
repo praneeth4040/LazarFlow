@@ -4,6 +4,7 @@ import { ChevronDown, Check, Skull, AlertCircle, Maximize2, Edit2 } from 'lucide
 import { Theme } from '../../styles/theme';
 import { styles } from '../styles/calculateResults.styles';
 import { ExtractedAIResult } from '../types';
+import VerificationImageSlider from './VerificationImageSlider';
 
 interface AIResultPlayer {
     name: string;
@@ -105,50 +106,11 @@ export const AIMappingReview: React.FC<AIMappingReviewProps> = ({
                             <ChevronDown size={20} color={isMapped ? Theme.colors.accent : Theme.colors.textPrimary} />
                         </TouchableOpacity>
 
-                        {/* Verification Images List */}
-                        {res.verification_urls && res.verification_urls.length > 0 && (
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                                {res.verification_urls.map((url, uIdx) => (
-                                    <TouchableOpacity 
-                                        key={uIdx}
-                                        style={[styles.verificationImageContainer, { flex: 1, minWidth: '45%', marginBottom: 0 }]}
-                                        onPress={() => onViewVerification(url)}
-                                        activeOpacity={0.9}
-                                    >
-                                        <Image 
-                                            source={{ uri: url }} 
-                                            style={styles.verificationImage}
-                                            resizeMode="cover"
-                                        />
-                                        <View style={{ 
-                                            position: 'absolute', 
-                                            bottom: 4, 
-                                            right: 4, 
-                                            backgroundColor: 'rgba(0,0,0,0.5)', 
-                                            padding: 4, 
-                                            borderRadius: 6,
-                                            borderWidth: 1,
-                                            borderColor: 'rgba(255,255,255,0.2)'
-                                        }}>
-                                            <Maximize2 size={10} color="#fff" />
-                                        </View>
-                                        {res.verification_urls!.length > 1 && (
-                                            <View style={{ 
-                                                position: 'absolute', 
-                                                top: 4, 
-                                                left: 4, 
-                                                backgroundColor: Theme.colors.accent, 
-                                                paddingHorizontal: 6, 
-                                                paddingVertical: 2, 
-                                                borderRadius: 4,
-                                            }}>
-                                                <Text style={{ color: '#fff', fontSize: 8, fontFamily: Theme.fonts.outfit.bold }}>V{uIdx + 1}</Text>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        )}
+                        {/* Verification Images Carousel */}
+                        <VerificationImageSlider 
+                            urls={res.verification_urls} 
+                            onViewVerification={onViewVerification} 
+                        />
 
                         {/* Editable player kills */}
                         <View style={[styles.expandedMembersContainer, isMapped && { backgroundColor: '#fff', borderColor: '#d1fae5' }]}>

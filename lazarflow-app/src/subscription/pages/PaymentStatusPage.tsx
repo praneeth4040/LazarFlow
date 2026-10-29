@@ -13,6 +13,7 @@ interface PaymentStatusPageProps {
 export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({ route, navigation }) => {
     const { status, orderId, message, planName, showWhatsApp } = route.params || {};
     const isSuccess = status === 'success';
+    const isCancelled = status === 'cancelled';
     const { refreshUser } = useContext(UserContext);
 
     // Refresh user data on success
@@ -37,6 +38,29 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({ route, nav
         return () => backHandler.remove();
     }, [navigation]);
 
+    // Format clean readable error text
+    const displayMessage = React.useMemo(() => {
+        if (isSuccess) {
+            return `Congratulations! You have successfully subscribed to the ${planName || 'Premium'} plan.`;
+        }
+        if (isCancelled) {
+            return message || 'Payment was cancelled. No charges were made to your account.';
+        }
+        if (!message) {
+            return 'Something went wrong while processing your payment. Please try again or reach out to support if amount was deducted.';
+        }
+
+        // Clean out any raw json if still present
+        let clean = typeof message === 'string' ? message : JSON.stringify(message);
+        if (clean.startsWith('{') && clean.endsWith('}')) {
+            try {
+                const parsed = JSON.parse(clean);
+                clean = parsed.error?.description || parsed.description || parsed.message || clean;
+            } catch (_) {}
+        }
+        return clean;
+    }, [isSuccess, isCancelled, message, planName]);
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" />
@@ -46,6 +70,10 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({ route, nav
                         <View style={[styles.iconCircle, { backgroundColor: Theme.colors.success + '15' }]}>
                             <CheckCircle size={80} color={Theme.colors.success} strokeWidth={1.5} />
                         </View>
+                    ) : isCancelled ? (
+                        <View style={[styles.iconCircle, { backgroundColor: '#F59E0B18' }]}>
+                            <XCircle size={80} color="#F59E0B" strokeWidth={1.5} />
+                        </View>
                     ) : (
                         <View style={[styles.iconCircle, { backgroundColor: Theme.colors.danger + '15' }]}>
                             <XCircle size={80} color={Theme.colors.danger} strokeWidth={1.5} />
@@ -54,15 +82,14 @@ export const PaymentStatusPage: React.FC<PaymentStatusPageProps> = ({ route, nav
                 </View>
 
                 <Text style={styles.title}>
-                    {isSuccess ? 'Payment Successful!' : 'Payment Failed'}
+                    {isSuccess ? 'Payment Successful!' : isCancelled ? 'Payment Cancelled' : 'Payment Failed'}
                 </Text>
 
-                <Text style={styles.description}>
-                    {isSuccess 
-                        ? `Congratulations! You have successfully subscribed to the ${planName || 'Premium'} plan.`
-                        : message || 'Something went wrong with your transaction. Please try again or contact support if the issue persists.'
-                    }
-                </Text>
+                <View style={!isSuccess ? styles.errorCard : null}>
+                    <Text style={[styles.description, !isSuccess && styles.errorDescription]}>
+                        {displayMessage}
+                    </Text>
+                </View>
 
                 {orderId && (
                     <View style={styles.orderInfo}>
@@ -134,6 +161,29 @@ const styles = StyleSheet.create({
     iconCircle: { width: 140, height: 140, borderRadius: 70, justifyContent: 'center', alignItems: 'center' },
     title: { fontSize: 28, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary, marginBottom: 15, textAlign: 'center' },
     description: { fontSize: 16, fontFamily: Theme.fonts.outfit.regular, color: Theme.colors.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: 30 },
+    errorCard: {
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 16,
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        marginBottom: 30,
+        width: '100%',
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    errorDescription: {
+        fontSize: 15,
+        fontFamily: Theme.fonts.outfit.medium,
+        color: Theme.colors.textPrimary,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 0,
+    },
     orderInfo: { backgroundColor: Theme.colors.primary, padding: 15, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 40, borderWidth: 1, borderColor: Theme.colors.border },
     orderLabel: { fontSize: 12, fontFamily: Theme.fonts.outfit.medium, color: Theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 },
     orderValue: { fontSize: 16, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },

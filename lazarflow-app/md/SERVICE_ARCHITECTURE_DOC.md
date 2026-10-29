@@ -42,7 +42,7 @@ High-compute tasks like AI text parsing and server-side image rendering are hand
 | :--- | :--- | :--- |
 | **Extract Teams from Text** | **Backend** | `POST /api/ai/extract-teams` |
 | **Process Lobby Images** | **Backend** | `POST /api/ai/process-lobby` |
-| **Extract Standings (AI)** | **Backend** | `POST /api/ai/extract-results` |
+| **Extract Standings (AI)** | **Backend** | `POST /api/ai/extract-results-v3` |
 | **Render Standings Image** | **Backend** | `POST /render/${lobbyId}/${themeId}` |
 | **Render Final Results** | **Backend** | `POST /api/render/render-results` |
 
@@ -58,7 +58,7 @@ Theme assets and configurations are managed via the backend, although some legac
 | **Fetch User Themes** | **Backend** | `GET /api/themes` (filtered by user) |
 | **Upload Theme Asset** | **Backend** | `POST /api/themes` (multipart/form-data) |
 | **Update Theme Config** | **Backend** | `PUT /api/themes/${id}/config` |
-| **Storage Resolution** | **Hybrid** | URLs generated for `8b2b-49-204-103-59.ngrok-free.app/storage` or Supabase public storage. |
+| **Storage Resolution** | **Hybrid** | URLs generated for `a7e8-49-204-103-59.ngrok-free.app/storage` or Supabase public storage. |
 
 ---
 

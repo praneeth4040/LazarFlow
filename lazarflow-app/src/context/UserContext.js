@@ -60,9 +60,21 @@ export const UserProvider = ({ children }) => {
             dispatch({ type: USER_ACTIONS.CLEAR_USER });
         });
 
+        const unsubscribeSessionInvalidated = authEvents.on('SESSION_INVALIDATED', () => {
+            console.log('🔒 UserContext: SESSION_INVALIDATED — another device signed in.');
+            // Alert will show before clearing user; Alert from AlertService is non-blocking
+            const { CustomAlert } = require('../lib/AlertService');
+            CustomAlert.alert(
+                'Logged Out',
+                'Your account was signed in on another device. Please log in again.'
+            );
+            dispatch({ type: USER_ACTIONS.CLEAR_USER });
+        });
+
         return () => {
             unsubscribeSignIn();
             unsubscribeSignOut();
+            unsubscribeSessionInvalidated();
         };
     }, []);
 

@@ -28,15 +28,18 @@ export const useSubscription = () => {
                 const count = user?.lobbies_created_count || 0;
                 const balance = user?.flux_balance || 0;
 
+                // Check if there's an active time-based subscription
+                const expiresAt = user?.subscription_expires_at;
+                const hasActiveSub = expiresAt && new Date(expiresAt) > new Date() && currentTier !== 'free';
+
                 setTier(currentTier);
+                setExpiresAt(expiresAt || null);
                 setLobbiesCreated(count);
 
-                // With the new Credit System:
-                // 1 Credit = 1 AI Lobby Automation
-                // Lobbies can be created by anyone, but LexiView AI requires credits.
-                setMaxAILobbies(50); // Set a high fixed limit for lobbies (e.g., 50)
-                setCanUseAI(balance > 0);
-                setIsCasual(balance === 0);
+                // With active subscription → unlimited AI; otherwise fall back to credit balance
+                setMaxAILobbies(50);
+                setCanUseAI(hasActiveSub || balance > 0);
+                setIsCasual(!hasActiveSub && balance === 0);
                 setMaxLayouts(Infinity);
                 setCanCustomSocial(true);
 

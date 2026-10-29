@@ -49,6 +49,18 @@ export const ResultsBottomSheet: React.FC<ResultsBottomSheetProps> = ({ visible,
                 return;
             }
 
+            // Save-to-gallery requires WRITE_EXTERNAL_STORAGE on Android ≤9,
+            // or the MediaLibrary write permission on Android 10+.
+            // writeOnly=true avoids requesting read/audio permissions we don't need.
+            const { status } = await MediaLibrary.requestPermissionsAsync(true);
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Permission required',
+                    'Please grant gallery access to save images.',
+                );
+                return;
+            }
+
             let localUri = '';
 
             if (imageUri.startsWith('http')) {

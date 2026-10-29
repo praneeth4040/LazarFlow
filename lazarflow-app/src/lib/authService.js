@@ -4,6 +4,22 @@ import { authEvents } from './authEvents';
 import { unregisterPushToken } from './dataService';
 import axios from 'axios';
 import { supabase } from './supabaseClient';
+import * as Application from 'expo-application';
+import { Platform } from 'react-native';
+
+// Get a stable unique device fingerprint
+async function getDeviceId() {
+    try {
+        if (Platform.OS === 'android') {
+            return Application.androidId;
+        } else {
+            return await Application.getIosIdForVendorAsync();
+        }
+    } catch (e) {
+        console.warn('⚠️ Could not get device ID:', e.message);
+        return null;
+    }
+}
 
 // Shared promise to prevent multiple parallel refresh attempts (refresh collision)
 let refreshPromise = null;
@@ -40,20 +56,33 @@ export const authService = {
     },
 
     async login(email, password) {
-        const response = await apiClient.post('/api/auth/login', { email, password });
-        if (response.data?.session?.access_token && response.data?.session?.refresh_token) {
-            const { access_token, refresh_token, expires_in, expires_at } = response.data.session;
-            
-            console.log('💾 Syncing login session with Supabase...');
-            const { error } = await supabase.auth.setSession({
-                access_token,
-                refresh_token
-            });
+        const deviceId = await getDeviceId();
+        let response;
+        try {
+            response = await apiClient.post('/api/auth/login', { email, password, device_id: deviceId });
+        } catch (err) {
+            // Handle device limit before anything else
+            if (err.response?.status === 403 && err.response?.data?.detail?.code === 'DEVICE_LIMIT_EXCEEDED') {
+                const error = new Error('DEVICE_LIMIT_EXCEEDED');
+                error.code = 'DEVICE_LIMIT_EXCEEDED';
+                throw error;
+            }
+            throw err;
+        }
 
-            if (error) console.error('Supabase setSession error:', error);
+        if (response.data?.session?.access_token && response.data?.session?.refresh_token) {
+            console.log("LOGIN RESPONSE SESSION:", JSON.stringify(response.data.session));
+            const { access_token, refresh_token, expires_in, expires_at, session_token } = response.data.session;
             
             await AsyncStorage.setItem('access_token', access_token);
             await AsyncStorage.setItem('refresh_token', refresh_token);
+
+            // Store session_token for device session enforcement BEFORE syncing with Supabase
+            // to avoid race condition where UserContext fetches getMe() before token is saved
+            if (session_token) {
+                await AsyncStorage.setItem('session_token', session_token);
+                console.log('💾 Session token stored for device session.');
+            }
             
             // Prefer expires_at (absolute Unix epoch) over expires_in (relative seconds)
             if (expires_at) {
@@ -62,6 +91,15 @@ export const authService = {
                 const expiryTime = Date.now() + (expires_in * 1000);
                 await AsyncStorage.setItem('token_expiry', String(expiryTime));
             }
+
+            console.log('💾 Syncing login session with Supabase...');
+            const { error } = await supabase.auth.setSession({
+                access_token,
+                refresh_token
+            });
+
+            if (error) console.error('Supabase setSession error:', error);
+            
             authEvents.emit('SIGNED_IN', response.data);
         }
         return response.data;
@@ -115,7 +153,8 @@ export const authService = {
 
                 if (data?.session) {
                     console.log('✅ Token refreshed successfully via Supabase');
-                    const { access_token, refresh_token, expires_in } = data.session;
+                    console.log("LOGIN RESPONSE SESSION:", JSON.stringify(response.data.session));
+            const { access_token, refresh_token, expires_in } = data.session;
                     
                     await AsyncStorage.setItem('access_token', access_token);
                     await AsyncStorage.setItem('refresh_token', refresh_token);
@@ -176,7 +215,8 @@ export const authService = {
                 'refresh_token', 
                 'token_expiry', 
                 'expires_in', 
-                'last_push_token'
+                'last_push_token',
+                'session_token',
             ];
             await Promise.all(keysToRemove.map(key => AsyncStorage.removeItem(key)));
             authEvents.emit('SIGNED_OUT');

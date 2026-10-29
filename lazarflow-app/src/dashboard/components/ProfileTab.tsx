@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import { CreditCard, Users, HelpCircle, LogOut, ChevronRight, Zap, Languages, Check } from 'lucide-react-native';
+import { CreditCard, Users, HelpCircle, LogOut, ChevronRight, Zap, Languages, Check, Crown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import { getTierColors } from './HomeTab';
@@ -53,10 +53,17 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
                     </View>
                 </View>
                 <Text style={styles.profileNameCustom}>{displayName}</Text>
-                <View style={styles.balanceBadgeProfile}>
-                    <Zap size={14} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 6 }} />
-                    <Text style={styles.balanceTextProfile}>{user?.flux_balance || 0} {t('profile.credits')}</Text>
-                </View>
+                {user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date() && user?.subscription_tier !== 'free' ? (
+                    <View style={[styles.balanceBadgeProfile, { backgroundColor: '#d1fae5', borderColor: '#10b981' }]}>
+                        <Crown size={14} color="#10b981" style={{ marginRight: 6 }} />
+                        <Text style={[styles.balanceTextProfile, { color: '#047857' }]}>Unlimited</Text>
+                    </View>
+                ) : (
+                    <View style={styles.balanceBadgeProfile}>
+                        <Zap size={14} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 6 }} />
+                        <Text style={styles.balanceTextProfile}>{user?.flux_balance || 0} {t('profile.credits')}</Text>
+                    </View>
+                )}
             </View>
 
             <View style={styles.settingsSection}>

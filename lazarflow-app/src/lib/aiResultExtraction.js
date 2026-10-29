@@ -27,7 +27,7 @@ export const processLobbyScreenshots = async (imageFiles, lobbyId) => {
     });
 
     try {
-        const response = await apiClient.post('/api/ai/process-lobby', formData, {
+        const response = await apiClient.post('/api/ai/process-lobby-v3', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
@@ -41,9 +41,10 @@ export const processLobbyScreenshots = async (imageFiles, lobbyId) => {
 };
 
 /**
- * Extract lobby results from screenshots
+ * Extract lobby results from screenshots using extract-results-v3
  * @param {Array} imageFiles - Array of image objects (from expo-image-picker)
- * @param {Object} options - Extraction options
+ * @param {Object} options - Extraction options (model, provider, split, etc.)
+ * @param {string} lobbyId - The ID of the lobby
  * @returns {Promise<Array>} Extracted rank data
  */
 export const extractResultsFromScreenshot = async (imageFiles, options = {}, lobbyId) => {
@@ -51,18 +52,26 @@ export const extractResultsFromScreenshot = async (imageFiles, options = {}, lob
     const formData = new FormData();
     
     // Add lobby_id to form data if provided
-    if (lobbyId) {
-        formData.append('lobby_id', lobbyId);
-    } else if (options.lobbyId) {
-        // Fallback to options if passed there
-        formData.append('lobby_id', options.lobbyId);
+    const targetLobbyId = lobbyId || options.lobbyId || options.lobby_id;
+    if (targetLobbyId) {
+        formData.append('lobby_id', targetLobbyId);
+    }
+
+    if (options.model) {
+        formData.append('model', options.model);
+    } else {
+        formData.append('model', 'qwen/qwen3.7-flash');
+    }
+
+    if (options.provider) {
+        formData.append('provider', options.provider);
     }
 
     // Append all images
     imageFiles.forEach((image, index) => {
         const uri = image.uri;
         const uriParts = uri.split('.');
-        const fileType = uriParts[uriParts.length - 1];
+        const fileType = uriParts[uriParts.length - 1] || 'jpg';
 
         formData.append('images', {
             uri,
@@ -71,14 +80,14 @@ export const extractResultsFromScreenshot = async (imageFiles, options = {}, lob
         });
     });
 
-    // Build query string for options
+    // Build query string for options if present
     const queryParams = [];
     if (options.split !== undefined) queryParams.push(`split=${options.split}`);
     const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
 
     try {
-        // Send request with query parameters
-        const response = await apiClient.post(`/api/ai/extract-results${queryString}`, formData, {
+        // Send request to extract-results-v3 endpoint
+        const response = await apiClient.post(`/api/ai/extract-results-v3${queryString}`, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
@@ -133,14 +142,16 @@ export const extractResultsFromScreenshot = async (imageFiles, options = {}, lob
                                  return url;
                              });
                     })(),
-                    cell_request_id: team.cell_request_id
+                    cell_request_id: data.cell_request_id || team.cell_request_id
                 };
             });
         }
 
         return results;
     } catch (error) {
-        console.error('❌ Error extracting results:', error);
+        console.error('❌ Error extracting results (v3):', error);
         throw error;
     }
 };
+
+export const extractResultsV3 = extractResultsFromScreenshot;

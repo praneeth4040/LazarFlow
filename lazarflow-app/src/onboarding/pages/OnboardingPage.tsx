@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, SafeAreaView, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Platform, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../styles/theme';
@@ -25,8 +26,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ navigation }) =>
   } = useOnboarding(ONBOARDING_SLIDES.length, () => navigation.replace('SignUp'));
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={{ paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }} />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor={Theme.colors.primary} />
 
       <View style={styles.topBar}>
         <View style={styles.logoContainer}>
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingHorizontal: 40,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 60,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 25,
     alignItems: 'center',
   },
   nextBtn: {

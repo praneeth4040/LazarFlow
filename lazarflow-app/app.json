@@ -4,7 +4,7 @@
     "slug": "lazarflow-app",
     "owner": "praneeth4400",
     "scheme": "lazarflow",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -30,13 +30,7 @@
       "versionCode": 40,
       "permissions": [
         "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO",
-        "INTERNET",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.READ_MEDIA_AUDIO"
+        "INTERNET"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/padded_icon.png",
@@ -85,6 +79,7 @@
     },
     "plugins": [
       "./plugins/withAndroidRepositories.js",
+      "./plugins/withScopedWritePermission.js",
       "@react-native-google-signin/google-signin",
       [
         "react-native-google-mobile-ads",
@@ -93,11 +88,18 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "LazarFlow needs access to your photos to upload scoreboard screenshots and design themes."
+        }
+      ],
+      [
         "expo-media-library",
         {
           "photosPermission": "Allow LazarFlow to save generated table images to your gallery.",
           "savePhotosPermission": "Allow LazarFlow to save generated table images to your gallery.",
-          "isAccessMediaLocationEnabled": false
+          "isAccessMediaLocationEnabled": false,
+          "isAccessMediaLocationEnabled_android": false
         }
       ],
       "expo-font",

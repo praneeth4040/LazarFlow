@@ -79,7 +79,7 @@ This document details all API endpoints used in the **LazarFlow** mobile applica
 | Endpoint | Method | Function / Call Site | Request Payload | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `/api/ai/process-lobby` | POST | `processLobbyScreenshots` <br> Called by: `src/screens/CalculateResultsScreen.js` | `FormData` with multiple `images` and `lobby_id`. | Extracts team/player names from lobby screenshots. |
-| `/api/ai/extract-results` | POST | `extractResultsFromScreenshot` <br> Called by: `src/screens/CalculateResultsScreen.js` | `FormData` with `images` and options: `{ split, split_ratio, crop_top, crop_bottom }` | Extracts match results/standings from scoreboard screenshots. |
+| `/api/ai/extract-results-v3` | POST | `extractResultsFromScreenshot` / `extractResultsV3` <br> Called by: `src/results/hooks/useAIExtraction.ts` | `FormData` with `images`, `lobby_id`, `model` (`qwen/qwen3.7-flash`), `provider` | Fast parallel extraction of match results/standings (~20s latency) with verification cropped row URLs. |
 | `/api/ai/extract-teams` | POST | `extractTeamsFromText` <br> Called by: `src/screens/ManageTeamsScreen.js` (Paste Text) | `{ text: "raw text string" }` | Parses unstructured text (e.g., WhatsApp list) into structured team objects. |
 | `/render/:lobbyId/:themeId` | POST | `renderLobbyDesign` <br> Called by: `src/screens/LiveLobbyScreen.js` | `{ ...overrides }` (Optional JSON body) | Generates a PNG image of the lobby standings. Returns binary image data. |
 | `/api/render/render-results` | POST | `renderResults` <br> Called by: `src/screens/LiveLobbyScreen.js` | `{ lobbyId: "string", themesId: "string" }` | Generates a PNG image of the detailed results table. Returns binary image data. |
@@ -104,4 +104,4 @@ This document details all API endpoints used in the **LazarFlow** mobile applica
 
 | Endpoint | Method | Call Site | Description |
 | :--- | :--- | :--- | :--- |
-| `https://8b2b-49-204-103-59.ngrok-free.app/storage/themes/:path` | GET | `Image` components in React Native | Used to load theme preview images directly from the backend storage. |
+| `https://a7e8-49-204-103-59.ngrok-free.app/storage/themes/:path` | GET | `Image` components in React Native | Used to load theme preview images directly from the backend storage. |

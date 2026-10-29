@@ -2,6 +2,7 @@ export interface ProcessedSlot {
     slot: number;
     mappedTeamId: string | null;
     players: string[];
+    url?: string;
 }
 
 export interface ExtractedAIResult {

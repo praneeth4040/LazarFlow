@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
-import { Trophy, Zap } from 'lucide-react-native';
+import { Trophy, Zap, Crown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Theme } from '../../styles/theme';
 import LobbyCard from './LobbyCard';
 import { DashboardTabProps, Lobby } from '../types';
 import HomeBannerAd from '../../components/HomeBannerAd';
 import { AD_PLACEMENTS } from '../../config/adConfig';
+import { LifetimeOfferBanner } from './LifetimeOfferBanner';
 
 export const getTierColors = (tierName: string) => {
     const colorMap: Record<string, any> = {
@@ -68,12 +69,26 @@ const HomeTab: React.FC<HomeTabProps> = ({
             <View style={styles.greetingSection}>
                 <Text style={styles.welcomeTitle}>{t('dashboard.welcome')}</Text>
                 <View style={styles.creditInfoContainer}>
-                    <Zap size={14} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 6 }} />
-                    <Text style={styles.welcomeSubtitle}>
-                        {t('dashboard.remainingCredits', { count: user?.flux_balance || 0 })}
-                    </Text>
+                    {user?.subscription_expires_at && new Date(user.subscription_expires_at) > new Date() && user?.subscription_tier !== 'free' ? (
+                        <>
+                            <Crown size={14} color="#10b981" style={{ marginRight: 6 }} />
+                            <Text style={[styles.welcomeSubtitle, { color: '#10b981', fontWeight: '600' }]}>
+                                Unlimited Subscription Active
+                            </Text>
+                        </>
+                    ) : (
+                        <>
+                            <Zap size={14} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 6 }} />
+                            <Text style={styles.welcomeSubtitle}>
+                                {t('dashboard.remainingCredits', { count: user?.flux_balance || 0 })}
+                            </Text>
+                        </>
+                    )}
                 </View>
             </View>
+
+            {/* Lifetime offer banner — dismissible, persisted via AsyncStorage */}
+            <LifetimeOfferBanner />
 
             <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>{t('dashboard.recentLobbies')}</Text>
