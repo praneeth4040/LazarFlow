@@ -3,7 +3,58 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authEvents } from './authEvents';
 import { supabase } from './supabaseClient';
 
-const BASE_URL = 'https://www.api.lazarflow.app';
+// Dev override: set EXPO_PUBLIC_API_URL in .env (e.g. http://localhost:8080
+// for the iOS Simulator — it shares the Mac's localhost; use
+// http://10.0.2.2:8080 for the Android emulator) to run against a local
+// backend. Unset = production.
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://lazarflow-backend-production-904249234907.asia-south1.run.app';
+
+/**
+ * Decode a response payload that axios left as raw binary — requests with
+ * `responseType: 'arraybuffer'` (e.g. image renders) keep their ERROR
+ * bodies as ArrayBuffers instead of parsed JSON.
+ */
+const decodeBinaryBody = (data) => {
+    if (typeof ArrayBuffer === 'undefined') return null;
+    const isBinary = data instanceof ArrayBuffer || ArrayBuffer.isView(data);
+    if (!isBinary) return data;
+    try {
+        const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+        let text;
+        if (typeof TextDecoder !== 'undefined') {
+            text = new TextDecoder('utf-8').decode(bytes);
+        } else {
+            // Fallback: byte-wise decode (multibyte UTF-8 punctuation may be
+            // mangled, but the message stays readable).
+            text = '';
+            for (let i = 0; i < bytes.length; i++) text += String.fromCharCode(bytes[i]);
+        }
+        try { return JSON.parse(text); } catch { return text; }
+    } catch {
+        return null;
+    }
+};
+
+/**
+ * Extract a human-readable message from a backend/axios error.
+ * Backend error bodies are `{"detail": ...}` where detail is either
+ * `{message, code}` (our standard), a plain string (legacy), or a Pydantic
+ * validation array (422s).
+ */
+export const extractApiErrorMessage = (err, fallback = 'Something went wrong. Please try again.') => {
+    const payload = decodeBinaryBody(err?.response?.data);
+    const detail = payload?.detail !== undefined ? payload.detail : (typeof payload === 'string' ? payload : err?.response?.data?.detail);
+    if (typeof detail === 'string' && detail.trim()) return detail;
+    if (detail && typeof detail === 'object') {
+        if (typeof detail.message === 'string' && detail.message.trim()) return detail.message;
+        if (Array.isArray(detail)) {
+            const first = detail[0];
+            if (first?.msg) return `${first.msg}${first.loc ? ` (${first.loc.join('.')})` : ''}`;
+        }
+    }
+    if (typeof err?.message === 'string' && err.message.trim()) return err.message;
+    return fallback;
+};
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
@@ -131,6 +182,12 @@ apiClient.interceptors.request.use(
                 }
                 config.headers.Authorization = `Bearer ${cleanToken}`;
             }
+
+            // Attach session token for device-session enforcement
+            const sessionToken = await AsyncStorage.getItem('session_token');
+            if (sessionToken) {
+                config.headers['X-Session-Token'] = sessionToken;
+            }
         } catch (error) {
             console.error('❌ Request interceptor error:', error.message);
         }
@@ -165,6 +222,21 @@ apiClient.interceptors.response.use(
         }
 
         const errorCode = typeof detail === 'object' ? detail?.code : null;
+
+        // ── SESSION_INVALIDATED — force logout immediately ─────────────────────
+        if (error.response?.status === 401 && errorCode === 'SESSION_INVALIDATED') {
+            console.error('🔒 SESSION_INVALIDATED — logging out.');
+            authEvents.emit('SESSION_INVALIDATED');
+            authEvents.emit('SIGNED_OUT');
+            return Promise.reject(error);
+        }
+
+        // ── 402 Payment Required — emit event for UI to react ─────────────────
+        if (error.response?.status === 402) {
+            console.warn('💳 402 Payment Required — out of credits.');
+            authEvents.emit('PAYMENT_REQUIRED', { url: originalRequest?.url });
+            return Promise.reject(error);
+        }
 
         const isAuthExpired =
             (error.response?.status === 401 && errorCode === 'AUTH_TOKEN_EXPIRED') ||

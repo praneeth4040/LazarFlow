@@ -19,7 +19,8 @@ interface SocketServiceConfig {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SOCKET_URL = 'https://www.api.lazarflow.app'; // Production URL
+// Honors EXPO_PUBLIC_API_URL so local dev can target a local backend.
+const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL || 'https://lazarflow-backend-production-904249234907.asia-south1.run.app';
 const MAX_RECONNECT_ATTEMPTS = 5;
 // ─── Singleton ────────────────────────────────────────────────────────────────
 

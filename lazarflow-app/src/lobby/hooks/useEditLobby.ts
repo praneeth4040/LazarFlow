@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { PointAllocation, MetadataField } from '../types';
 
@@ -41,7 +42,7 @@ export const useEditLobby = (lobbyId: string, navigation: any) => {
             setMetadataList(list);
         } catch (error) {
             console.error('Error fetching lobby:', error);
-            Alert.alert('Error', 'Failed to load lobby details');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to load lobby details'));
             navigation.goBack();
         } finally {
             setLoading(false);
@@ -87,7 +88,7 @@ export const useEditLobby = (lobbyId: string, navigation: any) => {
             ]);
         } catch (error) {
             console.error('Error updating lobby:', error);
-            Alert.alert('Error', 'Failed to update lobby');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to update lobby'));
         } finally {
             setSaving(false);
         }
@@ -109,7 +110,7 @@ export const useEditLobby = (lobbyId: string, navigation: any) => {
                             navigation.navigate('Dashboard');
                         } catch (err) {
                             console.error('Error deleting lobby:', err);
-                            Alert.alert("Error", "Failed to delete lobby");
+                            Alert.alert("Error", extractApiErrorMessage(err, "Failed to delete lobby"));
                         } finally {
                             setSaving(false);
                         }

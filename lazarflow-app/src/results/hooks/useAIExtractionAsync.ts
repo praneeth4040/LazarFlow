@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { submitExtractResultsJob } from '../../lib/dataService';
-import { BASE_URL } from '../../lib/apiClient';
+import { BASE_URL, extractApiErrorMessage } from '../../lib/apiClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { useOcrJobs } from '../../context/OcrJobContext';
 import { ExtractedAIResult, LobbyData } from '../types';
@@ -299,20 +299,27 @@ export function useAIExtractionAsync(
       }
 
       try {
-        // 1. Submit — returns job_id instantly
         setPhase('uploading');
-        const { job_id } = await submitExtractResultsJob(lobby.id, images);
+        const res = await submitExtractResultsJob(lobby.id, images);
 
-        // 2. Hand off to global context (polling continues even if user navigates away)
-        ocrJobCtx.startJob({
-          jobId: job_id,
-          jobType: 'extract_results',
-          lobbyId: lobby.id,
-          lobbyName: lobby.name ?? 'Lobby',
-        });
-
-        setPhase('queued');
-        // The useEffect above will react when the context job transitions to done/failed
+        if (res?.job_id) {
+          // Hand off to global context for polling/socket update
+          ocrJobCtx.startJob({
+            jobId: res.job_id,
+            jobType: 'extract_results',
+            lobbyId: lobby.id,
+            lobbyName: lobby.name ?? 'Lobby',
+          });
+          setPhase('queued');
+        } else if ((res as any)?.teams) {
+          // Direct synchronous response from v3
+          const extracted = transformExtractResult(res as any);
+          setAiResults(extracted);
+          setPhase('done');
+          setShowMapping(true);
+        } else {
+          setPhase('error');
+        }
       } catch (err: any) {
         setPhase('error');
 
@@ -328,7 +335,7 @@ export function useAIExtractionAsync(
         } else {
           Alert.alert(
             'Extraction Failed',
-            err?.message ?? 'Something went wrong. Please try again.',
+            extractApiErrorMessage(err, 'Something went wrong. Please try again.'),
           );
         }
       }

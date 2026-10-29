@@ -4,10 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Home, User, Plus, Palette, Crown, X, Zap, Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import * as ImagePicker from 'expo-image-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { Theme } from '../../styles/theme';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { authService } from '../../lib/authService';
 import { UserContext } from '../../context/UserContext';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -18,22 +18,22 @@ import { useOcrJobs } from '../../context/OcrJobContext';
 // Dashboard Hooks & Repository
 import { useDashboard } from '../hooks/useDashboard';
 import { DashboardRepository } from '../services/DashboardRepository';
-import { useThemeUploadInterstitialAd } from '../../hooks/useThemeUploadInterstitialAd';
 
 // Dashboard Tabs
 import HomeTab from '../components/HomeTab';
 import LobbiesTab from '../components/LobbiesTab';
 import DesignTab from '../components/DesignTab';
 import ProfileTab from '../components/ProfileTab';
+import { LifetimeOfferModal, useLifetimeOfferModal } from '../components/LifetimeOfferModal';
 
 import { SubscriptionPlansPage } from '../../subscription/pages/SubscriptionPlansPage';
 
 const DashboardPage = ({ navigation, route }: any) => {
     const { t } = useTranslation();
-    const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts } = useSubscription();
+    const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts, expiresAt } = useSubscription();
     const { user, loading: userLoading, refreshUser } = useContext(UserContext);
     const { unreadCount, activeJobsCount } = useOcrJobs();
-    const { showAdIfReady: showThemeUploadAd } = useThemeUploadInterstitialAd();
+    const { offerVisible, closeOffer } = useLifetimeOfferModal();
     
     const dashboard = useDashboard(user, refreshUser);
 
@@ -93,50 +93,6 @@ const DashboardPage = ({ navigation, route }: any) => {
         }
     };
 
-    const handleDesignUpload = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: false, // disabled — cropper was causing major delay on device
-            quality: 1,           // keep original quality; backend handles processing
-        });
-        if (result.canceled) return;
-        dashboard.setSelectedImage(result.assets[0]);
-        dashboard.setDesignDetails({ name: '' });
-        dashboard.setUploadModalVisible(true);
-    };
-
-    const submitDesignUpload = async () => {
-        if (!dashboard.designDetails.name.trim()) {
-            Alert.alert('Required', 'Please enter a name');
-            return;
-        }
-        if (tier !== 'developer' && maxLayouts && dashboard.activeLayoutsCount >= maxLayouts) {
-            Alert.alert('Limit Reached', 'Upgrade to upload more layouts!');
-            return;
-        }
-        try {
-            dashboard.setUploading(true);
-            await DashboardRepository.uploadDesignTheme(dashboard.designDetails.name, dashboard.selectedImage.uri);
-            // Close modal and show success immediately
-            dashboard.setUploadModalVisible(false);
-            Alert.alert('Success', 'Design uploaded and pending verification.');
-            // Show interstitial ad after successful upload (non-blocking)
-            showThemeUploadAd();
-            // Refresh theme list in background
-            dashboard.fetchUserThemes();
-        } catch (error: any) {
-            const apiDetail = error.response?.data?.detail;
-            const message = typeof apiDetail === 'string'
-                ? apiDetail
-                : Array.isArray(apiDetail)
-                    ? apiDetail.map((e: any) => e.msg || JSON.stringify(e)).join('\n')
-                    : error.message || 'Upload failed. Please try again.';
-            Alert.alert('Upload Failed', message);
-        } finally {
-            dashboard.setUploading(false);
-        }
-    };
-
     // ── Theme: delete ────────────────────────────────────────────────────────
     const handleDeleteTheme = (theme: any) => {
         Alert.alert(
@@ -159,7 +115,7 @@ const DashboardPage = ({ navigation, route }: any) => {
                             // Ask dashboard to sync and clear AsyncStorage cache in the background
                             dashboard.fetchUserThemes(true);
                         } catch (err: any) {
-                            Alert.alert('Error', err?.response?.data?.detail || 'Failed to delete design.');
+                            Alert.alert('Error', extractApiErrorMessage(err, 'Failed to delete design.'));
                         }
                     },
                 },
@@ -289,7 +245,7 @@ const DashboardPage = ({ navigation, route }: any) => {
             dashboard.setPromoData({ startDate: '', startTime: '', contactDetails: '', additionalDetails: '' });
         } catch (error) {
             console.error('Error promoting lobby:', error);
-            Alert.alert('Error', 'Failed to promote the tournament.');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to promote the tournament.'));
         } finally {
             dashboard.setLoading(false);
         }
@@ -313,12 +269,22 @@ const DashboardPage = ({ navigation, route }: any) => {
             );
         }
 
-        const renderHeaderRight = () => (
+        const renderHeaderRight = () => {
+            const hasActiveSub = expiresAt && new Date(expiresAt) > new Date() && tier !== 'free';
+            
+            return (
             <View style={styles.headerRight}>
-                <View style={styles.headerBalanceBadge}>
-                    <Zap size={12} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 4 }} />
-                    <Text style={styles.headerBalanceText}>{user?.flux_balance || 0}</Text>
-                </View>
+                {hasActiveSub ? (
+                    <View style={[styles.headerBalanceBadge, { backgroundColor: '#d1fae5', borderColor: '#10b981' }]}>
+                        <Crown size={12} color="#10b981" style={{ marginRight: 4 }} />
+                        <Text style={[styles.headerBalanceText, { color: '#047857' }]}>Unlimited</Text>
+                    </View>
+                ) : (
+                    <View style={styles.headerBalanceBadge}>
+                        <Zap size={12} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 4 }} />
+                        <Text style={styles.headerBalanceText}>{user?.flux_balance || 0}</Text>
+                    </View>
+                )}
                 {/* Notification Bell */}
                 <TouchableOpacity
                     style={styles.bellBtn}
@@ -336,7 +302,8 @@ const DashboardPage = ({ navigation, route }: any) => {
                     )}
                 </TouchableOpacity>
             </View>
-        );
+            );
+        };
 
         if (dashboard.activeTab === 'home') {
              return (
@@ -425,8 +392,6 @@ const DashboardPage = ({ navigation, route }: any) => {
                     <DesignTab 
                         designTab={dashboard.designTab} 
                         setDesignTab={dashboard.setDesignTab} 
-                        handleDesignUpload={handleDesignUpload}
-                        uploading={dashboard.uploading} 
                         userThemesList={dashboard.userThemesList} 
                         communityThemesList={dashboard.communityThemesList}
                         loadingCommunity={dashboard.loadingCommunity} 
@@ -481,19 +446,14 @@ const DashboardPage = ({ navigation, route }: any) => {
                 <TabItem icon={User} label={t('dashboard.tabs.profile')} active={dashboard.activeTab === 'profile'} onPress={() => dashboard.setActiveTab('profile')} isPremium={false} />
             </View>
 
-            <UploadModal 
-                visible={dashboard.uploadModalVisible} 
-                onClose={() => dashboard.setUploadModalVisible(false)} 
-                selectedImage={dashboard.selectedImage} 
-                designDetails={dashboard.designDetails} 
-                setDesignDetails={dashboard.setDesignDetails} 
-                uploading={dashboard.uploading} 
-                onSubmit={submitDesignUpload} 
-            />
             <ImagePreviewModal 
                 visible={!!dashboard.previewImage} 
                 image={dashboard.previewImage} 
                 onClose={() => dashboard.setPreviewImage(null)} 
+            />
+            <LifetimeOfferModal 
+                visible={offerVisible} 
+                onClose={closeOffer} 
             />
             <PromoModal 
                 visible={dashboard.showPromoModal} 
@@ -616,33 +576,6 @@ const PromoModal = ({ visible, onClose, promoData, setPromoData, loading, onSubm
         </Modal>
     );
 };
-
-const UploadModal = ({ visible, onClose, selectedImage, designDetails, setDesignDetails, uploading, onSubmit }: any) => (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-        <View style={styles.bottomSheetOverlay}>
-            <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={onClose} />
-            <View style={styles.uploadBottomSheet}>
-                <View style={styles.dragHandle} />
-                <View style={styles.uploadModalHeader}>
-                    <Text style={styles.uploadModalTitle}>Finalize Your Design</Text>
-                    <TouchableOpacity style={styles.closeBtnSmall} onPress={onClose}><X size={20} color={Theme.colors.textSecondary} /></TouchableOpacity>
-                </View>
-                <ScrollView style={styles.uploadModalBody as any}>
-                    <View style={styles.uploadPreviewWrapper}>
-                        {selectedImage && <Image source={{ uri: selectedImage.uri }} style={styles.uploadPreviewImage} resizeMode="cover" />}
-                    </View>
-                    <View style={styles.uploadInputGroup as any}>
-                        <Text style={styles.uploadInputLabel as any}>DESIGN NAME</Text>
-                        <TextInput style={styles.styledInput} placeholder="e.g. Minimalist Navy" value={designDetails.name} onChangeText={(t) => setDesignDetails({ name: t })} />
-                    </View>
-                </ScrollView>
-                <TouchableOpacity style={styles.uploadSubmitBtnFull} onPress={onSubmit} disabled={uploading}>
-                    {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.uploadSubmitBtnText}>Upload to Studio</Text>}
-                </TouchableOpacity>
-            </View>
-        </View>
-    </Modal>
-);
 
 const ImagePreviewModal = ({ visible, image, onClose }: any) => (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

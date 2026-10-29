@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { extractTeamsFromText } from '../../lib/aiExtraction';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { DraftTeam, ManageTeamsMode } from '../types';
@@ -93,7 +94,7 @@ export const useManageTeams = (lobbyId: string, navigation: any) => {
             setMode('manual');
             Alert.alert('Success', displayMessage);
         } catch (error) {
-            Alert.alert('Error', 'AI extraction failed');
+            Alert.alert('Error', extractApiErrorMessage(error, 'AI extraction failed'));
         } finally {
             setLoading(false);
         }
@@ -170,7 +171,7 @@ export const useManageTeams = (lobbyId: string, navigation: any) => {
             ]);
         } catch (error) {
             console.error('Error saving teams:', error);
-            Alert.alert('Error', 'Failed to save teams');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to save teams'));
         } finally {
             setSubmitting(false);
         }

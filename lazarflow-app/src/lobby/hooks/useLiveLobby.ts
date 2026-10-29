@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useContext } from 'react';
 import { Buffer } from 'buffer';
 import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { UserContext } from '../../context/UserContext';
@@ -87,7 +88,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             setTeams(sortedTeams);
         } catch (error: any) {
             console.error('Fetch Error:', error);
-            Alert.alert('Error', error.message || 'Failed to load lobby data');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to load lobby data'));
         } finally {
             setLoading(false);
         }
@@ -153,7 +154,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             }
         } catch (error) {
             console.error('Error generating table:', error);
-            Alert.alert('Error', 'Failed to generate results table. Please try again.');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to generate results table. Please try again.'));
         } finally {
             setIsGenerating(false);
             setRenderStatus('Processing…');
@@ -207,7 +208,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             }
         } catch (error) {
             console.error('Error rendering:', error);
-            Alert.alert('Error', 'Failed to render. Please try again.');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to render. Please try again.'));
         } finally {
             setIsGenerating(false);
             setRenderStatus('Processing…');
@@ -228,7 +229,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             }
         } catch (error) {
             console.error('Error generating MVP image:', error);
-            Alert.alert('Error', 'Failed to generate MVP image');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to generate MVP image'));
         } finally {
             setIsGenerating(false);
         }
@@ -236,12 +237,9 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
 
     const handlePickLogo = async (type: string, imagePicker: any) => {
         try {
-            const { status } = await imagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') {
-                Alert.alert('Permission Denied', 'Gallery access is required to upload logos');
-                return;
-            }
-
+            // Android Photo Picker (API 33+) and the iOS system picker manage
+            // their own access — no runtime permission request needed before
+            // calling launchImageLibraryAsync.
             const result = await imagePicker.launchImageLibraryAsync({
                 mediaTypes: imagePicker.MediaTypeOptions.Images,
                 allowsEditing: true,
@@ -260,7 +258,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             }
         } catch (error) {
             console.error('Logo upload error:', error);
-            Alert.alert('Error', 'Failed to upload logo');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to upload logo'));
         } finally {
             setSaving(false);
         }

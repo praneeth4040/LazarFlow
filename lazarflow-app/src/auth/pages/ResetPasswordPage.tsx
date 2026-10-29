@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityInd
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { authService } from '../../lib/authService';
 import { supabase } from '../../lib/supabaseClient';
 import apiClient from '../../lib/apiClient';
@@ -126,7 +127,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ navigation
                 [{ text: 'OK', onPress: () => navigation.navigate('Login') } as any]
             );
         } catch (error: any) {
-            Alert.alert('Update Failed', error.response?.data?.message || error.message || 'An error occurred');
+            Alert.alert('Update Failed', extractApiErrorMessage(error, 'Password reset failed. The reset link may have expired — please request a new one.'));
         } finally {
             setLoading(false);
         }

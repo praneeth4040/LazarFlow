@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { extractResultsFromScreenshot } from '../../lib/aiResultExtraction';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { fuzzyMatchName } from '../../lib/aiUtils';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { ExtractedAIResult, LobbyData } from '../types';
@@ -139,7 +140,7 @@ export const useAIExtraction = (lobby: LobbyData, teams: any[], user: any, refre
           ]
         );
       } else {
-        Alert.alert('Error', 'Failed to extract results from image');
+        Alert.alert('Error', extractApiErrorMessage(err, 'Failed to extract results from image'));
       }
     } finally {
       setExtracting(false);

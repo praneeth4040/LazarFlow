@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react';
 import { UserContext } from '../../context/UserContext';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { DefaultPointsSystems, PointAllocation, CreateLobbyFormState } from '../types';
 import { LobbyStatus } from '../../shared/domain/models/Lobby';
@@ -70,7 +71,7 @@ export const useCreateLobby = (canUseAI: boolean, maxAILobbies: number, navigati
             navigation.navigate('ManageTeams', { lobbyId: data.id, lobbyName: data.name });
         } catch (error: any) {
             console.error('Error creating lobby:', error);
-            Alert.alert('Error', error.response?.data?.message || error.message || 'Failed to create lobby');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to create lobby'));
         } finally {
             setLoading(false);
         }

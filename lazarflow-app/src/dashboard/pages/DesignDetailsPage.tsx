@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, Palette, Trash2, BookmarkPlus, BadgeCheck } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { UserContext } from '../../context/UserContext';
@@ -30,7 +31,7 @@ export const DesignDetailsPage: React.FC<DesignDetailsPageProps> = ({ route, nav
                     const data = await getTheme(themeId);
                     setTheme(data);
                 } catch (error) {
-                    Alert.alert('Error', 'Failed to load design details. It may have been deleted.');
+                    Alert.alert('Error', extractApiErrorMessage(error, 'Failed to load design details. It may have been deleted.'));
                     navigation.goBack();
                 } finally {
                     setLoading(false);
@@ -58,7 +59,7 @@ export const DesignDetailsPage: React.FC<DesignDetailsPageProps> = ({ route, nav
                 url: url,
             });
         } catch (error: any) {
-            Alert.alert('Error', 'Failed to share design.');
+            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to share design.'));
         }
     };
 
@@ -77,7 +78,7 @@ export const DesignDetailsPage: React.FC<DesignDetailsPageProps> = ({ route, nav
                             await deleteTheme(theme.id);
                             navigation.goBack();
                         } catch (err: any) {
-                            Alert.alert('Error', 'Failed to delete design.');
+                            Alert.alert('Error', extractApiErrorMessage(err, 'Failed to delete design.'));
                         } finally {
                             setActionLoading(false);
                         }
@@ -101,7 +102,7 @@ export const DesignDetailsPage: React.FC<DesignDetailsPageProps> = ({ route, nav
             Alert.alert('Saved!', `"${theme.name}" has been saved to your designs and is ready to use.`);
             navigation.goBack(); // Return to dashboard to see the new design
         } catch (err: any) {
-            Alert.alert('Error', 'Failed to save design. Please try again.');
+            Alert.alert('Error', extractApiErrorMessage(err, 'Failed to save design. Please try again.'));
         } finally {
             setActionLoading(false);
         }

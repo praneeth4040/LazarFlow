@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
+import { extractApiErrorMessage } from '../../lib/apiClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { MatchResult, LobbyData } from '../types';
 
@@ -158,7 +159,7 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
         { text: 'OK', onPress: () => navigation.navigate('Dashboard') } as any
       ]);
     } catch (err) {
-      Alert.alert('Error', 'Failed to submit results');
+      Alert.alert('Error', extractApiErrorMessage(err, 'Failed to submit results'));
     } finally {
       setSubmitting(false);
     }
@@ -224,7 +225,7 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
         { text: 'OK', onPress: () => navigation.navigate('Dashboard') } as any,
       ]);
     } catch (err) {
-      Alert.alert('Error', 'Failed to submit results');
+      Alert.alert('Error', extractApiErrorMessage(err, 'Failed to submit results'));
     } finally {
       setSubmitting(false);
     }
