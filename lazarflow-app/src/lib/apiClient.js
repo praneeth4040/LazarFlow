@@ -7,7 +7,9 @@ import { supabase } from './supabaseClient';
 // for the iOS Simulator — it shares the Mac's localhost; use
 // http://10.0.2.2:8080 for the Android emulator) to run against a local
 // backend. Unset = production.
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://lazarflow-backend-production-904249234907.asia-south1.run.app';
+// Dev-only override: EXPO_PUBLIC_API_URL is honored solely in __DEV__ builds
+// so a local .env can never leak into a production/OTA bundle.
+const BASE_URL = (__DEV__ && process.env.EXPO_PUBLIC_API_URL) || 'https://lazarflow-backend-production-904249234907.asia-south1.run.app';
 
 /**
  * Decode a response payload that axios left as raw binary — requests with
