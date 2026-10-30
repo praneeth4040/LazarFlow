@@ -6,8 +6,10 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../lib/authService';
+import { navigationRef } from '../shared/navigation/navigationRef';
 import { UserContext } from '../context/UserContext';
 import { registerPushToken } from '../lib/dataService';
+import { navigateForNotification } from '../lib/notifications';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -33,7 +35,11 @@ export const usePushNotifications = () => {
         });
 
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-            // Handle notification response here if needed
+            // Deep-link on tap: complete jobs open the review screen, anything
+            // else with a lobby target opens Live Standings. Generic pushes
+            // (no target) just open the app.
+            const data = response?.notification?.request?.content?.data || {};
+            navigateForNotification((...args) => navigationRef.navigate(...args), data);
         });
 
         return () => {
@@ -66,8 +72,10 @@ export const usePushNotifications = () => {
             }
 
             if (!Device.isDevice) {
-                console.log('📱 usePushNotifications: Must use physical device');
-                return;
+                // Emulators CAN obtain Expo push tokens (google_apis image has FCM).
+                // The old hard-stop here silently skipped permission+registration,
+                // which broke push testing entirely — warn and continue instead.
+                console.log('📱 usePushNotifications: Running on an emulator — continuing');
             }
 
             // Request permissions

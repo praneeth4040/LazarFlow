@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,30 @@ import {
   StyleSheet,
   ActivityIndicator,
   StatusBar,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Bell, CheckCircle, XCircle, Trash2, ChevronRight, Clock, Upload, Brain, Check, X } from 'lucide-react-native';
+import { ArrowLeft, Bell, CheckCircle, XCircle, Trash2, ChevronRight, Clock, Upload, Brain, Check, X, ShieldCheck, Megaphone, FlaskConical, Zap } from 'lucide-react-native';
 import { useOcrJobs, OcrJob } from '../../context/OcrJobContext';
+import { UserContext } from '../../context/UserContext';
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  clearReadNotifications,
+  navigateForNotification,
+  AppNotification,
+} from '../../lib/notifications';
 import { Theme } from '../../styles/theme';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Strip emoji codepoints from displayed text — the notification page stays
+// plain even if a sender includes emojis in the stored title/body.
+const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}\u{2190}-\u{21FF}]/gu;
+const stripEmojis = (s: string): string =>
+  (s || '').replace(EMOJI_RE, '').replace(/\s{2,}/g, ' ').trim();
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -115,12 +132,164 @@ const JobCard = ({ job, onReview, onDismiss }: JobCardProps) => {
   );
 };
 
+// ─── In-app / push message cards ──────────────────────────────────────────────
+
+// Category chip: who sent it — admin/bot → ADMIN, automation → SYSTEM, self → TEST
+const SourceChip = ({ source, kind }: { source: string; kind?: string }) => {
+  // kind refines sender-based classification: non-admin kinds from any
+  // sender are automation output, shown as SYSTEM.
+  const isSystem = source === 'system' || (!!kind && kind !== 'general' && kind !== 'admin_message');
+  const isTest = source === 'user';
+  const label = isSystem ? 'SYSTEM' : isTest ? 'TEST' : 'ADMIN';
+  const bg = isSystem ? Theme.colors.border : Theme.colors.accent + '22';
+  const color = isSystem ? Theme.colors.textSecondary : Theme.colors.accent;
+  return (
+    <View style={[styles.sourceChip, { backgroundColor: bg }]}>
+      <Text style={[styles.sourceChipText, { color }]}>{label}</Text>
+    </View>
+  );
+};
+
+// Dynamic icon: reflects WHAT the notification is about, not just its channel.
+const iconFor = (n: AppNotification): React.ReactNode => {
+  // A push that actually failed always shows red, whatever its kind.
+  if (n.channel !== 'in_app' && n.status === 'failed') {
+    return <XCircle size={20} color="#ef4444" />;
+  }
+  switch (n.kind) {
+    case 'job_complete':   return <CheckCircle size={20} color="#10b981" />;
+    case 'job_failed':     return <XCircle size={20} color="#ef4444" />;
+    case 'admin_message':  return <ShieldCheck size={20} color="#3b82f6" />;
+    case 'broadcast':      return <Megaphone size={20} color="#f59e0b" />;
+    case 'test':           return <FlaskConical size={20} color="#8b5cf6" />;
+  }
+  if (n.source === 'system') return <Zap size={20} color="#64748b" />;
+  return <Bell size={20} color={Theme.colors.accent} />;
+};
+
+const NotificationCard = ({ n, onTap }: { n: AppNotification; onTap: (n: AppNotification) => void }) => {
+  const isUnread = !n.read_at;
+
+  return (
+    <TouchableOpacity
+      style={[styles.card, isUnread && styles.cardUnread]}
+      onPress={() => onTap(n)}
+      activeOpacity={0.7}
+    >
+      {isUnread && <View style={styles.unreadDot} />}
+
+      <View style={styles.cardHeader}>
+        <View style={styles.cardIcon}>{iconFor(n)}</View>
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {stripEmojis(n.title)}
+          </Text>
+          <View style={styles.subtitleRow}>
+            <SourceChip source={n.source} kind={n.kind} />
+          </View>
+        </View>
+        <Text style={styles.cardTime}>{timeAgo(n.created_at)}</Text>
+      </View>
+
+      <Text style={styles.messageBody} numberOfLines={3}>
+        {stripEmojis(n.body)}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const NotificationsPage = ({ navigation }: any) => {
   const { jobs, markAllRead, dismissJob } = useOcrJobs();
+  const { user } = useContext(UserContext);
+  const [messages, setMessages] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Mark all as read when page opens
+  // Load the user's notifications. Unread rows STAY unread until the user
+  // explicitly taps a card or "Mark all read" — no auto-marking on open.
+  const load = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const rows = await fetchNotifications(user.id);
+      setMessages(rows);
+    } catch {
+      // leave whatever we have — the section just stays as-is
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleTapMessage = useCallback(
+    async (n: AppNotification) => {
+      // Mark read first (as before)
+      if (!n.read_at && user?.id) {
+        setMessages((prev: AppNotification[]) =>
+          prev.map((r: AppNotification) => (r.id === n.id ? { ...r, read_at: new Date().toISOString() } : r)),
+        );
+        try {
+          await markNotificationRead(n.id, user.id);
+        } catch {
+          // RLS/network hiccup — the row stays unread server-side; refetch will correct
+        }
+      }
+      // Navigate ONLY when the notification carries a routing target — job
+      // results go to the review screen; generic messages don't navigate.
+      await navigateForNotification(navigation.navigate, n.data);
+    },
+    [user?.id, navigation],
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  const unreadMessages = messages.filter(n => !n.read_at).length;
+
+  const handleMarkAllRead = useCallback(async () => {
+    if (!user?.id || unreadMessages === 0) return;
+    const now = new Date().toISOString();
+    setMessages((prev: AppNotification[]) =>
+      prev.map((r: AppNotification) => ({ ...r, read_at: r.read_at ?? now })),
+    );
+    try {
+      await markAllNotificationsRead(user.id);
+    } catch {
+      // server-side stamp failed — local state already shows read; refetch will correct
+    }
+  }, [user?.id, unreadMessages]);
+
+  const handleClearRead = useCallback(() => {
+    if (!user?.id || !messages.some(n => n.read_at)) return;
+    Alert.alert(
+      'Clear read notifications',
+      'Read messages will be removed. Unread ones stay so you don\'t miss them.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearReadNotifications(user.id);
+              setMessages((prev: AppNotification[]) => prev.filter((r: AppNotification) => !r.read_at));
+            } catch {
+              // refetch will show the truth
+            }
+          },
+        },
+      ],
+    );
+  }, [user?.id, messages]);
+
+  // Mark all jobs as read when page opens (existing behavior)
   useEffect(() => {
     markAllRead();
   }, [markAllRead]);
@@ -150,22 +319,50 @@ const NotificationsPage = ({ navigation }: any) => {
           <ArrowLeft size={22} color={Theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={{ width: 40 }} />
+        {unreadMessages > 0 ? (
+          <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+            <Check size={14} color={Theme.colors.accent} />
+            <Text style={styles.markAllText}>Mark all read</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
+        {messages.length > 0 && (
+          <TouchableOpacity onPress={handleClearRead} style={styles.clearBtn} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+            <Trash2 size={16} color={Theme.colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.accent} />
+        }
       >
-        {jobs.length === 0 && (
+        {jobs.length === 0 && messages.length === 0 && loading && (
+          <ActivityIndicator style={{ marginTop: 60 }} color={Theme.colors.accent} />
+        )}
+
+        {jobs.length === 0 && messages.length === 0 && !loading && (
           <View style={styles.emptyState}>
             <Bell size={48} color={Theme.colors.textSecondary} />
             <Text style={styles.emptyTitle}>No notifications yet</Text>
             <Text style={styles.emptySubtitle}>
-              When you submit AI extraction jobs, they'll appear here.
+              Updates and messages will appear here.
             </Text>
           </View>
+        )}
+
+        {messages.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>MESSAGES</Text>
+            {messages.map(n => (
+              <NotificationCard key={n.id} n={n} onTap={handleTapMessage} />
+            ))}
+          </>
         )}
 
         {inFlight.length > 0 && (
@@ -226,6 +423,44 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: Theme.fonts.outfit.bold,
     color: Theme.colors.textPrimary,
+  },
+  markAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.accent + '15',
+  },
+  markAllText: {
+    fontSize: 12,
+    fontFamily: Theme.fonts.outfit.bold,
+    color: Theme.colors.accent,
+  },
+  clearBtn: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  sourceChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  sourceChipText: {
+    fontSize: 9,
+    fontFamily: Theme.fonts.outfit.bold,
+    letterSpacing: 0.5,
   },
   scroll: { flex: 1 },
   scrollContent: {
@@ -299,6 +534,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Theme.colors.textSecondary,
     fontFamily: Theme.fonts.outfit.regular,
+  },
+  messageBody: {
+    fontSize: 13,
+    color: Theme.colors.textPrimary,
+    fontFamily: Theme.fonts.outfit.regular,
+    lineHeight: 18,
   },
   badge: {
     flexDirection: 'row',

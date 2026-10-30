@@ -19,8 +19,11 @@ import { OcrJobProvider } from './src/context/OcrJobContext';
 
 const queryClient = new QueryClient();
 
-/** Shared navigation reference so notification handlers can navigate outside React tree */
-export const navigationRef = React.createRef();
+import { navigationRef } from './src/shared/navigation/navigationRef';
+
+/** Shared navigation reference (defined in src/shared/navigation/navigationRef.js)
+ * so notification handlers can navigate outside the React tree. */
+export { navigationRef };
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();

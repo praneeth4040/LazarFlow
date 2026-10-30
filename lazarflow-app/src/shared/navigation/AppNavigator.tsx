@@ -9,9 +9,7 @@ import { Theme } from '../../styles/theme';
 import { authService } from '../../lib/authService';
 import { authEvents } from '../../lib/authEvents';
 import { supabase } from '../../lib/supabaseClient';
-// navigationRef is defined in App.js and passed here so push-notification
-// tap handlers can call navigate() from outside the React tree.
-import { navigationRef } from '../../../App';
+import { navigationRef } from './navigationRef';
 
 // Modules: Onboarding & Auth
 import { OnboardingPage } from '../../onboarding/pages/OnboardingPage';

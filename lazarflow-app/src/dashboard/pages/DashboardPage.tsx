@@ -14,6 +14,7 @@ import { useSubscription } from '../../hooks/useSubscription';
 import { useFocusEffect } from '@react-navigation/native';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { useOcrJobs } from '../../context/OcrJobContext';
+import { useNotificationsUnread } from '../../hooks/useNotificationsUnread';
 
 // Dashboard Hooks & Repository
 import { useDashboard } from '../hooks/useDashboard';
@@ -33,6 +34,7 @@ const DashboardPage = ({ navigation, route }: any) => {
     const { tier, lobbiesCreated, loading: subLoading, maxAILobbies, maxLayouts, expiresAt } = useSubscription();
     const { user, loading: userLoading, refreshUser } = useContext(UserContext);
     const { unreadCount, activeJobsCount } = useOcrJobs();
+    const { unreadCount: dbUnreadCount } = useNotificationsUnread(user?.id);
     const { offerVisible, closeOffer } = useLifetimeOfferModal();
     
     const dashboard = useDashboard(user, refreshUser);
@@ -291,12 +293,12 @@ const DashboardPage = ({ navigation, route }: any) => {
                     onPress={() => navigation.navigate('Notifications')}
                 >
                     <View style={styles.bellIconWrapper}>
-                        <Bell size={20} color={activeJobsCount > 0 ? Theme.colors.accent : Theme.colors.textPrimary} />
+                        <Bell size={20} color={activeJobsCount > 0 || dbUnreadCount > 0 ? Theme.colors.accent : Theme.colors.textPrimary} />
                     </View>
-                    {unreadCount > 0 && (
+                    {unreadCount + dbUnreadCount > 0 && (
                         <View style={styles.bellBadge}>
                             <Text style={styles.bellBadgeText}>
-                                {unreadCount > 9 ? '9+' : unreadCount}
+                                {unreadCount + dbUnreadCount > 9 ? '9+' : unreadCount + dbUnreadCount}
                             </Text>
                         </View>
                     )}
