@@ -550,15 +550,11 @@ export const updateThemeConfig = async (id, status, mappingConfig) => {
     return data;
 };
 
-// ─── Async Background OCR Job Functions (v2 endpoints) ───────────────────────
+// ─── Async Background OCR Job Functions (v3 endpoints) ───────────────────────
 
 /**
- * Submit scoreboard screenshots for async AI extraction.
- * Returns a job_id immediately (HTTP 202). The heavy AI pipeline runs in the background.
- * @param {string} lobbyId
- * @param {Array}  imageAssets - array of Expo ImagePicker assets
- * @param {Object} options     - { provider?: string }
- * @returns {Promise<{ job_id: string, status: string }>}
+ * Submit scoreboard screenshots for async AI extraction (v3 pipeline).
+ * Returns a job_id immediately (HTTP 202).
  */
 export const submitExtractResultsJob = async (lobbyId, imageAssets, options = {}) => {
     const formData = new FormData();
@@ -570,18 +566,15 @@ export const submitExtractResultsJob = async (lobbyId, imageAssets, options = {}
         formData.append('images', { uri: asset.uri, name: filename, type });
     });
     if (options.provider) formData.append('provider', options.provider);
-    const { data } = await apiClient.post('/api/ai/extract-results-v2', formData, {
+    const { data } = await apiClient.post('/api/ai/extract-results-v3-async', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return data; // { job_id, status: "pending" }
 };
 
 /**
- * Submit lobby screenshots for async slot extraction.
+ * Submit lobby screenshots for async slot extraction (v3 pipeline).
  * Returns a job_id immediately (HTTP 202).
- * @param {string} lobbyId
- * @param {Array}  imageAssets - array of Expo ImagePicker assets
- * @returns {Promise<{ job_id: string, status: string }>}
  */
 export const submitProcessLobbyJob = async (lobbyId, imageAssets) => {
     const formData = new FormData();
@@ -592,11 +585,13 @@ export const submitProcessLobbyJob = async (lobbyId, imageAssets) => {
         const type = match ? `image/${match[1]}` : 'image/jpeg';
         formData.append('images', { uri: asset.uri, name: filename, type });
     });
-    const { data } = await apiClient.post('/api/ai/process-lobby-v2', formData, {
+    const { data } = await apiClient.post('/api/ai/process-lobby-v3-async', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
     });
     return data; // { job_id, status: "pending" }
 };
+
+
 
 /**
  * Poll a single job's status and result.
