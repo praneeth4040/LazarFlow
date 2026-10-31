@@ -35,6 +35,7 @@ import { SubscriptionPlansPage } from '../../subscription/pages/SubscriptionPlan
 import { PaymentStatusPage } from '../../subscription/pages/PaymentStatusPage';
 import { GenericErrorPage } from '../../shared/pages/GenericErrorPage';
 import NotificationsPage from '../../notifications/pages/NotificationsPage';
+import PromoOfferPage from '../../promo/pages/PromoOfferPage';
 
 export type RootStackParamList = {
     Onboarding: undefined;
@@ -55,6 +56,7 @@ export type RootStackParamList = {
     PaymentStatus: undefined;
     GenericError: undefined;
     Notifications: undefined;
+    PromoOffer: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -262,6 +264,11 @@ export default function AppNavigator() {
                         <Stack.Screen
                             name="GenericError"
                             component={GenericErrorPage}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="PromoOffer"
+                            component={PromoOfferPage}
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen

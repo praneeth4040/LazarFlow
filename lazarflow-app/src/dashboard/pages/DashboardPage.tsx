@@ -1,7 +1,7 @@
 import React, { useEffect, useContext, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar, Image, Modal, ScrollView, TextInput, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Home, User, Plus, Palette, Crown, X, Zap, Bell } from 'lucide-react-native';
+import { Home, User, Plus, Palette, Crown, X, Zap, Bell, Gift } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -286,6 +286,20 @@ const DashboardPage = ({ navigation, route }: any) => {
                         <Zap size={12} color="#f59e0b" fill="#f59e0b" style={{ marginRight: 4 }} />
                         <Text style={styles.headerBalanceText}>{user?.flux_balance || 0}</Text>
                     </View>
+                )}
+                {/* Promo gift — only while the player isn't premium */}
+                {!hasActiveSub && (
+                    <TouchableOpacity
+                        style={styles.bellBtn}
+                        onPress={() => navigation.navigate('PromoOffer')}
+                    >
+                        <View style={styles.bellIconWrapper}>
+                            <Gift size={20} color={Theme.colors.accent} />
+                        </View>
+                        <View style={[styles.bellBadge, { backgroundColor: '#EA4335' }]}>
+                            <Text style={styles.bellBadgeText}>FREE</Text>
+                        </View>
+                    </TouchableOpacity>
                 )}
                 {/* Notification Bell */}
                 <TouchableOpacity
