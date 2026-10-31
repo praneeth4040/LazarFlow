@@ -89,7 +89,7 @@ const PromoOfferPage = ({ navigation }: any) => {
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor="#DCE9FD" />
-      <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+      <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
         {/* ── Hero ── */}
         <View style={styles.hero}>
           <View style={styles.topbar}>
@@ -180,8 +180,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   sheet: {
+    flex: 1, justifyContent: 'space-between',
     backgroundColor: '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    marginTop: -26, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24, gap: 10,
+    marginTop: -26, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 28, gap: 10,
   },
   pillWrap: { flexDirection: 'row' },
   pill: {
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
   },
   h1: { fontSize: 32, fontWeight: '800', lineHeight: 36, letterSpacing: -0.8, color: INK },
   sub: { fontSize: 15, lineHeight: 22, color: '#3B4252' },
-  benefits: { flexDirection: 'column', gap: 14, marginTop: 12 },
+  benefits: { flexDirection: 'column', gap: 14, marginTop: 12, marginBottom: 12 },
   benefit: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   icon: {
     width: 44, height: 44, borderRadius: 14, flexShrink: 0,
