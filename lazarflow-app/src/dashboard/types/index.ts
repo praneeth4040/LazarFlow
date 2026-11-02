@@ -20,7 +20,6 @@ export interface Lobby {
     id: string;
     name: string;
     status: string;
-    is_promoted?: boolean;
     teams_count?: number;
     team_count?: number;
     teamsCount?: number;
@@ -37,13 +36,6 @@ export interface Theme {
     image_url?: string;
     uri?: string;
     [key: string]: any;
-}
-
-export interface PromoData {
-    startDate: string;
-    startTime: string;
-    contactDetails: string;
-    additionalDetails: string;
 }
 
 export interface DashboardTabProps {

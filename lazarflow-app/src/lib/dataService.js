@@ -378,14 +378,6 @@ export const createLobby = async (lobbyData) => {
     return data;
 };
 
-export const promoteLobby = async (lobbyId, formData = {}) => {
-    const { data } = await apiClient.post(`/api/lobbies/promote`, {
-        lobby_id: lobbyId,
-        form_data: formData
-    });
-    return data;
-};
-
 export const updateLobby = async (id, updates) => {
     const { data } = await apiClient.put(`/api/lobbies/${id}`, updates);
     return data;

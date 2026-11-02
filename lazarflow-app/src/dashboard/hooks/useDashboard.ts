@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { DashboardRepository } from '../services/DashboardRepository';
-import { Lobby, Theme, PromoData, User } from '../types';
+import { Lobby, Theme, User } from '../types';
 
 export const useDashboard = (user: User | null, refreshUser?: () => void) => {
     const [activeTab, setActiveTab] = useState<string>('home');
@@ -22,17 +22,7 @@ export const useDashboard = (user: User | null, refreshUser?: () => void) => {
     const [uploadModalVisible, setUploadModalVisible] = useState<boolean>(false);
     const [selectedImage, setSelectedImage] = useState<any>(null);
     const [previewImage, setPreviewImage] = useState<any>(null);
-    const [showPromoModal, setShowPromoModal] = useState<boolean>(false);
     const [designDetails, setDesignDetails] = useState<{name: string}>({ name: '' });
-    
-    const [promoData, setPromoData] = useState<PromoData>({
-        startDate: '',
-        startTime: '',
-        contactDetails: '',
-        additionalDetails: ''
-    });
-    
-    const [selectedLobbies, setSelectedLobbies] = useState<string[]>([]);
     const [historyPage, setHistoryPage] = useState<number>(1);
     
     const fetchLobbies = useCallback(async (showLoadingIndicator = false, limit: number | null = null) => {
@@ -114,9 +104,6 @@ export const useDashboard = (user: User | null, refreshUser?: () => void) => {
         uploadModalVisible, setUploadModalVisible,
         selectedImage, setSelectedImage,
         previewImage, setPreviewImage,
-        showPromoModal, setShowPromoModal,
-        promoData, setPromoData,
-        selectedLobbies, setSelectedLobbies,
         historyPage, setHistoryPage,
         designDetails, setDesignDetails,
         fetchLobbies,

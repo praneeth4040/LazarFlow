@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Dimensions } from 'react-native';
-import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, Check, Share2 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Settings, Edit, Trash2, Flag, ArrowRight, Trophy, Swords, Gamepad2, Flame, Share2 } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { formatAlphanumericDate } from '../../lib/dateUtils';
 import { Lobby } from '../types';
@@ -42,9 +41,7 @@ interface LobbyCardProps {
     onEnd: (lobby: Lobby) => void;
     onManageTeams: (lobby: Lobby) => void;
     onShare?: (lobby: Lobby) => void;
-    isSelected: boolean;
-    onLongPress: () => void;
-    onPress: () => void;
+    onPress?: () => void;
 }
 
 const LobbyCard: React.FC<LobbyCardProps> = ({ 
@@ -59,8 +56,6 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
     onEnd,
     onManageTeams,
     onShare,
-    isSelected,
-    onLongPress,
     onPress
 }) => {
     const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
@@ -99,32 +94,17 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
         toggleSettings(next ? lobby.id : null);
     }, [isOpen, lobby.id, toggleSettings]);
 
-    const isPromoted = lobby.is_promoted;
-
     return (
         <TouchableOpacity 
             style={[
                 styles.lobbyCard, 
                 { zIndex: isOpen ? 10 : 1 },
-                isSelected && styles.lobbyCardSelected,
-                isPromoted && styles.lobbyCardPromoted,
                 isProcessing && styles.lobbyCardProcessing
             ]}
-            onLongPress={onLongPress}
             onPress={isProcessing ? undefined : onPress}
-            activeOpacity={isProcessing ? 1 : (onPress || onLongPress ? 0.8 : 1)}
+            activeOpacity={isProcessing ? 1 : (onPress ? 0.8 : 1)}
             disabled={isProcessing}
         >
-            {isPromoted && !isProcessing && (
-                <LinearGradient
-                    colors={['rgba(251, 191, 36, 0.2)', 'rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[StyleSheet.absoluteFillObject as any, { borderRadius: 16 }]}
-                    pointerEvents="none"
-                />
-            )}
-
             {isProcessing && (
                 <View style={[StyleSheet.absoluteFillObject as any, styles.processingOverlay]}>
                      <View style={styles.processingBadge}>
@@ -134,12 +114,8 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
             )}
             
             <View style={styles.lobbyCardHeader}>
-                <View style={[styles.lobbyIconContainer, { backgroundColor: isSelected ? Theme.colors.accent : bg }]}>
-                    {isSelected ? (
-                        <Check size={20} color="#fff" />
-                    ) : (
-                        <Icon size={20} color={color} />
-                    )}
+                <View style={[styles.lobbyIconContainer, { backgroundColor: bg }]}>
+                    <Icon size={20} color={color} />
                 </View>
                 <View style={styles.lobbyTitleGroup}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -290,15 +266,6 @@ const styles = StyleSheet.create({
         elevation: 3,
         position: 'relative',
         // overflow: 'hidden' intentionally removed — it clips the settings dropdown.
-    },
-    lobbyCardSelected: {
-        borderColor: Theme.colors.accent,
-        backgroundColor: '#eff6ff',
-        borderWidth: 2,
-    },
-    lobbyCardPromoted: {
-        borderColor: '#fcd34d',
-        borderWidth: 1,
     },
     lobbyCardProcessing: {
         opacity: 0.7,

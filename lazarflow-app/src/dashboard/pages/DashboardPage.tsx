@@ -1,10 +1,10 @@
 import React, { useEffect, useContext, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, StatusBar, Image, Modal, ScrollView, TextInput, Share } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Home, User, Plus, Palette, Crown, X, Zap, Bell, Gift } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { Theme } from '../../styles/theme';
 import { extractApiErrorMessage } from '../../lib/apiClient';
@@ -25,7 +25,6 @@ import HomeTab from '../components/HomeTab';
 import LobbiesTab from '../components/LobbiesTab';
 import DesignTab from '../components/DesignTab';
 import ProfileTab from '../components/ProfileTab';
-import { LifetimeOfferModal, useLifetimeOfferModal } from '../components/LifetimeOfferModal';
 
 import { SubscriptionPlansPage } from '../../subscription/pages/SubscriptionPlansPage';
 
@@ -35,9 +34,9 @@ const DashboardPage = ({ navigation, route }: any) => {
     const { user, loading: userLoading, refreshUser } = useContext(UserContext);
     const { unreadCount, activeJobsCount } = useOcrJobs();
     const { unreadCount: dbUnreadCount } = useNotificationsUnread(user?.id);
-    const { offerVisible, closeOffer } = useLifetimeOfferModal();
     
     const dashboard = useDashboard(user, refreshUser);
+    const [claimedPromo, setClaimedPromo] = React.useState(false);
 
     const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({
         account: true,
@@ -71,6 +70,9 @@ const DashboardPage = ({ navigation, route }: any) => {
         useCallback(() => {
             if (user?.id) {
                 if (refreshUser) refreshUser();
+                AsyncStorage.getItem(`@claimed_promo_free_weekly_${user.id}`).then((val) => {
+                    if (val === 'true') setClaimedPromo(true);
+                });
                 if (dashboard.activeTab === 'home' || dashboard.activeTab === 'lobbies') {
                     const limit = dashboard.activeTab === 'home' ? 5 : null;
                     dashboard.fetchLobbies(dashboard.lobbies.length === 0, limit);
@@ -198,81 +200,10 @@ const DashboardPage = ({ navigation, route }: any) => {
         ] as any);
     };
 
-    const toggleLobbySelection = (id: string) => {
-        const lobbyToSelect = dashboard.lobbies.find((l: any) => l.id === id);
-        
-        if (lobbyToSelect && lobbyToSelect.is_promoted) {
-            Alert.alert('Notice', 'This tournament has already been promoted.');
-            return;
-        }
-
-        dashboard.setSelectedLobbies((prev: any) => {
-            if (prev.includes(id)) {
-                return []; // Deselect if already selected
-            }
-            return [id]; // Only allow 1 selection at a time
-        });
-    };
-
-    const handlePromoteLobbies = async () => {
-        if (dashboard.selectedLobbies.length === 0) return;
-        const invalidLobbies = dashboard.lobbies.filter((l: any) => dashboard.selectedLobbies.includes(l.id) && l.status !== 'setup');
-        if (invalidLobbies.length > 0) {
-            Alert.alert('Invalid Selection', 'Only tournaments in the "SETUP" status can be promoted.');
-            return;
-        }
-        dashboard.setShowPromoModal(true);
-    };
-
-    const submitPromotion = async () => {
-        if (!dashboard.promoData.startDate || !dashboard.promoData.startTime || !dashboard.promoData.contactDetails) {
-            Alert.alert('Error', 'Please fill in Start Date, Start Time, and Contact Details.');
-            return;
-        }
-
-        if (dashboard.selectedLobbies.length === 0) return;
-
-        dashboard.setLoading(true);
-        try {
-            const lobbyId = dashboard.selectedLobbies[0];
-            await DashboardRepository.promoteTournament(lobbyId, dashboard.promoData);
-            
-            dashboard.setLobbies((currentLobbies: any) => 
-                currentLobbies.map((l: any) => l.id === lobbyId ? { ...l, is_promoted: true } : l)
-            );
-            
-            Alert.alert('Success', 'Lobby promotion successful!');
-            dashboard.setShowPromoModal(false);
-            dashboard.setSelectedLobbies([]);
-            dashboard.setPromoData({ startDate: '', startTime: '', contactDetails: '', additionalDetails: '' });
-        } catch (error) {
-            console.error('Error promoting lobby:', error);
-            Alert.alert('Error', extractApiErrorMessage(error, 'Failed to promote the tournament.'));
-        } finally {
-            dashboard.setLoading(false);
-        }
-    };
-
     const renderHeader = () => {
-        if (dashboard.selectedLobbies.length > 0) {
-            return (
-                <View style={[styles.header, styles.selectionHeader]}>
-                    <View style={styles.headerLeft}>
-                         <TouchableOpacity onPress={() => dashboard.setSelectedLobbies([])} style={styles.cancelSelectionBtn}>
-                            <X size={24} color="#1e293b" />
-                        </TouchableOpacity>
-                        <Text style={styles.selectionTitle}>{dashboard.selectedLobbies.length} Selected</Text>
-                    </View>
-                    <TouchableOpacity style={styles.promoteBtn} onPress={handlePromoteLobbies}>
-                        <Zap size={16} color="#fff" style={{ marginRight: 6 }} />
-                        <Text style={styles.promoteBtnText}>Promote</Text>
-                    </TouchableOpacity>
-                </View>
-            );
-        }
-
         const renderHeaderRight = () => {
             const hasActiveSub = expiresAt && new Date(expiresAt) > new Date() && tier !== 'free';
+            const showPromoIndicator = !hasActiveSub && !claimedPromo;
             
             return (
             <View style={styles.headerRight}>
@@ -287,35 +218,30 @@ const DashboardPage = ({ navigation, route }: any) => {
                         <Text style={styles.headerBalanceText}>{user?.flux_balance || 0}</Text>
                     </View>
                 )}
-                {/* Promo gift — only while the player isn't premium */}
-                {!hasActiveSub && (
-                    <TouchableOpacity
-                        style={styles.bellBtn}
-                        onPress={() => navigation.navigate('PromoOffer')}
-                    >
-                        <View style={styles.bellIconWrapper}>
-                            <Gift size={20} color={Theme.colors.accent} />
-                        </View>
-                        <View style={[styles.bellBadge, { backgroundColor: '#EA4335' }]}>
-                            <Text style={styles.bellBadgeText}>FREE</Text>
-                        </View>
-                    </TouchableOpacity>
-                )}
                 {/* Notification Bell */}
                 <TouchableOpacity
                     style={styles.bellBtn}
                     onPress={() => navigation.navigate('Notifications')}
                 >
                     <View style={styles.bellIconWrapper}>
-                        <Bell size={20} color={activeJobsCount > 0 || dbUnreadCount > 0 ? Theme.colors.accent : Theme.colors.textPrimary} />
+                        <Bell size={20} color={showPromoIndicator || activeJobsCount > 0 || dbUnreadCount > 0 ? Theme.colors.accent : Theme.colors.textPrimary} />
                     </View>
-                    {unreadCount + dbUnreadCount > 0 && (
+                    {showPromoIndicator ? (
+                        <View style={[styles.bellBadge, styles.bellBadgePromo]}>
+                            <Gift size={9} color="#fff" />
+                            {unreadCount + dbUnreadCount > 0 && (
+                                <Text style={[styles.bellBadgeText, { marginLeft: 2 }]}>
+                                    {unreadCount + dbUnreadCount > 9 ? '9+' : unreadCount + dbUnreadCount}
+                                </Text>
+                            )}
+                        </View>
+                    ) : (unreadCount + dbUnreadCount > 0 && (
                         <View style={styles.bellBadge}>
                             <Text style={styles.bellBadgeText}>
                                 {unreadCount + dbUnreadCount > 9 ? '9+' : unreadCount + dbUnreadCount}
                             </Text>
                         </View>
-                    )}
+                    ))}
                 </TouchableOpacity>
             </View>
             );
@@ -377,8 +303,6 @@ const DashboardPage = ({ navigation, route }: any) => {
                         onEnd={confirmEndLobby}
                         onManageTeams={(l: any) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}
                         onShare={handleShareLobby}
-                        selectedLobbies={dashboard.selectedLobbies} 
-                        toggleLobbySelection={toggleLobbySelection}
                     />
                 );
             case 'lobbies':
@@ -399,8 +323,6 @@ const DashboardPage = ({ navigation, route }: any) => {
                         onEnd={confirmEndLobby}
                         onManageTeams={(l: any) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}
                         onShare={handleShareLobby}
-                        selectedLobbies={dashboard.selectedLobbies} 
-                        toggleLobbySelection={toggleLobbySelection}
                     />
                 );
             case 'design':
@@ -467,18 +389,6 @@ const DashboardPage = ({ navigation, route }: any) => {
                 image={dashboard.previewImage} 
                 onClose={() => dashboard.setPreviewImage(null)} 
             />
-            <LifetimeOfferModal 
-                visible={offerVisible} 
-                onClose={closeOffer} 
-            />
-            <PromoModal 
-                visible={dashboard.showPromoModal} 
-                onClose={() => dashboard.setShowPromoModal(false)} 
-                promoData={dashboard.promoData} 
-                setPromoData={dashboard.setPromoData} 
-                loading={dashboard.loading} 
-                onSubmit={submitPromotion} 
-            />
 
         </SafeAreaView>
     );
@@ -496,103 +406,6 @@ const TabItem = ({ icon: Icon, label, active, onPress, isPremium }: any) => (
     </TouchableOpacity>
 );
 
-const PromoModal = ({ visible, onClose, promoData, setPromoData, loading, onSubmit }: any) => {
-    const [showDatePicker, setShowDatePicker] = React.useState(false);
-    const [showTimePicker, setShowTimePicker] = React.useState(false);
-    const [date, setDate] = React.useState(new Date());
-
-    const handleDateChange = (event: any, selectedDate: any) => {
-        setShowDatePicker(false);
-        if (selectedDate) {
-            setDate(selectedDate);
-            const formattedDate = selectedDate.toISOString().split('T')[0];
-            setPromoData({ ...promoData, startDate: formattedDate });
-        }
-    };
-
-    const handleTimeChange = (event: any, selectedTime: any) => {
-        setShowTimePicker(false);
-        if (selectedTime) {
-            setDate(selectedTime);
-            const hours = String(selectedTime.getHours()).padStart(2, '0');
-            const minutes = String(selectedTime.getMinutes()).padStart(2, '0');
-            setPromoData({ ...promoData, startTime: `${hours}:${minutes}` });
-        }
-    };
-
-    return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.bottomSheetOverlay}>
-                <TouchableOpacity style={styles.bottomSheetBackdrop} activeOpacity={1} onPress={onClose} />
-                <View style={styles.uploadBottomSheet}>
-                    <View style={styles.dragHandle} />
-                    <View style={styles.uploadModalHeader}>
-                        <Text style={styles.uploadModalTitle}>Promote Tournament</Text>
-                        <TouchableOpacity onPress={onClose}><X size={24} color="#64748b" /></TouchableOpacity>
-                    </View>
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        <View style={{ gap: 16, paddingBottom: 20 }}>
-                            <TouchableOpacity 
-                                style={[styles.styledInput, { justifyContent: 'center' }]} 
-                                onPress={() => setShowDatePicker(true)}
-                            >
-                                <Text style={{ color: promoData.startDate ? Theme.colors.textPrimary : '#94a3b8' }}>
-                                    {promoData.startDate || 'Start Date (e.g. 2024-12-25)'}
-                                </Text>
-                            </TouchableOpacity>
-                            {showDatePicker && (
-                                <DateTimePicker
-                                    value={date}
-                                    mode="date"
-                                    display="default"
-                                    onChange={handleDateChange}
-                                />
-                            )}
-
-                            <TouchableOpacity 
-                                style={[styles.styledInput, { justifyContent: 'center' }]} 
-                                onPress={() => setShowTimePicker(true)}
-                            >
-                                <Text style={{ color: promoData.startTime ? Theme.colors.textPrimary : '#94a3b8' }}>
-                                    {promoData.startTime || 'Start Time (e.g. 18:00)'}
-                                </Text>
-                            </TouchableOpacity>
-                            {showTimePicker && (
-                                <DateTimePicker
-                                    value={date}
-                                    mode="time"
-                                    is24Hour={true}
-                                    display="default"
-                                    onChange={handleTimeChange}
-                                />
-                            )}
-
-                            <TextInput
-                                style={styles.styledInput}
-                                placeholder="Contact Details (Phone / Link)"
-                                placeholderTextColor="#94a3b8"
-                                value={promoData.contactDetails}
-                                onChangeText={(t) => setPromoData({...promoData, contactDetails: t})}
-                            />
-                            <TextInput
-                                style={[styles.styledInput, { height: 100, textAlignVertical: 'top' }]}
-                                placeholder="Additional Details (Optional)"
-                                placeholderTextColor="#94a3b8"
-                                multiline
-                                value={promoData.additionalDetails}
-                                onChangeText={(t) => setPromoData({...promoData, additionalDetails: t})}
-                            />
-                            <TouchableOpacity style={styles.uploadSubmitBtnFull} onPress={onSubmit} disabled={loading}>
-                                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.uploadSubmitBtnText}>Promote Lobby</Text>}
-                            </TouchableOpacity>
-                        </View>
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
-    );
-};
-
 const ImagePreviewModal = ({ visible, image, onClose }: any) => (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <View style={styles.imagePreviewOverlay}>
@@ -608,11 +421,6 @@ const styles = StyleSheet.create({
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     headerLogo: { width: 32, height: 32 },
     headerTitle: { fontSize: 20, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
-    selectionHeader: { backgroundColor: '#eff6ff', borderBottomColor: '#bfdbfe' },
-    selectionTitle: { fontSize: 18, fontFamily: Theme.fonts.outfit.bold, color: '#1e3a8a', marginLeft: 16 },
-    cancelSelectionBtn: { padding: 4 },
-    promoteBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.accent, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12 },
-    promoteBtnText: { color: '#fff', fontSize: 14, fontFamily: Theme.fonts.outfit.bold },
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     headerBalanceBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#ffedd5' },
     headerBalanceText: { fontSize: 13, fontFamily: Theme.fonts.outfit.bold, color: '#c2410c' },
@@ -620,6 +428,7 @@ const styles = StyleSheet.create({
     bellIconWrapper: { position: 'relative', alignItems: 'center', justifyContent: 'center', width: 24, height: 24 },
     bellBadge: { position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Theme.colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
     bellBadgeText: { color: '#fff', fontSize: 10, fontFamily: Theme.fonts.outfit.bold },
+    bellBadgePromo: { backgroundColor: '#EA4335', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     tabBar: { 
         flexDirection: 'row', 
@@ -635,20 +444,6 @@ const styles = StyleSheet.create({
     tabLabelActive: { color: Theme.colors.accent, fontWeight: '700' as any },
     fabContainer: { position: 'absolute', bottom: 25, right: 25, width: 52, height: 52, borderRadius: 14, transform: [{ rotate: '45deg' }], elevation: 10, zIndex: 100 },
     fabGradient: { flex: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    bottomSheetOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
-    bottomSheetBackdrop: { ...StyleSheet.absoluteFillObject },
-    uploadBottomSheet: { backgroundColor: Theme.colors.secondary, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24 },
-    dragHandle: { width: 40, height: 5, backgroundColor: Theme.colors.border, borderRadius: 2.5, alignSelf: 'center', marginBottom: 20 },
-    uploadModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-    uploadModalTitle: { fontSize: 22, fontFamily: Theme.fonts.outfit.bold },
-    uploadModalBody: { marginBottom: 24 },
-    uploadPreviewWrapper: { width: '100%', height: 200, borderRadius: 20, overflow: 'hidden', marginBottom: 24 },
-    uploadPreviewImage: { width: '100%', height: '100%' },
-    uploadInputGroup: { marginTop: 16, marginBottom: 8 },
-    uploadInputLabel: { fontSize: 12, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textSecondary, marginBottom: 8, letterSpacing: 1 },
-    styledInput: { backgroundColor: Theme.colors.primary, borderRadius: 16, padding: 16, fontSize: 16 },
-    uploadSubmitBtnFull: { backgroundColor: Theme.colors.accent, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    uploadSubmitBtnText: { color: '#fff', fontSize: 16, fontFamily: Theme.fonts.outfit.bold },
     imagePreviewOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.9)', justifyContent: 'center', alignItems: 'center' },
     imagePreviewClose: { position: 'absolute', top: 50, right: 20, padding: 10 },
     imagePreviewFull: { width: '100%', height: '80%' },

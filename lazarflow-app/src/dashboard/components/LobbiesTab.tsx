@@ -22,8 +22,6 @@ interface LobbiesTabProps {
     onDeleteHistory?: () => void;
     onManageTeams?: (lobby: Lobby) => void;
     onShare?: (lobby: Lobby) => void;
-    selectedLobbies?: string[];
-    toggleLobbySelection?: (id: string) => void;
 }
 
 const LobbiesTab: React.FC<LobbiesTabProps> = ({
@@ -43,8 +41,6 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
     onDeleteHistory,
     onManageTeams = () => {},
     onShare,
-    selectedLobbies = [],
-    toggleLobbySelection = () => {}
 }) => {
     const renderHistoryContent = () => {
         if (!pastLobbies || pastLobbies.length === 0) {
@@ -78,13 +74,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
                             onShare={onShare}
-                            isSelected={selectedLobbies.includes(lobby.id)}
-                            onLongPress={() => toggleLobbySelection(lobby.id)}
-                            onPress={() => {
-                                if (selectedLobbies.length > 0) {
-                                    toggleLobbySelection(lobby.id);
-                                }
-                            }}
+                            onPress={() => onManageTeams(lobby)}
                         />
                     </View>
                 ))}
@@ -142,13 +132,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
                             onShare={onShare}
-                            isSelected={selectedLobbies.includes(lobby.id)}
-                            onLongPress={() => toggleLobbySelection(lobby.id)}
-                            onPress={() => {
-                                if (selectedLobbies.length > 0) {
-                                    toggleLobbySelection(lobby.id);
-                                }
-                            }}
+                            onPress={() => onManageTeams(lobby)}
                         />
                     ))}
                 </>

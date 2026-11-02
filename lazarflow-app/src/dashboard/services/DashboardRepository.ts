@@ -4,10 +4,9 @@ import {
     endLobby,
     getUserThemes, 
     getCommunityDesigns, 
-    uploadTheme, 
-    promoteLobby 
+    uploadTheme 
 } from '../../lib/dataService';
-import { Lobby, Theme, PromoData } from '../types';
+import { Lobby, Theme } from '../types';
 
 export class DashboardRepository {
     static async fetchLobbies(limit: number | null = null, includeTeams: boolean = true): Promise<Lobby[]> {
@@ -32,14 +31,5 @@ export class DashboardRepository {
 
     static async uploadDesignTheme(name: string, uri: string): Promise<void> {
         await uploadTheme(name, uri);
-    }
-
-    static async promoteTournament(lobbyId: string, data: Partial<PromoData>): Promise<void> {
-        await promoteLobby(lobbyId, {
-            start_date: data.startDate,
-            start_time: data.startTime,
-            contact_details: data.contactDetails,
-            additional_details: data.additionalDetails
-        });
     }
 }

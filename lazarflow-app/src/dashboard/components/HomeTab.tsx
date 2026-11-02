@@ -7,7 +7,6 @@ import LobbyCard from './LobbyCard';
 import { DashboardTabProps, Lobby } from '../types';
 import HomeBannerAd from '../../components/HomeBannerAd';
 import { AD_PLACEMENTS } from '../../config/adConfig';
-import { LifetimeOfferBanner } from './LifetimeOfferBanner';
 
 export const getTierColors = (tierName: string) => {
     const colorMap: Record<string, any> = {
@@ -32,8 +31,6 @@ interface HomeTabProps extends DashboardTabProps {
     onEnd: (lobby: Lobby) => void;
     onManageTeams: (lobby: Lobby) => void;
     onShare?: (lobby: Lobby) => void;
-    selectedLobbies?: string[];
-    toggleLobbySelection: (id: string) => void;
 }
 
 const HomeTab: React.FC<HomeTabProps> = ({ 
@@ -54,8 +51,6 @@ const HomeTab: React.FC<HomeTabProps> = ({
     onEnd,
     onManageTeams,
     onShare,
-    selectedLobbies = [],
-    toggleLobbySelection
 }) => {
     const { t } = useTranslation();
     return (
@@ -87,9 +82,6 @@ const HomeTab: React.FC<HomeTabProps> = ({
                 </View>
             </View>
 
-            {/* Lifetime offer banner — dismissible, persisted via AsyncStorage */}
-            <LifetimeOfferBanner />
-
             <View style={styles.sectionHeader}>
                   <Text style={styles.sectionTitle}>{t('dashboard.recentLobbies')}</Text>
                   <TouchableOpacity onPress={onViewAll}>
@@ -112,13 +104,7 @@ const HomeTab: React.FC<HomeTabProps> = ({
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
                             onShare={onShare}
-                            isSelected={selectedLobbies.includes(lobby.id)}
-                            onLongPress={() => toggleLobbySelection(lobby.id)}
-                            onPress={() => {
-                                if (selectedLobbies.length > 0) {
-                                    toggleLobbySelection(lobby.id);
-                                }
-                            }}
+                            onPress={() => onManageTeams(lobby)}
                         />
                         {/* Banner ad inserted after the configured index */}
                         {index === AD_PLACEMENTS.HOME_BANNER.insertAfterIndex && <HomeBannerAd />}

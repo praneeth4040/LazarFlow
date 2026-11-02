@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useContext, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert,
+  View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Defs, LinearGradient as SvgGradient, Stop, Circle, Ellipse, Rect, Path } from 'react-native-svg';
 import { ArrowRight, X } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
+import { UserContext } from '../../context/UserContext';
+import apiClient, { extractApiErrorMessage } from '../../lib/apiClient';
+import { CustomAlert as Alert } from '../../lib/AlertService';
 
 // Promo offer page — design source: promo-page-design.html (the admin's own
 // HTML reference, ported 1:1). The claim action is a placeholder until the
@@ -68,8 +72,8 @@ const BENEFITS = [
     ),
   },
   {
-    title: 'Lifetime for top users',
-    text: 'Our most active players get lifetime access.',
+    title: 'Priority processing queue',
+    text: 'Instant results and high-speed standings exports.',
     icon: (
       <Svg width={22} height={22} viewBox="0 0 24 24" fill={ACCENT}>
         <Path d="M5 3h14v3a7 7 0 0 1-4 6.3V15h2a1 1 0 0 1 1 1v2H6v-2a1 1 0 0 1 1-1h2v-2.7A7 7 0 0 1 5 6V3zm3 3v.5a4 4 0 0 0 8 0V6z" />
@@ -80,10 +84,47 @@ const BENEFITS = [
 ];
 
 const PromoOfferPage = ({ navigation }: any) => {
-  const handleClaim = () => {
-    // Placeholder until the claim endpoint lands — kept visible so the flow
-    // is testable end to end once the backend is wired.
-    Alert.alert('Claiming opens soon', 'The claim backend is being wired up — hang tight.');
+  const { user, setUser, refreshUser } = useContext(UserContext);
+  const [claiming, setClaiming] = useState(false);
+
+  const handleClaim = async () => {
+    if (claiming) return;
+    setClaiming(true);
+    try {
+      const res = await apiClient.post('/api/promotions/claim-free-weekly');
+
+      // Persist claimed state locally so the static offer never resurfaces
+      if (user?.id) {
+        await AsyncStorage.setItem(`@claimed_promo_free_weekly_${user.id}`, 'true');
+      }
+
+      // Optimistically update UserContext with returned subscription details
+      if (setUser && res?.data?.subscription_tier && user) {
+        setUser({
+          ...user,
+          subscription_tier: res.data.subscription_tier,
+          subscription_expires_at: res.data.subscription_expires_at,
+          subscription_status: 'active',
+        });
+      }
+
+      if (refreshUser) {
+        await refreshUser();
+      }
+
+      const message = res?.data?.message || 'Your free 1-week premium subscription has been activated!';
+      Alert.alert('Offer Claimed! 🎉', message, [
+        {
+          text: 'Awesome',
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    } catch (err: any) {
+      const msg = extractApiErrorMessage(err, 'Could not activate free weekly subscription. Please try again.');
+      Alert.alert('Unable to Claim', msg);
+    } finally {
+      setClaiming(false);
+    }
   };
 
   return (
@@ -131,11 +172,22 @@ const PromoOfferPage = ({ navigation }: any) => {
           </View>
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cta} onPress={handleClaim} activeOpacity={0.85}>
-              <Text style={styles.ctaText}>Claim my free week</Text>
-              <ArrowRight size={20} color="#FFFFFF" />
+            <TouchableOpacity
+              style={[styles.cta, claiming && { opacity: 0.7 }]}
+              onPress={handleClaim}
+              disabled={claiming}
+              activeOpacity={0.85}
+            >
+              {claiming ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.ctaText}>Claim my free week</Text>
+                  <ArrowRight size={20} color="#FFFFFF" />
+                </>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.later} onPress={() => navigation.goBack()}>
+            <TouchableOpacity style={styles.later} onPress={() => navigation.goBack()} disabled={claiming}>
               <Text style={styles.laterText}>Maybe later</Text>
             </TouchableOpacity>
             <Text style={styles.fine}>Valid till the admin's mood holds</Text>
