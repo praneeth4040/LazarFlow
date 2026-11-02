@@ -4,6 +4,7 @@ import { submitExtractResultsJob } from '../../lib/dataService';
 import { BASE_URL, extractApiErrorMessage } from '../../lib/apiClient';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { useOcrJobs } from '../../context/OcrJobContext';
+import { useSubscription } from '../../hooks/useSubscription';
 import { ExtractedAIResult, LobbyData } from '../types';
 
 /** Fine-grained UI phases for the async extraction flow */
@@ -144,6 +145,9 @@ export function useAIExtractionAsync(
   navigation: any,
 ): UseAIExtractionAsyncReturn {
   const ocrJobCtx = useOcrJobs();
+  // Subscription-aware gate: active subscribers have unlimited AI (backend
+  // enforces the same policy — see ocr.py `_has_active_subscription`).
+  const { canUseAI } = useSubscription();
 
   // ── Restore state from context on mount ────────────────────────────────────
   const contextJob = ocrJobCtx.activeJobForLobby(lobby?.id);
@@ -256,7 +260,7 @@ export function useAIExtractionAsync(
   }, []);
 
   const handlePickResultImages = useCallback(async () => {
-    if ((user?.flux_balance ?? 0) < 1) {
+    if (!canUseAI) {
       Alert.alert(
         'Insufficient Credits',
         'You need at least 1 AI Credit to perform result extraction.',
@@ -277,7 +281,7 @@ export function useAIExtractionAsync(
     if (!result.canceled) {
       setResultImages(prev => [...prev, ...result.assets]);
     }
-  }, [user?.flux_balance, navigation]);
+  }, [canUseAI, navigation]);
 
   const handleRemoveResultImage = useCallback((index: number) => {
     setResultImages(prev => prev.filter((_, i) => i !== index));

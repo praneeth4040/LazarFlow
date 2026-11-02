@@ -4,9 +4,13 @@ import { extractResultsFromScreenshot } from '../../lib/aiResultExtraction';
 import { extractApiErrorMessage } from '../../lib/apiClient';
 import { fuzzyMatchName } from '../../lib/aiUtils';
 import { CustomAlert as Alert } from '../../lib/AlertService';
+import { useSubscription } from '../../hooks/useSubscription';
 import { ExtractedAIResult, LobbyData } from '../types';
 
 export const useAIExtraction = (lobby: LobbyData, teams: any[], user: any, refreshUser: () => void, navigation: any) => {
+  // Subscription-aware gate: active subscribers have unlimited AI (backend
+  // enforces the same policy — see ocr.py `_has_active_subscription`).
+  const { canUseAI } = useSubscription();
   const [extracting, setExtracting] = useState(false);
   const [aiResults, setAiResults] = useState<ExtractedAIResult[]>([]);
   const [showMapping, setShowMapping] = useState(false);
@@ -14,7 +18,7 @@ export const useAIExtraction = (lobby: LobbyData, teams: any[], user: any, refre
   const [resultImages, setResultImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
 
   const handlePickResultImages = async () => {
-    if ((user?.flux_balance || 0) < 1) {
+    if (!canUseAI) {
       Alert.alert(
         'Insufficient Credits',
         'You need at least 1 AI Credit to perform result extraction. Please top up your account.',
@@ -42,7 +46,7 @@ export const useAIExtraction = (lobby: LobbyData, teams: any[], user: any, refre
   };
 
   const handlePickImage = async () => {
-    if ((user?.flux_balance || 0) < 1) {
+    if (!canUseAI) {
       Alert.alert(
         'Insufficient Credits',
         'You need at least 1 AI Credit to perform result extraction. Please top up your account.',
