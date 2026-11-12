@@ -67,6 +67,23 @@
             "BROWSABLE",
             "DEFAULT"
           ]
+        },
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "mimeType": "application/octet-stream",
+              "pathPattern": ".*\\.des"
+            },
+            {
+              "mimeType": "*/*",
+              "pathPattern": ".*\\.des"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },

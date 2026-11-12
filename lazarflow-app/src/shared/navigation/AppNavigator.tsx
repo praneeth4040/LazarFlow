@@ -31,6 +31,7 @@ import { TermsAndConditionsPage } from '../../settings/pages/TermsAndConditionsP
 import { CalculateResultsPage } from '../../results/pages/CalculateResultsPage';
 import { ResetPasswordPage } from '../../auth/pages/ResetPasswordPage';
 import { DesignDetailsPage } from '../../dashboard/pages/DesignDetailsPage';
+import DesImportPage from '../../dashboard/pages/DesImportPage';
 import { SubscriptionPlansPage } from '../../subscription/pages/SubscriptionPlansPage';
 import { PaymentStatusPage } from '../../subscription/pages/PaymentStatusPage';
 import { GenericErrorPage } from '../../shared/pages/GenericErrorPage';
@@ -43,7 +44,7 @@ export type RootStackParamList = {
     SignUp: undefined;
     ForgotPassword: undefined;
     ResetPassword: { access_token?: string; refresh_token?: string } | undefined;
-    Dashboard: { tab?: string } | undefined;
+    Dashboard: { tab?: string; pendingDesUri?: string } | undefined;
     LiveLobby: { id: string };
     PrivacyPolicy: undefined;
     TermsAndConditions: undefined;
@@ -52,6 +53,7 @@ export type RootStackParamList = {
     CalculateResults: { lobby: any };
     EditLobby: { lobbyId: string };
     DesignDetails: undefined;
+    DesImport: { pendingDesUri?: string } | undefined;
     SubscriptionPlans: undefined;
     PaymentStatus: undefined;
     GenericError: undefined;
@@ -249,6 +251,11 @@ export default function AppNavigator() {
                         <Stack.Screen
                             name="DesignDetails"
                             component={DesignDetailsPage}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="DesImport"
+                            component={DesImportPage}
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen

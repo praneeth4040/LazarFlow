@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Linking } from 'react-native';
-import { Palette, MessageCircle, Sparkles } from 'lucide-react-native';
+import { Palette, MessageCircle, Sparkles, FileUp } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { CommunityDesignCard, UserThemeCard } from './ThemeCards';
 import { getDesignImageSource } from '../../lib/dataService';
-import { Theme as ThemeType } from '../types';
+import { Theme as ThemeType, getThemeType } from '../types';
+import { RENDER_TYPES, RenderTypeId } from '../../shared/domain/renderTypes';
 
 const WHATSAPP_NUMBER = '919121314837';
 const WHATSAPP_MESSAGE = "Hello LazarFlow, I'd like to request a custom design theme!";
@@ -30,7 +31,11 @@ interface DesignTabProps {
     onRefresh?: () => void;
     refreshing?: boolean;
     onNavigateToDesign: (theme: ThemeType) => void;
+    /** Opens the .des import sheet (handled by DashboardPage). */
+    onOpenImport: () => void;
 }
+
+type TypeFilter = 'all' | RenderTypeId;
 
 const DesignTab: React.FC<DesignTabProps> = ({
     designTab,
@@ -42,12 +47,47 @@ const DesignTab: React.FC<DesignTabProps> = ({
     onRefresh,
     refreshing = false,
     onNavigateToDesign,
+    onOpenImport,
 }) => {
+    const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+
+    const matchesType = (t: ThemeType) => typeFilter === 'all' || getThemeType(t) === typeFilter;
+    const visibleUserThemes = userThemesList.filter(matchesType);
+    const visibleCommunityThemes = communityThemesList.filter(matchesType);
+
     return (
-        <ScrollView 
+        <ScrollView
             style={styles.content}
             refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.accent} /> : undefined}
         >
+            {/* Render-type filter chips */}
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.typeChipRow}
+            >
+                <TouchableOpacity
+                    style={[styles.typeChip, typeFilter === 'all' && styles.typeChipActive]}
+                    onPress={() => setTypeFilter('all')}
+                >
+                    <Text style={[styles.typeChipLabel, typeFilter === 'all' && styles.typeChipLabelActive]}>All</Text>
+                </TouchableOpacity>
+                {RENDER_TYPES.map(rt => {
+                    const Icon = rt.icon;
+                    const active = typeFilter === rt.id;
+                    return (
+                        <TouchableOpacity
+                            key={rt.id}
+                            style={[styles.typeChip, active && styles.typeChipActive]}
+                            onPress={() => setTypeFilter(rt.id)}
+                        >
+                            <Icon size={13} color={active ? '#fff' : Theme.colors.textSecondary} />
+                            <Text style={[styles.typeChipLabel, active && styles.typeChipLabelActive]}>{rt.label}</Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+
             <View style={styles.designTabNav}>
                 <TouchableOpacity
                     style={[styles.designTabBtn, designTab === 'own' && styles.designTabBtnActive]}
@@ -65,6 +105,16 @@ const DesignTab: React.FC<DesignTabProps> = ({
 
             {designTab === 'own' && (
                 <View style={styles.designSection}>
+                    <TouchableOpacity style={styles.importCard} onPress={onOpenImport} activeOpacity={0.8}>
+                        <View style={styles.importIconWrap}>
+                            <FileUp size={24} color={Theme.colors.accent} />
+                        </View>
+                        <View style={styles.whatsappBody}>
+                            <Text style={styles.whatsappTitle}>Import Design File</Text>
+                            <Text style={styles.whatsappSubtitle}>Have a .des design? Add it to your account in seconds.</Text>
+                        </View>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={styles.whatsappCard} onPress={openWhatsApp} activeOpacity={0.8}>
                         <View style={styles.whatsappIconWrap}>
                             <MessageCircle size={28} color="#25D366" />
@@ -75,30 +125,36 @@ const DesignTab: React.FC<DesignTabProps> = ({
                         </View>
                     </TouchableOpacity>
 
-                    {userThemesList.length === 0 ? (
+                    {visibleUserThemes.length === 0 ? (
                         <View style={[styles.emptyState, { marginTop: 40 }]}>
                             <Palette size={48} color={Theme.colors.border} />
-                            <Text style={styles.emptyText}>No Custom Designs Yet</Text>
-                            <Text style={styles.emptySubText}>Message us on WhatsApp to get a custom design!</Text>
+                            <Text style={styles.emptyText}>
+                                {typeFilter === 'all' ? 'No Custom Designs Yet' : `No ${RENDER_TYPES.find(rt => rt.id === typeFilter)?.label} Designs Yet`}
+                            </Text>
+                            <Text style={styles.emptySubText}>Import a .des design file or message us on WhatsApp to get one!</Text>
+                            <TouchableOpacity style={styles.emptyImportBtn} onPress={onOpenImport}>
+                                <FileUp size={15} color="#fff" />
+                                <Text style={styles.emptyImportBtnText}>Import a Design File</Text>
+                            </TouchableOpacity>
                         </View>
                     ) : (
                         <View style={styles.pinterestGrid}>
                             <View style={styles.masonryColumn}>
-                                {userThemesList.filter((_, i) => i % 2 === 0).map((theme, index) => (
-                                    <UserThemeCard 
-                                        key={theme.id || `own-left-${index}`} 
-                                        theme={theme} 
-                                        index={index} 
+                                {visibleUserThemes.filter((_, i) => i % 2 === 0).map((theme, index) => (
+                                    <UserThemeCard
+                                        key={theme.id || `own-left-${index}`}
+                                        theme={theme}
+                                        index={index}
                                         onPress={() => onNavigateToDesign(theme)}
                                     />
                                 ))}
                             </View>
                             <View style={styles.masonryColumn}>
-                                {userThemesList.filter((_, i) => i % 2 !== 0).map((theme, index) => (
-                                    <UserThemeCard 
-                                        key={theme.id || `own-right-${index}`} 
-                                        theme={theme} 
-                                        index={index} 
+                                {visibleUserThemes.filter((_, i) => i % 2 !== 0).map((theme, index) => (
+                                    <UserThemeCard
+                                        key={theme.id || `own-right-${index}`}
+                                        theme={theme}
+                                        index={index}
                                         isRightColumn={true}
                                         onPress={() => onNavigateToDesign(theme)}
                                     />
@@ -113,30 +169,32 @@ const DesignTab: React.FC<DesignTabProps> = ({
                 <View style={styles.designSection}>
                     {loadingCommunity ? (
                         <ActivityIndicator size="large" color={Theme.colors.accent} style={{ marginTop: 40 }} />
-                    ) : communityThemesList.length === 0 ? (
+                    ) : visibleCommunityThemes.length === 0 ? (
                         <View style={[styles.emptyState, { marginTop: 40 }]}>
                             <Sparkles size={48} color={Theme.colors.border} />
-                            <Text style={styles.emptyText}>No Community Designs Found</Text>
+                            <Text style={styles.emptyText}>
+                                {typeFilter === 'all' ? 'No Community Designs Found' : `No Community ${RENDER_TYPES.find(rt => rt.id === typeFilter)?.label} Designs`}
+                            </Text>
                             <Text style={styles.emptySubText}>Check back later for new designs!</Text>
                         </View>
                     ) : (
                         <View style={styles.pinterestGrid}>
                             <View style={styles.masonryColumn}>
-                                {communityThemesList.filter((_, i) => i % 2 === 0).map((themes, index) => (
-                                    <CommunityDesignCard 
-                                        key={themes.id || `left-${index}`} 
-                                        theme={themes} 
-                                        index={index} 
+                                {visibleCommunityThemes.filter((_, i) => i % 2 === 0).map((themes, index) => (
+                                    <CommunityDesignCard
+                                        key={themes.id || `left-${index}`}
+                                        theme={themes}
+                                        index={index}
                                         onPress={() => onNavigateToDesign(themes)}
                                     />
                                 ))}
                             </View>
                             <View style={styles.masonryColumn}>
-                                {communityThemesList.filter((_, i) => i % 2 !== 0).map((themes, index) => (
-                                    <CommunityDesignCard 
-                                        key={themes.id || `right-${index}`} 
-                                        theme={themes} 
-                                        index={index} 
+                                {visibleCommunityThemes.filter((_, i) => i % 2 !== 0).map((themes, index) => (
+                                    <CommunityDesignCard
+                                        key={themes.id || `right-${index}`}
+                                        theme={themes}
+                                        index={index}
                                         isRightColumn={true}
                                         onPress={() => onNavigateToDesign(themes)}
                                     />
@@ -156,6 +214,36 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 16,
         backgroundColor: Theme.colors.secondary,
+    },
+    typeChipRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingBottom: 14,
+        paddingRight: 16,
+    },
+    typeChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+        backgroundColor: Theme.colors.primary,
+    },
+    typeChipActive: {
+        backgroundColor: Theme.colors.accent,
+        borderColor: Theme.colors.accent,
+    },
+    typeChipLabel: {
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.semibold,
+        color: Theme.colors.textSecondary,
+    },
+    typeChipLabelActive: {
+        color: '#fff',
     },
     designTabNav: {
         flexDirection: 'row',
@@ -218,6 +306,40 @@ const styles = StyleSheet.create({
         fontFamily: Theme.fonts.outfit.regular,
         color: Theme.colors.textSecondary,
         marginTop: 4,
+    },
+    importCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Theme.colors.primary,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: Theme.colors.accent,
+        padding: 16,
+        gap: 14,
+        marginBottom: 8,
+    },
+    importIconWrap: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: Theme.colors.accent + '15',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyImportBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: Theme.colors.accent,
+        paddingHorizontal: 18,
+        paddingVertical: 11,
+        borderRadius: 10,
+        marginTop: 18,
+    },
+    emptyImportBtnText: {
+        color: '#fff',
+        fontSize: 13,
+        fontFamily: Theme.fonts.outfit.bold,
     },
     emptyState: {
         alignItems: 'center',

@@ -7,6 +7,8 @@ import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyR
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { UserContext } from '../../context/UserContext';
 import { Adjustments } from './useRenderPreview';
+import { RenderTypeId, DEFAULT_RENDER_TYPE_ID } from '../../shared/domain/renderTypes';
+import { getThemeType } from '../../dashboard/types';
 
 export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
     const { user } = useContext(UserContext);
@@ -27,8 +29,23 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
     const [renderedImageUri, setRenderedImageUri]       = useState<string | null>(null);
 
     const [designTab, setDesignTab] = useState<'community' | 'user'>('community');
-    const [renderType, setRenderType] = useState<'standings' | 'mvps'>('standings');
-    const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
+    const [renderType, setRenderType] = useState<RenderTypeId>(DEFAULT_RENDER_TYPE_ID);
+    // Each render type remembers its own selected theme
+    const [selectedThemeIds, setSelectedThemeIds] = useState<Record<string, string | null>>({});
+    const selectedThemeId = selectedThemeIds[renderType] ?? null;
+    const setSelectedThemeId = useCallback((themeId: string | null) => {
+        setSelectedThemeIds(prev => ({ ...prev, [renderType]: themeId }));
+    }, [renderType]);
+    /** Read/write a specific type's selection (render hub shows all types at once). */
+    const getSelectedThemeId = useCallback((rtId: RenderTypeId) =>
+        selectedThemeIds[rtId] ?? null, [selectedThemeIds]);
+    const setSelectedThemeIdFor = useCallback((rtId: RenderTypeId, themeId: string | null) => {
+        setSelectedThemeIds(prev => ({ ...prev, [rtId]: themeId }));
+    }, []);
+
+    // Extra data for the current render (e.g. schedule card values), set when
+    // the pre-render form is filled and reused by the adjustments confirmation.
+    const renderInputRef = useRef<Record<string, string> | undefined>(undefined);
 
     const [designData, setDesignData] = useState({
         brandLogo: null,
@@ -40,10 +57,11 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         youtube: ''
     });
 
-    const filteredThemes = themes.filter(theme => {
-        if (designTab === 'user') return !!theme.user_id;
-        return !theme.user_id;
-    });
+    // Themes for the current source tab AND current render type
+    const filteredThemes = themes.filter(theme =>
+        (designTab === 'user' ? !!theme.user_id : !theme.user_id)
+        && getThemeType(theme) === renderType
+    );
 
     // The URL of the currently selected theme thumbnail (for client-side preview)
     const selectedThemeUrl: string | null =
@@ -106,9 +124,19 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             const filteredThemes = allAvailable.filter(t => t.status === 'verified');
             const uniqueThemes = filteredThemes.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
             setThemes(uniqueThemes);
-            if (uniqueThemes.length > 0 && !selectedThemeId) {
-                setSelectedThemeId(uniqueThemes[0].id);
-            }
+            // Default-select the first theme of each render type
+            const firstByType: Record<string, string> = {};
+            uniqueThemes.forEach((t: any) => {
+                const ty = getThemeType(t);
+                if (t.id && !firstByType[ty]) firstByType[ty] = t.id;
+            });
+            setSelectedThemeIds(prev => {
+                const next = { ...prev };
+                Object.entries(firstByType).forEach(([ty, tid]) => {
+                    if (!next[ty]) next[ty] = tid;
+                });
+                return next;
+            });
         } catch (error) {
             console.error('Error loading themes:', error);
         }
@@ -137,7 +165,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             );
 
             const { renderResults } = require('../../lib/dataService');
-            const result = await renderResults(id, selectedThemeId, 'standings', adjustments);
+            const result = await renderResults(id, selectedThemeId, renderType, adjustments, renderInputRef.current);
 
             timers.forEach(clearTimeout);
 
@@ -166,12 +194,14 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
      * Renders the image on the backend FIRST (no adjustments),
      * then opens the adjustment sheet with the result.
      * Color tweaks happen client-side inside the sheet.
+     * `renderInput` carries pre-render form values (e.g. schedule card fields).
      */
-    const openAdjustmentSheet = async () => {
+    const openAdjustmentSheet = async (renderInput?: Record<string, string>) => {
         if (!selectedThemeId) {
             Alert.alert('Error', 'Please select a design first');
             return;
         }
+        renderInputRef.current = renderInput;
 
         try {
             setIsGenerating(true);
@@ -188,7 +218,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
 
             const { renderResults } = require('../../lib/dataService');
             // Render WITHOUT adjustments — color tuning happens client-side
-            const result = await renderResults(id, selectedThemeId, 'standings');
+            const result = await renderResults(id, selectedThemeId, renderType, undefined, renderInput);
 
             timers.forEach(clearTimeout);
 
@@ -268,6 +298,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         teams, playerStats, loading, lobby, themes, showEditModal, setShowEditModal, saving,
         mvpCanvasRef, isGenerating, generatedResult, showResultSheet, setShowResultSheet,
         designTab, setDesignTab, renderType, setRenderType, selectedThemeId, setSelectedThemeId,
+        getSelectedThemeId, setSelectedThemeIdFor,
         selectedThemeUrl,
         designData, setDesignData, filteredThemes, renderStatus,
         showAdjustmentSheet, setShowAdjustmentSheet,

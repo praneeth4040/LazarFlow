@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useContext } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,13 +7,14 @@ import { useFonts, Outfit_300Light, Outfit_400Regular, Outfit_500Medium, Outfit_
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
+import * as Linking from 'expo-linking';
 import AppNavigator from './src/shared/navigation/AppNavigator';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
-import { UserProvider } from './src/context/UserContext';
+import { UserProvider, UserContext } from './src/context/UserContext';
 import { Theme } from './src/styles/theme';
 import { AlertTriangle } from 'lucide-react-native';
 import GlobalAlert from './src/components/GlobalAlert';
-import { globalAlertRef } from './src/lib/AlertService';
+import { globalAlertRef, CustomAlert as Alert } from './src/lib/AlertService';
 import { getOcrJobStatus } from './src/lib/dataService';
 import { OcrJobProvider } from './src/context/OcrJobContext';
 
@@ -166,6 +167,7 @@ export default function App() {
               <UserProvider>
                 <AppNavigator />
                 <PushNotificationHandler />
+                <DesFileOpener />
               </UserProvider>
             </OcrJobProvider>
             <GlobalAlert ref={globalAlertRef} />
@@ -186,11 +188,90 @@ export default function App() {
   }
 }
 
-// Separate component to use the hook inside the context if needed, 
+// Separate component to use the hook inside the context if needed,
 // though here we just need it to run once at mount.
 // Integrating directly into App or a child component is fine.
 const PushNotificationHandler = () => {
   usePushNotifications();
+  return null;
+};
+
+// ── .des design file opens ("Open with" from a file manager) ─────────────────
+// The Android intent filter (app.json android.intentFilters, mimeType
+// octet-stream/* with pathPattern .des) lands here as a content:// or file://
+// URL. Routed into the dashboard's import sheet via a pendingDesUri param.
+const isDesFileUrl = (url) => {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  if (!lower.startsWith('content://') && !lower.startsWith('file://')) return false;
+  const path = url.split('?')[0].split('#')[0];
+  try {
+    return /\.des$/i.test(decodeURIComponent(path));
+  } catch {
+    return /\.des$/i.test(path);
+  }
+};
+
+const DesFileOpener = () => {
+  const { user } = useContext(UserContext);
+  const userRef = useRef(user);
+  userRef.current = user;
+  // .des URLs that arrived before the session hydrated — flushed on login
+  const pendingRef = useRef(null);
+
+  const navigateWithFile = useCallback((url) => {
+    const go = () => {
+      if (navigationRef.current?.isReady()) {
+        navigationRef.current.navigate('DesImport', {
+          pendingDesUri: url,
+        });
+        return true;
+      }
+      return false;
+    };
+    // Cold start: the navigator may not be mounted yet
+    if (!go()) setTimeout(() => go(), 800);
+  }, []);
+
+  useEffect(() => {
+    const handleUrl = (url) => {
+      if (!isDesFileUrl(url)) return;
+      console.log('📎 Opened .des design file:', url);
+      if (userRef.current) {
+        navigateWithFile(url);
+      } else {
+        // Session may still be hydrating — hold the file and wait for login
+        console.log('📎 No session yet — holding design file until login');
+        pendingRef.current = url;
+        setTimeout(() => {
+          if (pendingRef.current === url && !userRef.current) {
+            pendingRef.current = null;
+            Alert.alert(
+              'Log in required',
+              'Please log in first, then open the design file again to import it.'
+            );
+          }
+        }, 10000);
+      }
+    };
+
+    Linking.getInitialURL().then((url) => url && handleUrl(url));
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, [navigateWithFile]);
+
+  // Session just hydrated while a .des file was pending → route it now.
+  // Small delay: the auth gate needs a beat to mount the app screens before
+  // navigate('Dashboard') can resolve.
+  useEffect(() => {
+    if (user && pendingRef.current) {
+      const url = pendingRef.current;
+      pendingRef.current = null;
+      setTimeout(() => navigateWithFile(url), 600);
+    }
+  }, [user, navigateWithFile]);
+  // ────────────────────────────────────────────────────────────────────────────
+
   return null;
 };
 

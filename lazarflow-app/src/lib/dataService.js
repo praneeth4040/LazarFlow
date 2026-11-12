@@ -304,14 +304,17 @@ export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
 /**
  * Render a lobby standings results image using a specific theme
  */
-export const renderResults = async (lobbyId, themeId, renderType = 'standings', adjustments = null) => {
+export const renderResults = async (lobbyId, themeId, renderType = 'standings', adjustments = null, renderInput = null) => {
     try {
-        console.log('🖼️ Requesting Results Render:', { lobbyId, themeId, renderType, adjustments });
+        console.log('🖼️ Requesting Results Render:', { lobbyId, themeId, renderType, adjustments, renderInput });
         const body = {
             lobbyId,
             themeId,
             renderType,
             ...(adjustments ? { adjustments } : {}),
+            // Pre-render form values (e.g. schedule card fields) — the backend
+            // filters them against the theme's mapping_config extra_fields.
+            ...(renderInput ? { renderInput } : {}),
         };
         const response = await apiClient.post(`/api/render/render-results`, body, {
             responseType: 'arraybuffer',

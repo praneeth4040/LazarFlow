@@ -1,3 +1,5 @@
+import { RenderTypeId, DEFAULT_RENDER_TYPE_ID } from '../../shared/domain/renderTypes';
+
 export interface User {
     id: string;
     email?: string;
@@ -35,8 +37,17 @@ export interface Theme {
     name: string;
     image_url?: string;
     uri?: string;
+    /** Render type of the template; absent on legacy themes (points_table) */
+    type?: RenderTypeId;
     [key: string]: any;
 }
+
+/**
+ * Resolve a theme's render type. Legacy themes predate the `type` column and
+ * are all points-table templates, so they default to 'points_table'.
+ */
+export const getThemeType = (theme: Theme): RenderTypeId =>
+    theme?.type ?? DEFAULT_RENDER_TYPE_ID;
 
 export interface DashboardTabProps {
     user: User | null;

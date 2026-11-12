@@ -4,7 +4,8 @@ import { Palette, User, Check, Layout, Trash2, Share2 } from 'lucide-react-nativ
 import { LinearGradient } from 'expo-linear-gradient';
 import { Theme } from '../../styles/theme';
 import { getDesignImageSource } from '../../lib/dataService';
-import { Theme as ThemeType } from '../types';
+import { Theme as ThemeType, getThemeType } from '../types';
+import { getRenderType } from '../../shared/domain/renderTypes';
 
 interface DesignThemeCardProps {
     theme: ThemeType;
@@ -36,6 +37,10 @@ export const DesignThemeCard: React.FC<DesignThemeCardProps> = React.memo(({
 
     // Badges/Status
     const isUserTheme = !!theme.user_id;
+
+    // Render type badge (every theme has one — legacy themes default to Standings)
+    const renderTypeDef = getRenderType(getThemeType(theme));
+    const TypeIcon = renderTypeDef?.icon;
 
     return (
         <TouchableOpacity 
@@ -76,7 +81,7 @@ export const DesignThemeCard: React.FC<DesignThemeCardProps> = React.memo(({
                 <View style={styles.badgeContainer}>
                     {isUserTheme && showStatus && (
                         <View style={[
-                            styles.statusBadge, 
+                            styles.statusBadge,
                             { backgroundColor: theme.status === 'pending' ? '#f59e0b' : '#10b981' }
                         ]}>
                             <Text style={styles.badgeText}>
@@ -85,6 +90,14 @@ export const DesignThemeCard: React.FC<DesignThemeCardProps> = React.memo(({
                         </View>
                     )}
                 </View>
+
+                {/* Render-type badge — top-right, under the selection check */}
+                {renderTypeDef && TypeIcon && (
+                    <View style={styles.typeBadge}>
+                        <TypeIcon size={10} color="rgba(255,255,255,0.9)" />
+                        <Text style={styles.typeBadgeText}>{renderTypeDef.label}</Text>
+                    </View>
+                )}
 
             </View>
 
@@ -189,6 +202,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 8,
+    },
+    typeBadge: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        backgroundColor: 'rgba(15, 23, 42, 0.65)',
+        zIndex: 9,
+    },
+    typeBadgeText: {
+        color: 'rgba(255,255,255,0.9)',
+        fontSize: 9,
+        fontFamily: Theme.fonts.outfit.bold,
+        letterSpacing: 0.5,
     },
     badgeText: {
         color: '#fff',

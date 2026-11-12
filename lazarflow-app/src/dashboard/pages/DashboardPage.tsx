@@ -337,6 +337,7 @@ const DashboardPage = ({ navigation, route }: any) => {
                         onRefresh={dashboard.onRefresh}
                         refreshing={dashboard.refreshing}
                         onNavigateToDesign={(theme) => navigation.navigate('DesignDetails', { theme })}
+                        onOpenImport={() => navigation.navigate('DesImport')}
                     />
                 );
             case 'plans':
@@ -384,10 +385,10 @@ const DashboardPage = ({ navigation, route }: any) => {
                 <TabItem icon={User} label={t('dashboard.tabs.profile')} active={dashboard.activeTab === 'profile'} onPress={() => dashboard.setActiveTab('profile')} isPremium={false} />
             </View>
 
-            <ImagePreviewModal 
-                visible={!!dashboard.previewImage} 
-                image={dashboard.previewImage} 
-                onClose={() => dashboard.setPreviewImage(null)} 
+            <ImagePreviewModal
+                visible={!!dashboard.previewImage}
+                image={dashboard.previewImage}
+                onClose={() => dashboard.setPreviewImage(null)}
             />
 
         </SafeAreaView>
