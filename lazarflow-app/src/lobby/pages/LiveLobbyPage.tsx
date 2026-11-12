@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { Layout, Palette, ArrowLeft, Info, Play, AlertCircle, CheckCircle2, Pencil } from 'lucide-react-native';
+import { Layout, Palette, ArrowLeft, Info, Play, AlertCircle, CheckCircle2, Pencil, ChevronDown } from 'lucide-react-native';
 
 import { Theme } from '../../styles/theme';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -25,11 +25,13 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
         filteredThemes, renderStatus,
         showAdjustmentSheet, setShowAdjustmentSheet,
         renderedImageUri,
+        matches, selectedMatchNumber, selectMatch, loadMatches,
         fetchLobbyData, loadThemes, openAdjustmentSheet,
     } = useLiveLobby(id, canCustomSocial);
 
     const [showScheduleForm, setShowScheduleForm] = useState(false);
     const [scheduleValues, setScheduleValues] = useState<Record<string, string> | null>(null);
+    const [showMatchPicker, setShowMatchPicker] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -37,6 +39,7 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
             if (id) {
                 fetchLobbyData();
                 loadThemes();
+                loadMatches();
             }
         }, [id])
     );
@@ -73,10 +76,16 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
     };
 
     const readiness = getReadiness(renderType);
+    // A selected match replaces the lobby-aggregate data source, so the
+    // aggregate-based readiness checks don't apply (the backend validates
+    // the match itself — 404 with a clear message if it can't render).
+    const matchScoped = selectedMatchNumber !== null && (renderType === 'points_table' || renderType === 'mvp');
     const renderDisabled =
         !selectedThemeId ||
-        (renderType === 'mvp' && playerStats.length === 0) ||
-        ((renderType === 'points_table' || renderType === 'slotlist') && teams.length === 0);
+        (renderType === 'mvp' && !matchScoped && playerStats.length === 0) ||
+        ((renderType === 'points_table' || renderType === 'slotlist') && !matchScoped && teams.length === 0);
+    // Split-button scope section: only where per-match rendering applies
+    const showScope = (renderType === 'points_table' || renderType === 'mvp') && matches.length > 0;
 
     const handleRenderPress = () => {
         if (renderType === 'schedule') {
@@ -116,7 +125,7 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
                             <TouchableOpacity
                                 key={rt.id}
                                 style={[styles.segmentBtn, active && styles.segmentBtnActive]}
-                                onPress={() => setRenderType(rt.id)}
+                                onPress={() => { setRenderType(rt.id); selectMatch(null); }}
                             >
                                 <Icon size={14} color={active ? Theme.colors.accent : '#94a3b8'} />
                                 <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{rt.label}</Text>
@@ -215,20 +224,34 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
             />
 
             <View style={styles.footer}>
-                <TouchableOpacity
-                    style={[styles.renderBtnNew, (isGenerating || renderDisabled) && styles.disabledBtn]}
-                    onPress={handleRenderPress}
-                    disabled={isGenerating || renderDisabled}
-                >
-                    {isGenerating ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <ActivityIndicator color="#fff" />
-                            <Text style={styles.renderBtnTextNew}>{renderStatus}</Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.renderBtnTextNew}>Render {currentType?.label}</Text>
+                <View style={styles.renderRow}>
+                    <TouchableOpacity
+                        style={[styles.renderBtnNew, showScope && styles.renderBtnSplit, (isGenerating || renderDisabled) && styles.disabledBtn]}
+                        onPress={handleRenderPress}
+                        disabled={isGenerating || renderDisabled}
+                    >
+                        {isGenerating ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                <ActivityIndicator color="#fff" />
+                                <Text style={styles.renderBtnTextNew}>{renderStatus}</Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.renderBtnTextNew}>Render {currentType?.label}</Text>
+                        )}
+                    </TouchableOpacity>
+                    {showScope && (
+                        <TouchableOpacity
+                            style={[styles.scopeBtn, isGenerating && styles.disabledBtn]}
+                            onPress={() => setShowMatchPicker(true)}
+                            disabled={isGenerating}
+                        >
+                            <Text style={styles.scopeBtnText}>
+                                {selectedMatchNumber ? `M${selectedMatchNumber}` : 'All'}
+                            </Text>
+                            <ChevronDown size={14} color="#fff" />
+                        </TouchableOpacity>
                     )}
-                </TouchableOpacity>
+                </View>
                 <TouchableOpacity
                     style={[styles.cancelBtnNew, isGenerating && styles.disabledBtn]}
                     onPress={() => navigation.goBack()}
@@ -256,6 +279,38 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
                 onSave={handleScheduleSave}
                 lobbyId={id}
             />
+
+            {/* Match scope picker — Overall or one recorded match */}
+            <Modal visible={showMatchPicker} animationType="slide" transparent onRequestClose={() => setShowMatchPicker(false)}>
+                <View style={styles.pickerBackdrop}>
+                    <View style={styles.pickerSheet}>
+                        <Text style={styles.pickerTitle}>Render Scope</Text>
+                        <TouchableOpacity
+                            style={[styles.pickerOption, selectedMatchNumber === null && styles.pickerOptionActive]}
+                            onPress={() => { selectMatch(null); setShowMatchPicker(false); }}
+                        >
+                            <Text style={[styles.pickerOptionText, selectedMatchNumber === null && styles.pickerOptionTextActive]}>
+                                Overall — all matches combined
+                            </Text>
+                        </TouchableOpacity>
+                        {matches.map(m => (
+                            <TouchableOpacity
+                                key={m.id}
+                                style={[styles.pickerOption, selectedMatchNumber === m.match_number && styles.pickerOptionActive]}
+                                onPress={() => { selectMatch(m.match_number); setShowMatchPicker(false); }}
+                            >
+                                <Text style={[styles.pickerOptionText, selectedMatchNumber === m.match_number && styles.pickerOptionTextActive]}>
+                                    Match {m.match_number}{m.label ? ` · ${m.label}` : ''}
+                                </Text>
+                                <Text style={styles.pickerOptionMeta}>{m.source} · {m.team_count} teams</Text>
+                            </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity style={styles.pickerCancel} onPress={() => setShowMatchPicker(false)}>
+                            <Text style={styles.pickerCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             <Modal visible={showEditModal} animationType="slide" transparent={false} onRequestClose={() => setShowEditModal(false)}>
                <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
@@ -296,6 +351,16 @@ const styles = StyleSheet.create({
     scheduleCardText: { fontSize: 12, fontFamily: Theme.fonts.outfit.medium, color: '#3b82f6' },
     scheduleCardEdit: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 9 },
     scheduleCardEditText: { fontSize: 12, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent },
+    pickerBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.5)', justifyContent: 'flex-end' },
+    pickerSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 34, maxHeight: '70%' },
+    pickerTitle: { fontSize: 16, fontFamily: Theme.fonts.outfit.bold, color: '#0f172a', marginBottom: 12 },
+    pickerOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, marginBottom: 6 },
+    pickerOptionActive: { backgroundColor: '#eff6ff' },
+    pickerOptionText: { fontSize: 14, fontFamily: Theme.fonts.outfit.semibold, color: '#334155', flex: 1 },
+    pickerOptionTextActive: { color: Theme.colors.accent },
+    pickerOptionMeta: { fontSize: 11, fontFamily: Theme.fonts.outfit.medium, color: '#94a3b8' },
+    pickerCancel: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+    pickerCancelText: { fontSize: 14, fontFamily: Theme.fonts.outfit.bold, color: '#94a3b8' },
     tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
     tabBtn: { paddingVertical: 12, marginRight: 24, position: 'relative' },
     tabBtnActive: {},
@@ -305,7 +370,15 @@ const styles = StyleSheet.create({
     flatListContent: { padding: 12 },
     gridItemWrapper: { flex: 1, padding: 8 },
     footer: { padding: 20, gap: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+    renderRow: { flexDirection: 'row' },
     renderBtnNew: { backgroundColor: Theme.colors.accent, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    renderBtnSplit: { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 },
+    scopeBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+        paddingHorizontal: 18, height: 52, backgroundColor: Theme.colors.accentHover,
+        borderTopRightRadius: 14, borderBottomRightRadius: 14, borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.3)',
+    },
+    scopeBtnText: { color: '#fff', fontSize: 14, fontFamily: Theme.fonts.outfit.bold },
     renderBtnTextNew: { color: '#fff', fontSize: 16, fontFamily: Theme.fonts.outfit.bold },
     cancelBtnNew: { backgroundColor: '#f1f5f9', height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     cancelBtnTextNew: { color: '#0f172a', fontSize: 16, fontFamily: Theme.fonts.outfit.bold },

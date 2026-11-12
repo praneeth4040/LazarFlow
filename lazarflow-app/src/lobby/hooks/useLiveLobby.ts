@@ -47,6 +47,21 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
     // the pre-render form is filled and reused by the adjustments confirmation.
     const renderInputRef = useRef<Record<string, string> | undefined>(undefined);
 
+    // Per-match rendering (points_table | mvp): null = overall lobby totals.
+    const [matches, setMatches] = useState<any[]>([]);
+    const [selectedMatchNumber, setSelectedMatchNumber] = useState<number | null>(null);
+    const selectMatch = useCallback((matchNumber: number | null) => {
+        setSelectedMatchNumber(matchNumber);
+    }, []);
+    const loadMatches = useCallback(async () => {
+        try {
+            const { fetchLobbyMatches } = require('../../lib/dataService');
+            setMatches(await fetchLobbyMatches(id));
+        } catch {
+            setMatches([]); // match list is optional chrome — never block the screen
+        }
+    }, [id]);
+
     const [designData, setDesignData] = useState({
         brandLogo: null,
         lobbyLogo: null,
@@ -165,7 +180,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
             );
 
             const { renderResults } = require('../../lib/dataService');
-            const result = await renderResults(id, selectedThemeId, renderType, adjustments, renderInputRef.current);
+            const result = await renderResults(id, selectedThemeId, renderType, adjustments, renderInputRef.current, selectedMatchNumber);
 
             timers.forEach(clearTimeout);
 
@@ -218,7 +233,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
 
             const { renderResults } = require('../../lib/dataService');
             // Render WITHOUT adjustments — color tuning happens client-side
-            const result = await renderResults(id, selectedThemeId, renderType, undefined, renderInput);
+            const result = await renderResults(id, selectedThemeId, renderType, undefined, renderInput, selectedMatchNumber);
 
             timers.forEach(clearTimeout);
 
@@ -303,6 +318,7 @@ export const useLiveLobby = (id: string, canCustomSocial: boolean) => {
         designData, setDesignData, filteredThemes, renderStatus,
         showAdjustmentSheet, setShowAdjustmentSheet,
         renderedImageUri,
+        matches, selectedMatchNumber, selectMatch, loadMatches,
         fetchLobbyData, loadThemes, openAdjustmentSheet, handleDownloadMvp, handlePickLogo
     };
 };

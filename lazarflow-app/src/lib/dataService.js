@@ -304,9 +304,9 @@ export const renderLobbyDesign = async (lobbyId, themeId, overrides = null) => {
 /**
  * Render a lobby standings results image using a specific theme
  */
-export const renderResults = async (lobbyId, themeId, renderType = 'standings', adjustments = null, renderInput = null) => {
+export const renderResults = async (lobbyId, themeId, renderType = 'standings', adjustments = null, renderInput = null, matchNumber = null) => {
     try {
-        console.log('🖼️ Requesting Results Render:', { lobbyId, themeId, renderType, adjustments, renderInput });
+        console.log('🖼️ Requesting Results Render:', { lobbyId, themeId, renderType, adjustments, renderInput, matchNumber });
         const body = {
             lobbyId,
             themeId,
@@ -315,6 +315,9 @@ export const renderResults = async (lobbyId, themeId, renderType = 'standings', 
             // Pre-render form values (e.g. schedule card fields) — the backend
             // filters them against the theme's mapping_config extra_fields.
             ...(renderInput ? { renderInput } : {}),
+            // Per-match render: render ONE stored match instead of lobby totals
+            // (points_table | mvp only — the backend rejects it for other types).
+            ...(matchNumber ? { matchNumber } : {}),
         };
         const response = await apiClient.post(`/api/render/render-results`, body, {
             responseType: 'arraybuffer',
@@ -398,6 +401,15 @@ export const deleteLobby = async (id) => {
 export const getLobbyTeams = async (lobbyId) => {
     const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/teams`);
     return data;
+};
+
+/**
+ * Match summaries for a lobby (match_number, label, source, counts) —
+ * backs the per-match render selector on the Design Render screen.
+ */
+export const fetchLobbyMatches = async (lobbyId) => {
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/matches`);
+    return data || [];
 };
 
 export const getLobbyPlayerStats = async (lobbyId) => {
