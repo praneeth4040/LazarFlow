@@ -89,6 +89,21 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
     setResults(updated);
   };
 
+  // Match results go to the match endpoint as-submitted — the server stores
+  // the per-match row (proofs included) and applies the aggregate deltas to
+  // lobby_teams itself. The app never computes cumulative totals anymore.
+  const buildMatchPayload = (resultsData: MatchResult[], source: 'manual' | 'ai') => {
+    const cellRequestId = resultsData.find(r => r.cell_request_id)?.cell_request_id;
+    return {
+      results: resultsData.map(r => ({
+        ...r,
+        position: parseInt(String(r.position), 10),
+      })),
+      source,
+      ...(cellRequestId ? { cellRequestId } : {}),
+    };
+  };
+
   const handleSubmit = async () => {
     if (results.length === 0) {
       Alert.alert('Error', 'Please add at least one team result');
@@ -97,51 +112,7 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
 
     setSubmitting(true);
     try {
-      const updates = [];
-      for (const result of results) {
-        const team = teams.find(t => t.id === result.team_id);
-        if (!team) continue;
-
-        const currentStats = team.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 };
-        const isWinner = parseInt(String(result.position)) === 1;
-        
-        const newStats = {
-          matches_played: (currentStats.matches_played || 0) + 1,
-          wins: (currentStats.wins || 0) + (isWinner ? 1 : 0),
-          kill_points: (currentStats.kill_points || 0) + (result.kill_points || 0),
-          placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
-        };
-
-        const updatedMembers = (team.members || []).map((m: any) => {
-          const memberName = typeof m === 'object' ? m.name : m;
-          const matchPerformance = result.members?.find(rm => rm.name === memberName);
-          const matchKills = matchPerformance ? parseInt(String(matchPerformance.kills) || '0') : 0;
-
-          const currentMemberStats = typeof m === 'object' ? m : { 
-            name: memberName, 
-            kills: 0, 
-            wwcd: 0, 
-            matches_played: 0 
-          };
-
-          return {
-            ...currentMemberStats,
-            kills: (currentMemberStats.kills || 0) + matchKills,
-            wwcd: (currentMemberStats.wwcd || 0) + (isWinner ? 1 : 0),
-            matches_played: (currentMemberStats.matches_played || 0) + 1
-          };
-        });
-
-        updates.push({
-          id: team.id,
-          total_points: newStats,
-          members: updatedMembers
-        });
-      }
-
-      if (updates.length > 0) {
-        await lobbyRepository.batchUpdateTeams(lobby.id, updates);
-      }
+      await lobbyRepository.submitMatch(lobby.id, buildMatchPayload(results, 'manual'));
 
       const currentStatus = (lobby as any).status?.toLowerCase() || '';
       if (currentStatus === 'setup' || !currentStatus) {
@@ -174,40 +145,7 @@ export const useResultsManagement = (lobby: LobbyData, teams: any[], navigation:
     }
     setSubmitting(true);
     try {
-      const updates = [];
-      for (const result of resultsData) {
-        const team = teams.find((t: any) => t.id === result.team_id);
-        if (!team) continue;
-
-        const currentStats = team.total_points || { matches_played: 0, wins: 0, kill_points: 0, placement_points: 0 };
-        const isWinner = parseInt(String(result.position)) === 1;
-
-        const newStats = {
-          matches_played: (currentStats.matches_played || 0) + 1,
-          wins: (currentStats.wins || 0) + (isWinner ? 1 : 0),
-          kill_points: (currentStats.kill_points || 0) + (result.kill_points || 0),
-          placement_points: (currentStats.placement_points || 0) + (result.placement_points || 0),
-        };
-
-        const updatedMembers = (team.members || []).map((m: any) => {
-          const memberName = typeof m === 'object' ? m.name : m;
-          const matchPerformance = result.members?.find(rm => rm.name === memberName);
-          const matchKills = matchPerformance ? parseInt(String(matchPerformance.kills) || '0') : 0;
-          const currentMemberStats = typeof m === 'object' ? m : { name: memberName, kills: 0, wwcd: 0, matches_played: 0 };
-          return {
-            ...currentMemberStats,
-            kills: (currentMemberStats.kills || 0) + matchKills,
-            wwcd: (currentMemberStats.wwcd || 0) + (isWinner ? 1 : 0),
-            matches_played: (currentMemberStats.matches_played || 0) + 1,
-          };
-        });
-
-        updates.push({ id: team.id, total_points: newStats, members: updatedMembers });
-      }
-
-      if (updates.length > 0) {
-        await lobbyRepository.batchUpdateTeams(lobby.id, updates);
-      }
+      await lobbyRepository.submitMatch(lobby.id, buildMatchPayload(resultsData, 'ai'));
 
       const currentStatus = (lobby as any).status?.toLowerCase() || '';
       if (currentStatus === 'setup' || !currentStatus) {

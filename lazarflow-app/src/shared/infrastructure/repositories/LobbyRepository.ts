@@ -31,6 +31,21 @@ export class LobbyRepository extends BaseRepository {
     return this.put<any>(`/api/lobbies/${lobbyId}/teams/batch`, updates);
   }
 
+  /**
+   * Submit one match's results (per-team positions + per-player kills).
+   * The server stores the match row (with proofs) AND applies the aggregate
+   * score deltas itself — the app never computes cumulative totals.
+   */
+  async submitMatch(lobbyId: string, payload: {
+    results: any[];
+    source?: 'manual' | 'ai' | 'bot';
+    label?: string;
+    screenshotUrls?: string[];
+    cellRequestId?: string;
+  }): Promise<any> {
+    return this.post<any>(`/api/lobbies/${lobbyId}/matches`, payload);
+  }
+
   async batchUpdateTeamMembers(lobbyId: string, updates: any[]): Promise<any> {
     return this.put<any>(`/api/lobbies/${lobbyId}/teams/members/batch`, updates);
   }
