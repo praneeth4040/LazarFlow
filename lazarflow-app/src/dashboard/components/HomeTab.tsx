@@ -104,7 +104,6 @@ const HomeTab: React.FC<HomeTabProps> = ({
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
                             onShare={onShare}
-                            onPress={() => onManageTeams(lobby)}
                         />
                         {/* Banner ad inserted after the configured index */}
                         {index === AD_PLACEMENTS.HOME_BANNER.insertAfterIndex && <HomeBannerAd />}

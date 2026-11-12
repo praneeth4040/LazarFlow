@@ -74,7 +74,6 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
                             onShare={onShare}
-                            onPress={() => onManageTeams(lobby)}
                         />
                     </View>
                 ))}
@@ -132,7 +131,6 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
                             onShare={onShare}
-                            onPress={() => onManageTeams(lobby)}
                         />
                     ))}
                 </>
