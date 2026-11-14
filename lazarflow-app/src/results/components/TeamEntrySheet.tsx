@@ -26,6 +26,7 @@ export const TeamEntrySheet: React.FC<TeamEntrySheetProps> = ({
     const [position, setPosition] = useState(nextPosition);
     const [totalKills, setTotalKills] = useState(0);
     const [memberKills, setMemberKills] = useState<Record<number, number>>({});
+    const [memberNames, setMemberNames] = useState<Record<number, string>>({});
     
     const slideY = useRef(new Animated.Value(SCREEN_H)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -36,14 +37,18 @@ export const TeamEntrySheet: React.FC<TeamEntrySheetProps> = ({
                 setPosition(parseInt(String(initialData.position)) || nextPosition);
                 setTotalKills(initialData.kills || 0);
                 const mKills: Record<number, number> = {};
+                const mNames: Record<number, string> = {};
                 initialData.members?.forEach((m, idx) => {
                     mKills[idx] = m.kills || 0;
+                    mNames[idx] = m.name || '';
                 });
                 setMemberKills(mKills);
+                setMemberNames(mNames);
             } else {
                 setPosition(nextPosition);
                 setTotalKills(0);
                 setMemberKills({});
+                setMemberNames({});
             }
             
             Animated.parallel([
@@ -98,7 +103,7 @@ export const TeamEntrySheet: React.FC<TeamEntrySheetProps> = ({
         if (!team) return;
         
         const finalMembers = (team.members || []).map((m: any, idx: number) => ({
-            name: typeof m === 'string' ? m : m.name,
+            name: memberNames[idx] ?? (typeof m === 'string' ? m : m.name),
             kills: memberKills[idx] || 0
         }));
 
@@ -172,9 +177,13 @@ export const TeamEntrySheet: React.FC<TeamEntrySheetProps> = ({
                                                         <View style={styles.playerAvatarPlaceholderSmall}>
                                                             <Text style={styles.avatarLetterSmall}>{mIdx + 1}</Text>
                                                         </View>
-                                                        <Text style={styles.memberNameText} numberOfLines={1}>
-                                                            {typeof member === 'string' ? member : member.name}
-                                                        </Text>
+                                                        <TextInput
+                                                            style={[styles.memberNameText, { paddingVertical: 2 }]}
+                                                            numberOfLines={1}
+                                                            value={memberNames[mIdx] ?? (typeof member === 'string' ? member : member.name)}
+                                                            onChangeText={(v) => setMemberNames(prev => ({ ...prev, [mIdx]: v }))}
+                                                            placeholderTextColor={Theme.colors.textSecondary}
+                                                        />
                                                     </View>
                                                     <View style={styles.playerListItemRight}>
                                                         <Skull size={12} color={Theme.colors.accent} style={{ marginRight: 6 }} />

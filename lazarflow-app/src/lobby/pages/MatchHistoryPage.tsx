@@ -20,16 +20,11 @@ import { Theme } from '../../styles/theme';
 import { CustomAlert as Alert } from '../../lib/AlertService';
 import { extractApiErrorMessage } from '../../lib/apiClient';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
+import { ManualResultCard } from '../../results/components/ManualResultCard';
+import { TeamEntrySheet } from '../../results/components/TeamEntrySheet';
+import { MatchResult } from '../../results/types';
 
 interface EditMember { name: string; kills: string }
-interface EditEntry {
-    team_id: string | null;
-    team_name: string;
-    position: string;
-    members: EditMember[];
-    /** Team-level kills for entries stored without member rows */
-    teamKills: string;
-}
 
 export const MatchHistoryPage = ({ route, navigation }: any) => {
     const { lobbyId, lobbyName } = route.params || {};
@@ -37,12 +32,12 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<number | null>(null);
-    const [entries, setEntries] = useState<EditEntry[] | null>(null);
+    const [entries, setEntries] = useState<MatchResult[] | null>(null);
     const [detail, setDetail] = useState<any>(null);
     const [proofByTeam, setProofByTeam] = useState<Record<string, string[]>>({});
     const [saving, setSaving] = useState(false);
     const [teams, setTeams] = useState<any[]>([]);
-    const [teamPickerIdx, setTeamPickerIdx] = useState<number | null>(null);
+    const [sheet, setSheet] = useState<{ mode: 'edit' | 'add'; idx: number; team: any } | null>(null);
 
     const [lobby, setLobby] = useState<any>(null);
 
@@ -74,10 +69,12 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
             setEntries(null);
             setDetail(null);
             setProofByTeam({});
+            setSheet(null);
             return;
         }
         setExpanded(matchNumber);
         setEntries(null);
+        setSheet(null);
         try {
             const fetched = await require('../../lib/dataService').fetchLobbyMatchDetail(lobbyId, matchNumber);
             setDetail(fetched);
@@ -90,10 +87,13 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
                 team_id: e.team_id || null,
                 team_name: e.team_name || 'Unknown',
                 position: String(e.position ?? ''),
-                members: (e.members || []).map((m: any) => ({
-                    name: m.name || '', kills: String(m.kills ?? 0),
-                })),
-                teamKills: String(e.kills ?? 0),
+                kills: e.kills || 0,
+                placement_points: e.placement_points || 0,
+                kill_points: e.kill_points || 0,
+                total_points: e.total_points || 0,
+                members: (e.members || []).map((m: any) => ({ name: m.name || '', kills: m.kills || 0 })),
+                verification_urls: e.verification_urls,
+                cell_request_id: e.cell_request_id,
             })));
         } catch (error) {
             Alert.alert('Error', extractApiErrorMessage(error, 'Could not load the match'));
@@ -101,52 +101,43 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
         }
     };
 
-    const patchEntry = (index: number, patch: Partial<EditEntry>) => {
+    const handleSheetSubmit = (result: MatchResult) => {
+        if (!sheet) return;
         setEntries(prev => {
-            if (!prev) return prev;
-            const next = [...prev];
-            next[index] = { ...next[index], ...patch };
-            return next;
+            const list = [...(prev || [])];
+            if (sheet.mode === 'edit') {
+                const old = list[sheet.idx];
+                // preserve the stored proof references — the sheet doesn't carry them
+                list[sheet.idx] = {
+                    ...result,
+                    verification_urls: old?.verification_urls,
+                    cell_request_id: old?.cell_request_id,
+                };
+            } else {
+                list.push(result);
+            }
+            return list;
         });
+        setSheet(null);
     };
 
-    const patchMember = (entryIndex: number, memberIndex: number, kills: string) => {
-        setEntries(prev => {
-            if (!prev) return prev;
-            const next = [...prev];
-            const members = [...next[entryIndex].members];
-            members[memberIndex] = { ...members[memberIndex], kills };
-            next[entryIndex] = { ...next[entryIndex], members };
-            return next;
-        });
-    };
-
-    /** Same point math as the results entry flow. */
-    const buildPayload = (editEntries: EditEntry[]) => ({
-        results: editEntries.map(e => {
-            const position = parseInt(e.position, 10) || 0;
-            const memberKills = e.members.length > 0
-                ? e.members.reduce((sum, m) => sum + (parseInt(m.kills, 10) || 0), 0)
-                : (parseInt(e.teamKills, 10) || 0);
-            const pointsEntry = lobby?.points_system?.find((p: any) => p.placement === position);
-            const placementPoints = pointsEntry ? pointsEntry.points : 0;
-            const killPoints = memberKills * (lobby?.kill_points || 0);
-            return {
-                team_id: e.team_id,
-                team_name: e.team_name,
-                position,
-                kills: memberKills,
-                placement_points: placementPoints,
-                kill_points: killPoints,
-                total_points: placementPoints + killPoints,
-                members: e.members.map(m => ({ name: m.name, kills: parseInt(m.kills, 10) || 0 })),
-            };
-        }),
+    /** Entries are complete MatchResults maintained by TeamEntrySheet. */
+    const buildPayload = (list: MatchResult[]) => ({
+        results: list.map(e => ({
+            team_id: e.team_id,
+            team_name: e.team_name,
+            position: parseInt(String(e.position), 10) || 0,
+            kills: e.kills || 0,
+            placement_points: e.placement_points || 0,
+            kill_points: e.kill_points || 0,
+            total_points: e.total_points || 0,
+            members: (e.members || []).map(m => ({ name: m.name, kills: m.kills || 0 })),
+        })),
     });
 
     const handleSave = async (matchNumber: number) => {
         if (!entries) return;
-        if (entries.some(e => !e.position || parseInt(e.position, 10) < 1)) {
+        if (entries.some(e => !e.position || parseInt(String(e.position), 10) < 1)) {
             Alert.alert('Error', 'Every team needs a position (1 or higher)');
             return;
         }
@@ -162,16 +153,6 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
         } finally {
             setSaving(false);
         }
-    };
-
-    const entryPointsPreview = (e: EditEntry) => {
-        const position = parseInt(e.position, 10) || 0;
-        const pointsEntry = lobby?.points_system?.find((p: any) => p.placement === position);
-        const memberKills = e.members.length > 0
-            ? e.members.reduce((sum, m) => sum + (parseInt(m.kills, 10) || 0), 0)
-            : (parseInt(e.teamKills, 10) || 0);
-        const total = (pointsEntry ? pointsEntry.points : 0) + memberKills * (lobby?.kill_points || 0);
-        return total;
     };
 
     return (
@@ -235,85 +216,38 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
                                         {entries.map((e, idx) => {
                                             const crop = e.team_id ? proofByTeam[e.team_id]?.[0] : undefined;
                                             return (
-                                            <View key={idx} style={styles.teamEditor}>
-                                                {/* Header: crop thumb · name + link chip · points — tap = assign team */}
-                                                <TouchableOpacity
-                                                    style={styles.teHeader}
-                                                    onPress={() => setTeamPickerIdx(idx)}
-                                                >
-                                                    {crop ? (
-                                                        <Image source={{ uri: crop }} style={styles.teThumb} />
-                                                    ) : (
-                                                        <View style={[styles.teThumb, styles.teThumbEmpty]}>
-                                                            <Trophy size={15} color={Theme.colors.border} />
-                                                        </View>
-                                                    )}
-                                                    <View style={{ flex: 1, marginLeft: 10 }}>
-                                                        <Text style={styles.teName} numberOfLines={1}>{e.team_name}</Text>
-                                                        {e.team_id ? (
-                                                            <View style={[styles.teChip, styles.teChipLinked]}>
-                                                                <Text style={styles.teChipLinkedText}>Linked</Text>
-                                                            </View>
-                                                        ) : (
-                                                            <View style={[styles.teChip, styles.teChipUnlinked]}>
-                                                                <Text style={styles.teChipUnlinkedText}>Tap to assign team</Text>
-                                                            </View>
-                                                        )}
-                                                    </View>
-                                                    <Text style={styles.tePts}>{entryPointsPreview(e)}<Text style={styles.tePtsUnit}> pts</Text></Text>
-                                                </TouchableOpacity>
-
-                                                <View style={styles.teBody}>
-                                                    <View style={styles.teFieldCol}>
-                                                        <Text style={styles.teFieldLabel}>POSITION</Text>
-                                                        <TextInput
-                                                            style={styles.teInput}
-                                                            value={e.position}
-                                                            onChangeText={v => patchEntry(idx, { position: v })}
-                                                            keyboardType="number-pad"
-                                                            placeholder="1"
-                                                            placeholderTextColor={Theme.colors.textSecondary}
-                                                        />
-                                                    </View>
-                                                    {e.members.length === 0 && (
-                                                        <View style={styles.teFieldCol}>
-                                                            <Text style={styles.teFieldLabel}>TEAM KILLS</Text>
-                                                            <TextInput
-                                                                style={styles.teInput}
-                                                                value={e.teamKills}
-                                                                onChangeText={v => patchEntry(idx, { teamKills: v })}
-                                                                keyboardType="number-pad"
-                                                                placeholder="0"
-                                                                placeholderTextColor={Theme.colors.textSecondary}
-                                                            />
-                                                        </View>
-                                                    )}
-                                                </View>
-
-                                                {e.members.length > 0 && (
-                                                    <View style={styles.memberGrid}>
-                                                        {e.members.map((mem, mIdx) => (
-                                                            <View key={mIdx} style={styles.memberField}>
-                                                                <Text style={styles.memberName} numberOfLines={1}>{mem.name}</Text>
-                                                                <TextInput
-                                                                    style={styles.memberInput}
-                                                                    value={mem.kills}
-                                                                    onChangeText={v => patchMember(idx, mIdx, v)}
-                                                                    keyboardType="number-pad"
-                                                                    placeholder="0"
-                                                                    placeholderTextColor={Theme.colors.textSecondary}
-                                                                />
-                                                            </View>
-                                                        ))}
-                                                    </View>
-                                                )}
+                                            <View key={idx} style={styles.entryRow}>
+                                                <ManualResultCard
+                                                    item={e}
+                                                    index={idx}
+                                                    onEdit={() => setSheet({
+                                                        mode: 'edit', idx,
+                                                        team: { id: e.team_id, team_name: e.team_name, members: e.members },
+                                                    })}
+                                                    onRemove={() => setEntries(prev => (prev || []).filter((_, i) => i !== idx))}
+                                                />
+                                                {crop && <Image source={{ uri: crop }} style={styles.entryCrop} />}
                                             </View>
                                             );
                                         })}
                                         <TouchableOpacity
+                                            style={styles.addEntryBtn}
+                                            onPress={() => {
+                                                const used = new Set(entries.map(e => e.team_id).filter(Boolean));
+                                                const free = teams.find(t => !used.has(t.id));
+                                                if (!free) {
+                                                    Alert.alert('Info', 'All registered teams are already in this match.');
+                                                    return;
+                                                }
+                                                setSheet({ mode: 'add', idx: -1, team: free });
+                                            }}
+                                        >
+                                            <Text style={styles.addEntryText}>+ Add Team</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
                                             style={[styles.saveBtn, saving && styles.btnDisabled]}
                                             onPress={() => handleSave(expanded)}
-                                            disabled={saving}
+                                            disabled={saving || (entries?.length ?? 0) === 0}
                                         >
                                             {saving
                                                 ? <ActivityIndicator color="#fff" />
@@ -325,6 +259,17 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
                         </View>
                     ))}
                 </ScrollView>
+            )}
+            {sheet && (
+                <TeamEntrySheet
+                    visible={!!sheet}
+                    team={sheet.team}
+                    lobby={lobby ?? { id: lobbyId, name: lobbyName, points_system: [], kill_points: 0 }}
+                    nextPosition={(entries?.length ?? 0) + 1}
+                    initialData={sheet.mode === 'edit' ? entries?.[sheet.idx] ?? null : null}
+                    onClose={() => setSheet(null)}
+                    onSubmit={handleSheetSubmit}
+                />
             )}
         </SafeAreaView>
     );
@@ -341,6 +286,10 @@ const styles = StyleSheet.create({
     emptyState: { alignItems: 'center', marginTop: 80, gap: 10 },
     emptyText: { fontSize: 16, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
     emptySub: { fontSize: 13, color: Theme.colors.textSecondary, textAlign: 'center', paddingHorizontal: 40, lineHeight: 19 },
+    entryRow: { marginBottom: 2 },
+    entryCrop: { width: 96, height: 48, borderRadius: 6, marginLeft: 42, marginBottom: 6 },
+    addEntryBtn: { alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: Theme.colors.accent, marginBottom: 12 },
+    addEntryText: { color: Theme.colors.accent, fontFamily: Theme.fonts.outfit.bold, fontSize: 14 },
     matchCard: { backgroundColor: Theme.colors.primary, borderRadius: 12, borderWidth: 1, borderColor: Theme.colors.border, marginBottom: 10, overflow: 'hidden' },
     matchHeader: { padding: 14 },
     matchTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
