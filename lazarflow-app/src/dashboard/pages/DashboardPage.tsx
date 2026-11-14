@@ -299,7 +299,6 @@ const DashboardPage = ({ navigation, route }: any) => {
                         onCalculate={(l: any) => navigation.navigate('CalculateResults', { lobby: l })}
                         onRender={(id: string) => navigation.navigate('LiveLobby', { id })} 
                         onEdit={(l: any) => navigation.navigate('EditLobby', { lobbyId: l.id })}
-                        onMatchHistory={(l: any) => navigation.navigate('MatchHistory', { lobbyId: l.id, lobbyName: l.name })}
                         onDelete={confirmDeleteLobby} 
                         onEnd={confirmEndLobby}
                         onManageTeams={(l: any) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}
@@ -320,7 +319,6 @@ const DashboardPage = ({ navigation, route }: any) => {
                         onCalculate={(l: any) => navigation.navigate('CalculateResults', { lobby: l })}
                         onRender={(id: string) => navigation.navigate('LiveLobby', { id })} 
                         onEdit={(l: any) => navigation.navigate('EditLobby', { lobbyId: l.id })}
-                        onMatchHistory={(l: any) => navigation.navigate('MatchHistory', { lobbyId: l.id, lobbyName: l.name })}
                         onDelete={confirmDeleteLobby} 
                         onEnd={confirmEndLobby}
                         onManageTeams={(l: any) => navigation.navigate('ManageTeams', { lobbyId: l.id, lobbyName: l.name })}

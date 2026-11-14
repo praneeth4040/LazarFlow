@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, ArrowLeft, Trash2, Plus } from 'lucide-react-native';
+import { X, ArrowLeft, Trash2, Plus, Trophy, ChevronRight } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { useEditLobby } from '../hooks/useEditLobby';
 
@@ -84,6 +84,24 @@ export const EditLobbyPage = ({ route, navigation }: any) => {
                     )}
                 </View>
 
+                {/* Match Scores — per-match results + editing (MatchHistoryPage) */}
+                <TouchableOpacity
+                    style={styles.matchScoresCard}
+                    onPress={() => navigation.navigate('MatchHistory', {
+                        lobbyId,
+                        lobbyName: name,
+                    })}
+                >
+                    <View style={styles.matchScoresLeft}>
+                        <Trophy size={18} color={Theme.colors.accent} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.matchScoresTitle}>Match Scores</Text>
+                            <Text style={styles.matchScoresSub}>View and edit team results, match by match</Text>
+                        </View>
+                    </View>
+                    <ChevronRight size={18} color={Theme.colors.textSecondary} />
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
                     <Trash2 size={20} color={Theme.colors.danger} />
                     <Text style={styles.deleteButtonText}>Delete Lobby</Text>
@@ -114,6 +132,13 @@ const styles = StyleSheet.create({
     metaKeyInput: { flex: 1, fontFamily: Theme.fonts.monospace },
     metaValueInput: { flex: 1.5 },
     removeMetaBtn: { padding: 5 },
+    matchScoresCard: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        padding: 16, backgroundColor: Theme.colors.primary, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 12,
+    },
+    matchScoresLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 },
+    matchScoresTitle: { fontSize: 15, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
+    matchScoresSub: { fontSize: 12, fontFamily: Theme.fonts.outfit.regular, color: Theme.colors.textSecondary, marginTop: 2 },
     deleteButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(239, 68, 68, 0.05)', borderWidth: 1, borderColor: Theme.colors.danger, borderRadius: 12, marginTop: 20, gap: 8 },
     deleteButtonText: { color: Theme.colors.danger, fontSize: 16, fontFamily: Theme.fonts.outfit.bold },
 });

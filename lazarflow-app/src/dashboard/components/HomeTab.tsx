@@ -27,7 +27,6 @@ interface HomeTabProps extends DashboardTabProps {
     onCalculate: (lobby: Lobby) => void;
     onRender: (lobbyId: string) => void;
     onEdit: (lobby: Lobby) => void;
-    onMatchHistory?: (lobby: Lobby) => void;
     onDelete: (lobby: Lobby) => void;
     onEnd: (lobby: Lobby) => void;
     onManageTeams: (lobby: Lobby) => void;
@@ -48,7 +47,6 @@ const HomeTab: React.FC<HomeTabProps> = ({
     onCalculate,
     onRender,
     onEdit,
-    onMatchHistory,
     onDelete,
     onEnd,
     onManageTeams,
@@ -102,7 +100,6 @@ const HomeTab: React.FC<HomeTabProps> = ({
                             onCalculate={onCalculate}
                             onRender={onRender}
                             onEdit={onEdit}
-                            onMatchHistory={onMatchHistory}
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
