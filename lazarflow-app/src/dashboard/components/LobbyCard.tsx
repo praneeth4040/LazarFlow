@@ -41,6 +41,7 @@ interface LobbyCardProps {
     onEnd: (lobby: Lobby) => void;
     onManageTeams: (lobby: Lobby) => void;
     onShare?: (lobby: Lobby) => void;
+    onMatchHistory?: (lobby: Lobby) => void;
     onPress?: () => void;
 }
 
@@ -56,6 +57,7 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
     onEnd,
     onManageTeams,
     onShare,
+    onMatchHistory,
     onPress
 }) => {
     const { Icon, color, bg } = getLobbyIconConfig(lobby.game, index);
@@ -154,7 +156,7 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
 
                 <View style={[styles.statItem, { flex: 1, alignItems: 'flex-end' }]}>
                     {lobby.status === 'setup' ? (
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.manageTeamsLink, isProcessing && { opacity: 0.5 }]}
                             onPress={() => !isProcessing && onManageTeams(lobby)}
                             disabled={isProcessing}
@@ -223,6 +225,15 @@ const LobbyCard: React.FC<LobbyCardProps> = ({
                                     <Edit size={16} color={Theme.colors.textPrimary} />
                                     <Text style={styles.dropdownText}>Edit</Text>
                                 </TouchableOpacity>
+                                {onMatchHistory && (
+                                    <>
+                                        <TouchableOpacity style={styles.dropdownItem} onPress={() => { setIsOpen(false); toggleSettings(null); onMatchHistory(lobby); }}>
+                                            <Trophy size={16} color={Theme.colors.textPrimary} />
+                                            <Text style={styles.dropdownText}>Match Scores</Text>
+                                        </TouchableOpacity>
+                                        <View style={styles.dropdownDivider} />
+                                    </>
+                                )}
                                 <View style={styles.dropdownDivider} />
                                 {onShare && (
                                     <>

@@ -17,6 +17,7 @@ interface LobbiesTabProps {
     onCalculate?: (lobby: Lobby) => void;
     onRender?: (lobbyId: string) => void;
     onEdit?: (lobby: Lobby) => void;
+    onMatchHistory?: (lobby: Lobby) => void;
     onDelete?: (lobby: Lobby) => void;
     onEnd?: (lobby: Lobby) => void;
     onDeleteHistory?: () => void;
@@ -36,6 +37,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
     onCalculate = () => {},
     onRender = () => {},
     onEdit = () => {},
+    onMatchHistory, 
     onDelete = () => {},
     onEnd = () => {},
     onDeleteHistory,
@@ -70,6 +72,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onCalculate={onCalculate}
                             onRender={onRender}
                             onEdit={onEdit}
+                            onMatchHistory={onMatchHistory}
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
@@ -127,6 +130,7 @@ const LobbiesTab: React.FC<LobbiesTabProps> = ({
                             onCalculate={onCalculate}
                             onRender={onRender}
                             onEdit={onEdit}
+                            onMatchHistory={onMatchHistory}
                             onDelete={onDelete}
                             onEnd={onEnd}
                             onManageTeams={onManageTeams}
