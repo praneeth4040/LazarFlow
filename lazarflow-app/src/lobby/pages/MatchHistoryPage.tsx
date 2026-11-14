@@ -232,38 +232,65 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
                                                 </ScrollView>
                                             </View>
                                         )}
-                                        {entries.map((e, idx) => (
+                                        {entries.map((e, idx) => {
+                                            const crop = e.team_id ? proofByTeam[e.team_id]?.[0] : undefined;
+                                            return (
                                             <View key={idx} style={styles.teamEditor}>
+                                                {/* Header: crop thumb · name + link chip · points — tap = assign team */}
                                                 <TouchableOpacity
-                                                    style={styles.teamEditorRow}
+                                                    style={styles.teHeader}
                                                     onPress={() => setTeamPickerIdx(idx)}
                                                 >
-                                                    <View style={{ flex: 1, marginRight: 8 }}>
-                                                        <Text style={styles.teamEditorName} numberOfLines={1}>{e.team_name}</Text>
-                                                        {!e.team_id && <Text style={styles.unlinkedTag}>NOT LINKED — tap to assign</Text>}
+                                                    {crop ? (
+                                                        <Image source={{ uri: crop }} style={styles.teThumb} />
+                                                    ) : (
+                                                        <View style={[styles.teThumb, styles.teThumbEmpty]}>
+                                                            <Trophy size={15} color={Theme.colors.border} />
+                                                        </View>
+                                                    )}
+                                                    <View style={{ flex: 1, marginLeft: 10 }}>
+                                                        <Text style={styles.teName} numberOfLines={1}>{e.team_name}</Text>
+                                                        {e.team_id ? (
+                                                            <View style={[styles.teChip, styles.teChipLinked]}>
+                                                                <Text style={styles.teChipLinkedText}>Linked</Text>
+                                                            </View>
+                                                        ) : (
+                                                            <View style={[styles.teChip, styles.teChipUnlinked]}>
+                                                                <Text style={styles.teChipUnlinkedText}>Tap to assign team</Text>
+                                                            </View>
+                                                        )}
                                                     </View>
-                                                    <Text style={styles.totalPreview}>{entryPointsPreview(e)} pts</Text>
+                                                    <Text style={styles.tePts}>{entryPointsPreview(e)}<Text style={styles.tePtsUnit}> pts</Text></Text>
                                                 </TouchableOpacity>
-                                                {/* Proof layer 2: this team's verification crops (AI path) */}
-                                                {(proofByTeam[e.team_id]?.length ?? 0) > 0 && (
-                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.proofBlock}>
-                                                        {proofByTeam[e.team_id].map((u: string, i: number) => (
-                                                            <Image key={i} source={{ uri: u }} style={styles.proofCrop} />
-                                                        ))}
-                                                    </ScrollView>
-                                                )}
-                                                <View style={styles.fieldRow}>
-                                                    <Text style={styles.fieldLabel}>Position</Text>
-                                                    <TextInput
-                                                        style={styles.fieldInput}
-                                                        value={e.position}
-                                                        onChangeText={v => patchEntry(idx, { position: v })}
-                                                        keyboardType="number-pad"
-                                                        placeholder="1"
-                                                        placeholderTextColor={Theme.colors.textSecondary}
-                                                    />
+
+                                                <View style={styles.teBody}>
+                                                    <View style={styles.teFieldCol}>
+                                                        <Text style={styles.teFieldLabel}>POSITION</Text>
+                                                        <TextInput
+                                                            style={styles.teInput}
+                                                            value={e.position}
+                                                            onChangeText={v => patchEntry(idx, { position: v })}
+                                                            keyboardType="number-pad"
+                                                            placeholder="1"
+                                                            placeholderTextColor={Theme.colors.textSecondary}
+                                                        />
+                                                    </View>
+                                                    {e.members.length === 0 && (
+                                                        <View style={styles.teFieldCol}>
+                                                            <Text style={styles.teFieldLabel}>TEAM KILLS</Text>
+                                                            <TextInput
+                                                                style={styles.teInput}
+                                                                value={e.teamKills}
+                                                                onChangeText={v => patchEntry(idx, { teamKills: v })}
+                                                                keyboardType="number-pad"
+                                                                placeholder="0"
+                                                                placeholderTextColor={Theme.colors.textSecondary}
+                                                            />
+                                                        </View>
+                                                    )}
                                                 </View>
-                                                {e.members.length > 0 ? (
+
+                                                {e.members.length > 0 && (
                                                     <View style={styles.memberGrid}>
                                                         {e.members.map((mem, mIdx) => (
                                                             <View key={mIdx} style={styles.memberField}>
@@ -279,21 +306,10 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
                                                             </View>
                                                         ))}
                                                     </View>
-                                                ) : (
-                                                    <View style={styles.fieldRow}>
-                                                        <Text style={styles.fieldLabel}>Team kills</Text>
-                                                        <TextInput
-                                                            style={styles.fieldInput}
-                                                            value={e.teamKills}
-                                                            onChangeText={v => patchEntry(idx, { teamKills: v })}
-                                                            keyboardType="number-pad"
-                                                            placeholder="0"
-                                                            placeholderTextColor={Theme.colors.textSecondary}
-                                                        />
-                                                    </View>
                                                 )}
                                             </View>
-                                        ))}
+                                            );
+                                        })}
                                         <TouchableOpacity
                                             style={[styles.saveBtn, saving && styles.btnDisabled]}
                                             onPress={() => handleSave(expanded)}
@@ -331,14 +347,23 @@ const styles = StyleSheet.create({
     matchTitle: { fontSize: 15, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
     matchMeta: { fontSize: 12, color: Theme.colors.textSecondary, marginTop: 3, textTransform: 'capitalize' },
     editor: { borderTopWidth: 1, borderTopColor: Theme.colors.border, padding: 14 },
-    teamEditor: { marginBottom: 14, backgroundColor: Theme.colors.secondary, borderRadius: 10, padding: 10 },
-    teamEditorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-    teamEditorName: { fontSize: 14, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
-    unlinkedTag: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.danger, marginTop: 2, letterSpacing: 0.4 },
-    totalPreview: { fontSize: 13, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent },
-    fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
+    teamEditor: { marginBottom: 12, backgroundColor: Theme.colors.secondary, borderRadius: 12, padding: 12 },
+    teHeader: { flexDirection: 'row', alignItems: 'center' },
+    teThumb: { width: 44, height: 44, borderRadius: 8, backgroundColor: Theme.colors.primary },
+    teThumbEmpty: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+    teName: { fontSize: 15, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
+    teChip: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginTop: 3 },
+    teChipLinked: { backgroundColor: 'rgba(52, 168, 83, 0.12)' },
+    teChipLinkedText: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.success },
+    teChipUnlinked: { backgroundColor: 'rgba(251, 188, 4, 0.15)' },
+    teChipUnlinkedText: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: '#B45309' },
+    tePts: { fontSize: 17, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent },
+    tePtsUnit: { fontSize: 11, fontFamily: Theme.fonts.outfit.semibold, color: Theme.colors.textSecondary },
+    teBody: { flexDirection: 'row', gap: 10, marginTop: 12 },
+    teFieldCol: { flex: 1 },
+    teFieldLabel: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textSecondary, marginBottom: 5, letterSpacing: 0.5 },
+    teInput: { backgroundColor: Theme.colors.primary, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 8, padding: 10, color: Theme.colors.textPrimary, fontSize: 15, fontFamily: Theme.fonts.outfit.semibold },
     fieldLabel: { width: 70, fontSize: 12, fontFamily: Theme.fonts.outfit.semibold, color: Theme.colors.textSecondary },
-    fieldInput: { flex: 1, backgroundColor: Theme.colors.primary, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 8, padding: 8, color: Theme.colors.textPrimary, fontSize: 14 },
     memberGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
     memberField: { width: '47%', backgroundColor: Theme.colors.primary, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 8, padding: 8 },
     memberName: { fontSize: 11, color: Theme.colors.textSecondary, marginBottom: 2 },
@@ -346,7 +371,6 @@ const styles = StyleSheet.create({
     proofBlock: { marginBottom: 10 },
     proofLabel: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textSecondary, marginBottom: 6 },
     proofShot: { width: 220, height: 110, borderRadius: 8, marginRight: 8, backgroundColor: Theme.colors.secondary },
-    proofCrop: { width: 120, height: 60, borderRadius: 6, marginRight: 8, backgroundColor: Theme.colors.secondary },
     saveBtn: { backgroundColor: Theme.colors.accent, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
     btnDisabled: { opacity: 0.6 },
     saveBtnText: { color: '#fff', fontSize: 14, fontFamily: Theme.fonts.outfit.bold },
