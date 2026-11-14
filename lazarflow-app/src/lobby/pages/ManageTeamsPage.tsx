@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Plus, User, Trash2, ArrowLeft, Sparkles } from 'lucide-react-native';
+import { X, Plus, User, Trash2, ArrowLeft, Sparkles, ImagePlus } from 'lucide-react-native';
 import { Theme } from '../../styles/theme';
 import { useManageTeams } from '../hooks/useManageTeams';
 
@@ -14,8 +14,10 @@ export const ManageTeamsPage = ({ route, navigation }: any) => {
         aiText, setAiText,
         loading, submitting,
         expandedTeamIndex, newMemberName, setNewMemberName,
+        uploadingLogoIndex,
         handleAddTeam, handleRemoveTeam, handleAIExtract,
-        toggleExpandTeam, handleAddMember, handleRemoveMember, handleSave
+        toggleExpandTeam, handleAddMember, handleRemoveMember, handleSave,
+        handlePickLogo, handleRemoveLogo
     } = useManageTeams(lobbyId, navigation);
 
     return (
@@ -101,6 +103,28 @@ export const ManageTeamsPage = ({ route, navigation }: any) => {
                                     onPress={() => toggleExpandTeam(index)}
                                     activeOpacity={0.7}
                                 >
+                                    {/* Team logo: tap to pick/replace, X to clear */}
+                                    <TouchableOpacity
+                                        style={styles.logoBtn}
+                                        onPress={() => handlePickLogo(index)}
+                                        disabled={uploadingLogoIndex === index}
+                                    >
+                                        {uploadingLogoIndex === index ? (
+                                            <ActivityIndicator size="small" color={Theme.colors.accent} />
+                                        ) : team.logo_url ? (
+                                            <Image source={{ uri: team.logo_url }} style={styles.logoImage} />
+                                        ) : (
+                                            <ImagePlus size={18} color={Theme.colors.textSecondary} />
+                                        )}
+                                        {team.logo_url && uploadingLogoIndex !== index && (
+                                            <TouchableOpacity
+                                                style={styles.logoRemoveBtn}
+                                                onPress={() => handleRemoveLogo(index)}
+                                            >
+                                                <X size={10} color="#fff" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </TouchableOpacity>
                                     <Text style={styles.teamNumber}>{team.respective_slotlist_postion || (index + 1)}</Text>
                                     <Text style={styles.teamName}>{team.team_name}</Text>
                                     <View style={styles.teamMeta}>
@@ -190,6 +214,16 @@ const styles = StyleSheet.create({
     teamList: { gap: 10 },
     teamCardContainer: { backgroundColor: Theme.colors.primary, borderRadius: 12, borderWidth: 1, borderColor: Theme.colors.border, overflow: 'hidden' },
     teamCard: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+    logoBtn: {
+        width: 44, height: 44, borderRadius: 10, marginRight: 12,
+        backgroundColor: Theme.colors.secondary, borderWidth: 1, borderColor: Theme.colors.border,
+        alignItems: 'center', justifyContent: 'center', overflow: 'visible',
+    },
+    logoImage: { width: 44, height: 44, borderRadius: 10 },
+    logoRemoveBtn: {
+        position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: 9,
+        backgroundColor: Theme.colors.danger, alignItems: 'center', justifyContent: 'center',
+    },
     teamCardExpanded: { borderBottomWidth: 1, borderBottomColor: Theme.colors.border, backgroundColor: 'rgba(26, 115, 232, 0.02)' },
     teamNumber: { width: 30, fontFamily: Theme.fonts.monospace, color: Theme.colors.accent, fontSize: 16 },
     teamName: { flex: 1, fontSize: 16, color: Theme.colors.textPrimary, fontFamily: Theme.fonts.outfit.semibold },

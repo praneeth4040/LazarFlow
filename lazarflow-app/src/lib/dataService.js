@@ -404,12 +404,46 @@ export const getLobbyTeams = async (lobbyId) => {
 };
 
 /**
+ * Upload a team logo for a lobby (1:1 picked image) and return the public
+ * URL — attach it to a team via the teams/sync payload's logo_url.
+ * Backend: POST /api/lobbies/{id}/teams/upload-logo (5 MB, magic-sniffed).
+ */
+export const uploadTeamLogo = async (lobbyId, uri) => {
+    const fileName = uri.split('/').pop() || 'logo.png';
+    const type = fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+    const formData = new FormData();
+    formData.append('image', { uri, name: fileName, type });
+    const { data } = await apiClient.post(
+        `/api/lobbies/${lobbyId}/teams/upload-logo`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return data; // { url, path, bucket, width, height, size_bytes }
+};
+
+/**
  * Match summaries for a lobby (match_number, label, source, counts) —
  * backs the per-match render selector on the Design Render screen.
  */
 export const fetchLobbyMatches = async (lobbyId) => {
     const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/matches`);
     return data || [];
+};
+
+/** Full match row (results incl. per-player kills + proofs) for editing. */
+export const fetchLobbyMatchDetail = async (lobbyId, matchNumber) => {
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/matches/${matchNumber}`);
+    return data;
+};
+
+/**
+ * Edit a stored match — the server reverses the old score deltas, applies
+ * the new ones and updates the row, so lobby totals stay exact.
+ * Payload shape = the submit body (results + optional label/screenshots).
+ */
+export const updateLobbyMatch = async (lobbyId, matchNumber, payload) => {
+    const { data } = await apiClient.put(`/api/lobbies/${lobbyId}/matches/${matchNumber}`, payload);
+    return data;
 };
 
 export const getLobbyPlayerStats = async (lobbyId) => {

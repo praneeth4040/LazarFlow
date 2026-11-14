@@ -15,6 +15,8 @@ export interface Team {
   total_kills?: number;
   total_placement_points?: number;
   total_points?: number;
+  /** Public URL of the team logo (logos bucket) — drawn into mapped logo slots */
+  logo_url?: string | null;
   created_at: string;
   updated_at: string;
 }

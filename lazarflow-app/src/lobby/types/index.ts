@@ -30,6 +30,8 @@ export interface DraftTeam {
     members: TeamMember[];
     respective_slotlist_postion: number;
     total_points?: number;
+    /** Public URL of the team logo (logos bucket) — rendered into mapped logo slots */
+    logo_url?: string | null;
 }
 
 export type ManageTeamsMode = 'manual' | 'ai';

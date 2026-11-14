@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import { lobbyRepository } from '../../shared/infrastructure/repositories/LobbyRepository';
 import { extractApiErrorMessage } from '../../lib/apiClient';
 import { extractTeamsFromText } from '../../lib/aiExtraction';
@@ -14,6 +15,7 @@ export const useManageTeams = (lobbyId: string, navigation: any) => {
     const [submitting, setSubmitting] = useState(false);
     const [expandedTeamIndex, setExpandedTeamIndex] = useState<number | null>(null);
     const [newMemberName, setNewMemberName] = useState('');
+    const [uploadingLogoIndex, setUploadingLogoIndex] = useState<number | null>(null);
 
     useEffect(() => {
         if (lobbyId) {
@@ -24,16 +26,51 @@ export const useManageTeams = (lobbyId: string, navigation: any) => {
     const fetchExistingTeams = async () => {
         try {
             const data = await lobbyRepository.getLobbyTeams(lobbyId);
-            setTeams(data.map((t: any) => ({ 
-                id: t.id, 
-                team_name: t.team_name, 
-                members: t.members || [], 
+            setTeams(data.map((t: any) => ({
+                id: t.id,
+                team_name: t.team_name,
+                members: t.members || [],
                 respective_slotlist_postion: t.respective_slotlist_postion || 0,
-                total_points: t.total_points 
+                total_points: t.total_points,
+                logo_url: t.logo_url || null
             })));
         } catch (error) {
             console.error('Error fetching teams:', error);
         }
+    };
+
+    /**
+     * Pick a 1:1 logo for a team and upload it immediately — the returned
+     * URL rides the draft and is saved with the next teams/sync. Sync is
+     * full-state, so handleSave always echoes every team's logo_url back.
+     */
+    const handlePickLogo = async (index: number) => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+            if (result.canceled || !result.assets?.length) return;
+
+            setUploadingLogoIndex(index);
+            const { uploadTeamLogo } = require('../../lib/dataService');
+            const uploaded = await uploadTeamLogo(lobbyId, result.assets[0].uri);
+            const updatedTeams = [...teams];
+            updatedTeams[index] = { ...updatedTeams[index], logo_url: uploaded.url };
+            setTeams(updatedTeams);
+        } catch (error) {
+            Alert.alert('Error', extractApiErrorMessage(error, 'Could not upload the logo'));
+        } finally {
+            setUploadingLogoIndex(null);
+        }
+    };
+
+    const handleRemoveLogo = (index: number) => {
+        const updatedTeams = [...teams];
+        updatedTeams[index] = { ...updatedTeams[index], logo_url: null };
+        setTeams(updatedTeams);
     };
 
     const handleAddTeam = () => {
@@ -138,7 +175,7 @@ export const useManageTeams = (lobbyId: string, navigation: any) => {
             const teamsToSync = teams.map((t, index) => ({
                 id: t.id,
                 team_name: t.team_name,
-                members: (t.members || []).map((m: any) => 
+                members: (t.members || []).map((m: any) =>
                     typeof m === 'object' ? {
                         name: m.name || '',
                         kills: m.kills || 0,
@@ -151,7 +188,9 @@ export const useManageTeams = (lobbyId: string, navigation: any) => {
                         matches_played: 0
                     }
                 ),
-                respective_slotlist_postion: t.respective_slotlist_postion || (index + 1)
+                respective_slotlist_postion: t.respective_slotlist_postion || (index + 1),
+                // sync is full-state — always echo the logo back (null clears it)
+                logo_url: t.logo_url || null
             }));
 
             // Sync teams
@@ -183,7 +222,9 @@ export const useManageTeams = (lobbyId: string, navigation: any) => {
         aiText, setAiText,
         loading, submitting,
         expandedTeamIndex, newMemberName, setNewMemberName,
+        uploadingLogoIndex,
         handleAddTeam, handleRemoveTeam, handleAIExtract,
-        toggleExpandTeam, handleAddMember, handleRemoveMember, handleSave
+        toggleExpandTeam, handleAddMember, handleRemoveMember, handleSave,
+        handlePickLogo, handleRemoveLogo
     };
 };
