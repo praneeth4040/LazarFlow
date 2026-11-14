@@ -24,6 +24,7 @@ import DashboardPage from '../../dashboard/pages/DashboardPage';
 import { LiveLobbyPage } from '../../lobby/pages/LiveLobbyPage';
 import { CreateLobbyPage } from '../../lobby/pages/CreateLobbyPage';
 import { ManageTeamsPage } from '../../lobby/pages/ManageTeamsPage';
+import { MatchHistoryPage } from '../../lobby/pages/MatchHistoryPage';
 import { EditLobbyPage } from '../../lobby/pages/EditLobbyPage';
 
 import { PrivacyPolicyPage } from '../../settings/pages/PrivacyPolicyPage';
@@ -50,6 +51,7 @@ export type RootStackParamList = {
     TermsAndConditions: undefined;
     CreateLobby: undefined;
     ManageTeams: { lobbyId: string; lobbyName: string };
+    MatchHistory: { lobbyId: string; lobbyName: string };
     CalculateResults: { lobby: any };
     EditLobby: { lobbyId: string };
     DesignDetails: undefined;
@@ -236,6 +238,11 @@ export default function AppNavigator() {
                         <Stack.Screen
                             name="ManageTeams"
                             component={ManageTeamsPage}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="MatchHistory"
+                            component={MatchHistoryPage}
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
