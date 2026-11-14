@@ -157,6 +157,7 @@ export const useLobbyMapping = (lobby: LobbyData, teams: any[], fetchLobbyData: 
 
   const handleUpdateSlotMapping = (slotIndex: number, teamId: string | null) => {
     const updatedSlots = [...processedSlots];
+    if (!updatedSlots[slotIndex]) return;   // stale index — nothing to map
     updatedSlots[slotIndex].mappedTeamId = teamId;
     setProcessedSlots(updatedSlots);
   };

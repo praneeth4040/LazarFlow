@@ -75,9 +75,12 @@ export const TeamMappingModal: React.FC<TeamMappingModalProps> = ({
                         let isMappedToOther = false;
 
                         if (selectedSlotIndex !== null) {
-                            isSelected = processedSlots[selectedSlotIndex].mappedTeamId === team.id;
+                            // selectedSlotIndex can go stale (state rebuilt under an
+                            // open modal) — guard, or a slot with no team crashes here
+                            const sel = processedSlots[selectedSlotIndex];
+                            isSelected = sel?.mappedTeamId === team.id;
                             isMappedToOther = processedSlots.some(
-                                (slot, idx) => slot.mappedTeamId === team.id && idx !== selectedSlotIndex
+                                (slot, idx) => slot?.mappedTeamId === team.id && idx !== selectedSlotIndex
                             );
                         } else {
                             isSelected = mappings[selectedAiTeam?.rank] === team.id;
