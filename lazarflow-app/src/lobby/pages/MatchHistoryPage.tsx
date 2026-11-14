@@ -11,7 +11,7 @@
 import React, { useCallback, useState } from 'react';
 import {
     View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
-    ActivityIndicator, StatusBar,
+    ActivityIndicator, StatusBar, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, ChevronDown, ChevronUp, Trophy } from 'lucide-react-native';
@@ -38,17 +38,24 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState<number | null>(null);
     const [entries, setEntries] = useState<EditEntry[] | null>(null);
+    const [detail, setDetail] = useState<any>(null);
+    const [proofByTeam, setProofByTeam] = useState<Record<string, string[]>>({});
     const [saving, setSaving] = useState(false);
+    const [teams, setTeams] = useState<any[]>([]);
+    const [teamPickerIdx, setTeamPickerIdx] = useState<number | null>(null);
 
     const [lobby, setLobby] = useState<any>(null);
 
     const loadMatches = useCallback(async () => {
         try {
             setLoading(true);
-            const { fetchLobbyMatches, getLobby } = require('../../lib/dataService');
-            const [list, lobbyData] = await Promise.all([fetchLobbyMatches(lobbyId), getLobby(lobbyId)]);
+            const { fetchLobbyMatches, getLobby, getLobbyTeams } = require('../../lib/dataService');
+            const [list, lobbyData, teamsData] = await Promise.all([
+                fetchLobbyMatches(lobbyId), getLobby(lobbyId), getLobbyTeams(lobbyId),
+            ]);
             setMatches(list);
             setLobby(lobbyData);
+            setTeams(teamsData || []);
         } catch (error) {
             Alert.alert('Error', extractApiErrorMessage(error, 'Could not load match history'));
         } finally {
@@ -65,13 +72,21 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
         if (expanded === matchNumber) {
             setExpanded(null);
             setEntries(null);
+            setDetail(null);
+            setProofByTeam({});
             return;
         }
         setExpanded(matchNumber);
         setEntries(null);
         try {
-            const detail = await require('../../lib/dataService').fetchLobbyMatchDetail(lobbyId, matchNumber);
-            setEntries((detail.results || []).map((e: any) => ({
+            const fetched = await require('../../lib/dataService').fetchLobbyMatchDetail(lobbyId, matchNumber);
+            setDetail(fetched);
+            const proofs: Record<string, string[]> = {};
+            for (const e of fetched.results || []) {
+                if (e.team_id && e.verification_urls?.length) proofs[e.team_id] = e.verification_urls;
+            }
+            setProofByTeam(proofs);
+            setEntries((fetched.results || []).map((e: any) => ({
                 team_id: e.team_id || null,
                 team_name: e.team_name || 'Unknown',
                 position: String(e.position ?? ''),
@@ -206,12 +221,37 @@ export const MatchHistoryPage = ({ route, navigation }: any) => {
                                     <ActivityIndicator style={{ marginVertical: 16 }} color={Theme.colors.accent} />
                                 ) : (
                                     <View style={styles.editor}>
+                                        {/* Proof layer 1: the match screenshots */}
+                                        {(detail?.screenshots?.length ?? 0) > 0 && (
+                                            <View style={styles.proofBlock}>
+                                                <Text style={styles.proofLabel}>MATCH SCREENSHOTS</Text>
+                                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                                    {detail.screenshots.map((u: string, i: number) => (
+                                                        <Image key={i} source={{ uri: u }} style={styles.proofShot} />
+                                                    ))}
+                                                </ScrollView>
+                                            </View>
+                                        )}
                                         {entries.map((e, idx) => (
                                             <View key={idx} style={styles.teamEditor}>
-                                                <View style={styles.teamEditorRow}>
-                                                    <Text style={styles.teamEditorName} numberOfLines={1}>{e.team_name}</Text>
+                                                <TouchableOpacity
+                                                    style={styles.teamEditorRow}
+                                                    onPress={() => setTeamPickerIdx(idx)}
+                                                >
+                                                    <View style={{ flex: 1, marginRight: 8 }}>
+                                                        <Text style={styles.teamEditorName} numberOfLines={1}>{e.team_name}</Text>
+                                                        {!e.team_id && <Text style={styles.unlinkedTag}>NOT LINKED — tap to assign</Text>}
+                                                    </View>
                                                     <Text style={styles.totalPreview}>{entryPointsPreview(e)} pts</Text>
-                                                </View>
+                                                </TouchableOpacity>
+                                                {/* Proof layer 2: this team's verification crops (AI path) */}
+                                                {(proofByTeam[e.team_id]?.length ?? 0) > 0 && (
+                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.proofBlock}>
+                                                        {proofByTeam[e.team_id].map((u: string, i: number) => (
+                                                            <Image key={i} source={{ uri: u }} style={styles.proofCrop} />
+                                                        ))}
+                                                    </ScrollView>
+                                                )}
                                                 <View style={styles.fieldRow}>
                                                     <Text style={styles.fieldLabel}>Position</Text>
                                                     <TextInput
@@ -293,7 +333,8 @@ const styles = StyleSheet.create({
     editor: { borderTopWidth: 1, borderTopColor: Theme.colors.border, padding: 14 },
     teamEditor: { marginBottom: 14, backgroundColor: Theme.colors.secondary, borderRadius: 10, padding: 10 },
     teamEditorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-    teamEditorName: { flex: 1, fontSize: 14, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary, marginRight: 8 },
+    teamEditorName: { fontSize: 14, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textPrimary },
+    unlinkedTag: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.danger, marginTop: 2, letterSpacing: 0.4 },
     totalPreview: { fontSize: 13, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.accent },
     fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 },
     fieldLabel: { width: 70, fontSize: 12, fontFamily: Theme.fonts.outfit.semibold, color: Theme.colors.textSecondary },
@@ -302,6 +343,10 @@ const styles = StyleSheet.create({
     memberField: { width: '47%', backgroundColor: Theme.colors.primary, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 8, padding: 8 },
     memberName: { fontSize: 11, color: Theme.colors.textSecondary, marginBottom: 2 },
     memberInput: { backgroundColor: Theme.colors.secondary, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 6, padding: 6, color: Theme.colors.textPrimary, fontSize: 14 },
+    proofBlock: { marginBottom: 10 },
+    proofLabel: { fontSize: 10, fontFamily: Theme.fonts.outfit.bold, color: Theme.colors.textSecondary, marginBottom: 6 },
+    proofShot: { width: 220, height: 110, borderRadius: 8, marginRight: 8, backgroundColor: Theme.colors.secondary },
+    proofCrop: { width: 120, height: 60, borderRadius: 6, marginRight: 8, backgroundColor: Theme.colors.secondary },
     saveBtn: { backgroundColor: Theme.colors.accent, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
     btnDisabled: { opacity: 0.6 },
     saveBtnText: { color: '#fff', fontSize: 14, fontFamily: Theme.fonts.outfit.bold },

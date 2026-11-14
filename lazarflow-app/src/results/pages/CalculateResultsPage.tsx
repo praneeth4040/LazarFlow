@@ -298,17 +298,26 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
     const handleCombinedSubmit = async () => {
         const unmapped = aiResults.filter((res: any) => !safeGet(mappings, res.rank));
         if (unmapped.length > 0) {
+            // Partial mapping is allowed: unmapped ranks are stored as unlinked
+            // entries (team_id null) and can be assigned later via
+            // Edit Lobby → Match Scores. One confirm, not a blocker.
             Alert.alert(
-                'Incomplete Mapping',
-                `${unmapped.length} result(s) still need a team assigned. Please map every rank before submitting.`
+                'Partial Mapping',
+                `${unmapped.length} rank(s) have no team assigned. They'll be saved as unidentified — you can assign them later in Match Scores.`,
+                [
+                    { text: 'Map All', style: 'cancel' },
+                    { text: 'Submit Anyway', onPress: () => submitCombined(true) },
+                ]
             );
             return;
         }
+        submitCombined(false);
+    };
 
+    const submitCombined = async (allowUnlinked: boolean) => {
         const builtResults = aiResults.map((res: any, idx: number) => {
             const teamId = safeGet(mappings, res.rank);
             const team = teams.find((t: any) => t.id === teamId);
-            if (!team) return null;
 
             const editable = safeGet(editableAiData, idx);
             const players: { name: string; kills: number }[] = editable?.players
@@ -319,6 +328,25 @@ export const CalculateResultsPage = ({ route, navigation }: any) => {
             const pointsEntry = lobby.points_system?.find((p: any) => p.placement === pos);
             const placementPoints = pointsEntry ? pointsEntry.points : 0;
             const killPoints = totalKills * (lobby.kill_points || 0);
+
+            if (!team) {
+                if (!allowUnlinked) return null;
+                // Unmapped rank — stored unlinked (team_id null): renders in the
+                // match but never aggregates into registered teams. Assign later
+                // via Edit Lobby → Match Scores.
+                return {
+                    team_id: null,
+                    team_name: `Unidentified (Rank ${pos})`,
+                    position: String(res.rank),
+                    kills: totalKills,
+                    placement_points: placementPoints,
+                    kill_points: killPoints,
+                    total_points: placementPoints + killPoints,
+                    members: players.map((p) => ({ name: p.name, kills: p.kills || 0, isExtracted: true })),
+                    verification_urls: res.verification_urls,
+                    cell_request_id: res.cell_request_id,
+                };
+            }
 
             const registeredMembers = team.members || [];
             let finalMembers: any[] = [];
