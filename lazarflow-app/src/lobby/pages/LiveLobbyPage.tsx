@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Layout, Palette, ArrowLeft, Info, Play, AlertCircle, CheckCircle2, Pencil, ChevronDown } from 'lucide-react-native';
@@ -80,20 +80,30 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
     // aggregate-based readiness checks don't apply (the backend validates
     // the match itself — 404 with a clear message if it can't render).
     const matchScoped = selectedMatchNumber !== null && (renderType === 'points_table' || renderType === 'mvp');
-    const renderDisabled =
-        !selectedThemeId ||
-        (renderType === 'mvp' && !matchScoped && playerStats.length === 0) ||
-        ((renderType === 'points_table' || renderType === 'slotlist') && !matchScoped && teams.length === 0);
-    // Split-button scope section: only where per-match rendering applies
-    const showScope = (renderType === 'points_table' || renderType === 'mvp') && matches.length > 0;
+    // Why rendering is blocked right now — surfaced on tap instead of a
+    // silent disabled button (a grayed button that does nothing reads as broken).
+    const getRenderBlocker = (): string | null => {
+        if (!selectedThemeId) return 'Select a design from the grid above first.';
+        if (renderType === 'mvp' && !matchScoped && playerStats.length === 0)
+            return 'No player stats yet — submit or extract match data first.';
+        if ((renderType === 'points_table' || renderType === 'slotlist') && !matchScoped && teams.length === 0)
+            return 'No teams in this lobby yet — add teams first.';
+        return null;
+    };
+    const renderBlocker = getRenderBlocker();
+    const renderDisabled = renderBlocker !== null;
 
     const handleRenderPress = () => {
         if (renderType === 'schedule') {
             setShowScheduleForm(true);
+        } else if (renderBlocker) {
+            Alert.alert('Nothing to render yet', renderBlocker);
         } else {
             openAdjustmentSheet();
         }
     };
+    // Split-button scope section: only where per-match rendering applies
+    const showScope = (renderType === 'points_table' || renderType === 'mvp') && matches.length > 0;
 
     const handleScheduleSave = (values: Record<string, string>) => {
         setShowScheduleForm(false);
@@ -228,7 +238,7 @@ export const LiveLobbyPage = ({ route, navigation }: any) => {
                     <TouchableOpacity
                         style={[styles.renderBtnNew, showScope && styles.renderBtnSplit, (isGenerating || renderDisabled) && styles.disabledBtn]}
                         onPress={handleRenderPress}
-                        disabled={isGenerating || renderDisabled}
+                        disabled={isGenerating}
                     >
                         {isGenerating ? (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -371,8 +381,8 @@ const styles = StyleSheet.create({
     gridItemWrapper: { flex: 1, padding: 8 },
     footer: { padding: 20, gap: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f1f5f9' },
     renderRow: { flexDirection: 'row' },
-    renderBtnNew: { backgroundColor: Theme.colors.accent, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-    renderBtnSplit: { flex: 1, borderTopRightRadius: 0, borderBottomRightRadius: 0 },
+    renderBtnNew: { flex: 1, backgroundColor: Theme.colors.accent, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    renderBtnSplit: { borderTopRightRadius: 0, borderBottomRightRadius: 0 },
     scopeBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
         paddingHorizontal: 18, height: 52, backgroundColor: Theme.colors.accentHover,
